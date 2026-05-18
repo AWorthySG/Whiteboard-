@@ -1,0 +1,52 @@
+name: Deploy sync worker
+
+on:
+  push:
+    branches:
+      - main
+      - claude/whiteboard-collaboration-app-44GFP
+    paths:
+      - "sync-worker/**"
+      - ".github/workflows/deploy-worker.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sync-worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: sync-worker/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Diagnostic — env + token check
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "--- versions ---"
+          node --version
+          npx wrangler --version
+          echo
+          echo "--- secrets present (lengths only) ---"
+          echo "CLOUDFLARE_API_TOKEN length: ${#CLOUDFLARE_API_TOKEN}"
+          echo "CLOUDFLARE_ACCOUNT_ID length: ${#CLOUDFLARE_ACCOUNT_ID}"
+          echo
+          echo "--- wrangler whoami ---"
+          npx wrangler whoami || echo "(whoami failed)"
+
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_LOG: debug
+        run: npx wrangler deploy
