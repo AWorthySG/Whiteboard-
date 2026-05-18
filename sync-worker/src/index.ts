@@ -4,7 +4,6 @@ export { TldrawRoom };
 
 export interface Env {
   ROOMS: DurableObjectNamespace<TldrawRoom>;
-  SNAPSHOTS: R2Bucket;
 }
 
 const CORS_HEADERS: Record<string, string> = {

@@ -10,7 +10,3 @@ class_name = "TldrawRoom"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TldrawRoom"]
-
-[[r2_buckets]]
-binding = "SNAPSHOTS"
-bucket_name = "whiteboard-snapshots"
