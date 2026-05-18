@@ -7,7 +7,7 @@ A live, collaborative whiteboard with document upload and video/audio calling �
 - **Whiteboard**: [tldraw](https://tldraw.dev) with multiplayer sync (Apple Pencil / stylus pressure works natively in iPad Safari).
 - **Document upload**: drop in PDFs or images. PDFs are rendered to one image per page and placed on the canvas. Files are stored in Supabase Storage.
 - **Video / audio / screen share**: [LiveKit](https://livekit.io) — bring your own LiveKit Cloud project or self-host.
-- **Real-time sync**: a tiny WebSocket sync server using `@tldraw/sync-core`. Snapshots persist to Supabase Storage so canvases survive restarts.
+- **Real-time sync**: tldraw's `TLSocketRoom` running inside a Cloudflare Worker + Durable Object, with snapshots persisted to R2 so canvases survive restarts.
 - **Auth + storage + DB**: [Supabase](https://supabase.com).
 
 ## Project layout
@@ -22,7 +22,8 @@ src/components
   RoomShell.tsx             Layout — canvas + video panel
   WhiteboardCanvas.tsx      tldraw canvas + multiplayer + uploads
   VideoPanel.tsx            LiveKit video grid + controls
-sync-server/server.mjs      Standalone tldraw sync WebSocket server
+sync-worker/                Cloudflare Worker: TLSocketRoom in a Durable Object,
+                            snapshots in R2
 supabase/setup.sql          One-time storage bucket bootstrap
 ```
 

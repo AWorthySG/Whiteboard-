@@ -1,0 +1,16 @@
+name = "whiteboard-sync"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "TldrawRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TldrawRoom"]
+
+[[r2_buckets]]
+binding = "SNAPSHOTS"
+bucket_name = "whiteboard-snapshots"

@@ -1,19 +1,19 @@
 -- Run this in the Supabase SQL editor once per project.
--- It creates the public buckets the app needs and makes them readable by anyone.
+-- It creates the public bucket the app needs and lets anyone upload + read.
 
 insert into storage.buckets (id, name, public)
-values
-  ('whiteboard-assets', 'whiteboard-assets', true),
-  ('whiteboard-snapshots', 'whiteboard-snapshots', false)
+values ('whiteboard-assets', 'whiteboard-assets', true)
 on conflict (id) do nothing;
 
--- Allow anyone to read assets (they're embedded directly in tldraw canvases).
 do $$ begin
   drop policy if exists "Public read whiteboard-assets" on storage.objects;
   create policy "Public read whiteboard-assets"
     on storage.objects for select
     using ( bucket_id = 'whiteboard-assets' );
-end $$;
 
--- Snapshots are only touched by the service-role key, which bypasses RLS, so
--- no public policy is needed for them.
+  drop policy if exists "Public insert whiteboard-assets" on storage.objects;
+  create policy "Public insert whiteboard-assets"
+    on storage.objects for insert
+    to anon, authenticated
+    with check ( bucket_id = 'whiteboard-assets' );
+end $$;
