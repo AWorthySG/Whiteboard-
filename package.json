@@ -1,0 +1,43 @@
+{
+  "name": "whiteboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:sync": "node sync-server/server.mjs",
+    "dev:all": "concurrently -k -n web,sync -c blue,magenta \"npm:dev\" \"npm:dev:sync\"",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@livekit/components-react": "^2.9.4",
+    "@livekit/components-styles": "^1.1.6",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.49.4",
+    "@tldraw/sync": "^3.13.1",
+    "@tldraw/sync-core": "^3.13.1",
+    "livekit-client": "^2.13.0",
+    "livekit-server-sdk": "^2.13.1",
+    "next": "15.3.1",
+    "pdfjs-dist": "^4.10.38",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "tldraw": "^3.13.1",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "@types/ws": "^8.18.1",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.24.0",
+    "eslint-config-next": "15.3.1",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3"
+  }
+}
