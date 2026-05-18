@@ -37,14 +37,15 @@ something like `https://whiteboard-sync.<your-subdomain>.workers.dev`.)
 1. Open https://vercel.com/new
 2. **Import** the `aworthysg/whiteboard-` repo. Framework preset: Next.js (auto-detected).
 3. Production branch: `claude/whiteboard-collaboration-app-44GFP` (or merge to `main` first).
-4. Expand **Environment Variables** and paste these seven:
+4. Expand **Environment Variables** and paste these seven. The values are in
+   the chat where you set up the project; do not commit them to the repo.
 
    ```
-   NEXT_PUBLIC_SUPABASE_URL=https://ipctffwruitjeirdgyhy.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_TjAAsr0aepCPESt92FUAeA_pcSwS07s
-   NEXT_PUBLIC_LIVEKIT_URL=wss://live-whiteboard-a-worthy-3vxt4yg7.livekit.cloud
-   LIVEKIT_API_KEY=APIWcfStaf2jFiK
-   LIVEKIT_API_SECRET=UnJeUiWM0458Vykade1lFEO9A46sunjmFTi2Pv3Ny0M
+   NEXT_PUBLIC_SUPABASE_URL=<from chat>
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<from chat>
+   NEXT_PUBLIC_LIVEKIT_URL=<from chat>
+   LIVEKIT_API_KEY=<from chat>
+   LIVEKIT_API_SECRET=<from chat>
    NEXT_PUBLIC_TLDRAW_SYNC_URL=wss://whiteboard-sync.<your-subdomain>.workers.dev
    ```
 
