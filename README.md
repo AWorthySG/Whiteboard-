@@ -2,6 +2,8 @@
 
 A live, collaborative whiteboard with document upload and video/audio calling — built like Lessonspace.
 
+> **Deploying?** Follow the step-by-step walkthrough in [DEPLOY.md](./DEPLOY.md).
+
 - **Whiteboard**: [tldraw](https://tldraw.dev) with multiplayer sync (Apple Pencil / stylus pressure works natively in iPad Safari).
 - **Document upload**: drop in PDFs or images. PDFs are rendered to one image per page and placed on the canvas. Files are stored in Supabase Storage.
 - **Video / audio / screen share**: [LiveKit](https://livekit.io) — bring your own LiveKit Cloud project or self-host.

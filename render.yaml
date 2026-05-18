@@ -1,0 +1,19 @@
+# Render blueprint for the tldraw sync server.
+# Deploy via https://render.com/deploy?repo=<your repo URL>
+services:
+  - type: web
+    name: whiteboard-sync
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: node sync-server/server.mjs
+    healthCheckPath: /health
+    envVars:
+      # Render sets PORT automatically; our server reads it via process.env.PORT.
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SYNC_SNAPSHOT_BUCKET
+        value: whiteboard-snapshots
