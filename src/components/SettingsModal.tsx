@@ -1,7 +1,13 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useSettings } from "@/hooks/useSettings";
+import { useAuth, signOut } from "@/hooks/useAuth";
+import { markAsHost } from "@/hooks/useHostStatus";
+import { useToast } from "./Toast";
+
+const SignInModal = dynamic(() => import("./SignInModal"), { ssr: false });
 
 export default function SettingsModal({
   open,
@@ -18,6 +24,23 @@ export default function SettingsModal({
 }) {
   const [settings, setSettings] = useSettings();
   const [copied, setCopied] = useState(false);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const { user, loading: authLoading } = useAuth();
+  const toast = useToast();
+
+  const claimRoom = async () => {
+    if (!user) return;
+    setClaiming(true);
+    try {
+      await markAsHost(roomId, user, userName);
+      toast.success("Room claimed — you're now the cross-device host");
+    } catch (e) {
+      toast.error(`Couldn't claim room: ${(e as Error).message}`);
+    } finally {
+      setClaiming(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -64,6 +87,45 @@ export default function SettingsModal({
               />
             </Field>
           </Section>
+
+          {!authLoading && (
+            <Section title="Account">
+              {user ? (
+                <>
+                  <Field label="Signed in as">
+                    <div className="text-sm text-white/80 px-1">{user.email}</div>
+                  </Field>
+                  <button
+                    onClick={claimRoom}
+                    disabled={claiming}
+                    className="text-xs rounded-md border border-brand-500/40 text-brand-200 hover:bg-brand-500/10 px-2.5 py-1 disabled:opacity-50"
+                    title="Make sure you're the registered host of this room on every device"
+                  >
+                    {claiming ? "Claiming…" : "Claim this room for my account"}
+                  </button>
+                  <button
+                    onClick={() => signOut()}
+                    className="block text-xs text-white/50 hover:text-white underline underline-offset-2"
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-white/60">
+                    Sign in to keep host access to your rooms across all your
+                    devices.
+                  </p>
+                  <button
+                    onClick={() => setSignInOpen(true)}
+                    className="text-sm rounded-md bg-brand-600 hover:bg-brand-500 px-3 py-1.5"
+                  >
+                    Sign in
+                  </button>
+                </>
+              )}
+            </Section>
+          )}
 
           <Section title="Appearance">
             <Field
@@ -169,6 +231,7 @@ export default function SettingsModal({
           </Section>
         </div>
       </div>
+      <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
     </div>
   );
 }

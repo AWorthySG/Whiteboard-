@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { getSupabase } from "@/lib/supabase";
+import { useAuth } from "./useAuth";
 
 const KEY = "wb_hosted_rooms";
 
@@ -24,18 +27,69 @@ function writeHosted(rooms: Set<string>) {
   }
 }
 
-export function markAsHost(roomId: string) {
+// Mark this browser as the host for a room. If a signed-in user is
+// provided, also writes an authoritative row into the rooms table so the
+// same person can host from any other signed-in device.
+export async function markAsHost(
+  roomId: string,
+  user?: User | null,
+  displayName?: string,
+) {
   const rooms = readHosted();
   rooms.add(roomId);
   writeHosted(rooms);
+
+  if (user) {
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.from("rooms").upsert(
+        {
+          id: roomId,
+          host_user_id: user.id,
+          host_email: user.email ?? null,
+          host_name: displayName?.trim() || user.email || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+    }
+  }
 }
 
+// True if the current browser owns the room. Owning means either:
+//   - we're signed in and our user id matches rooms.host_user_id, OR
+//   - this browser created the room before sign-in (localStorage fallback).
 export function useIsHost(roomId: string): boolean {
-  const [isHost, setIsHost] = useState(false);
+  const { user, loading } = useAuth();
+  const [localHost, setLocalHost] = useState(false);
+  const [remoteHost, setRemoteHost] = useState(false);
 
   useEffect(() => {
-    setIsHost(readHosted().has(roomId));
+    setLocalHost(readHosted().has(roomId));
   }, [roomId]);
 
-  return isHost;
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      setRemoteHost(false);
+      return;
+    }
+    const supabase = getSupabase();
+    if (!supabase) return;
+    let cancelled = false;
+    supabase
+      .from("rooms")
+      .select("host_user_id")
+      .eq("id", roomId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setRemoteHost(data?.host_user_id === user.id);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, user, loading]);
+
+  return localHost || remoteHost;
 }
