@@ -1,7 +1,7 @@
 "use client";
 
 import { useSync } from "@tldraw/sync";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AssetRecordType,
   Editor,
@@ -14,6 +14,8 @@ import {
 
 const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
+
+const PDFJS_VERSION = "4.10.38";
 
 function uploadAsset(file: File): Promise<{ url: string }> {
   const form = new FormData();
@@ -46,6 +48,7 @@ export default function WhiteboardCanvas({
   userName: string;
 }) {
   const editorRef = useRef<Editor | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const assetStore = useMemo(makeAssetStore, []);
 
   const store = useSync({
@@ -62,15 +65,9 @@ export default function WhiteboardCanvas({
           label: "Upload PDF or image",
           kbd: "$u",
           onSelect: () => {
-            const input = document.createElement("input");
-            input.type = "file";
-            input.accept = "application/pdf,image/*";
-            input.onchange = async () => {
-              const file = input.files?.[0];
-              if (!file) return;
-              await insertFileOntoCanvas(editorRef.current, file);
-            };
-            input.click();
+            openFilePicker((file) =>
+              insertFileOntoCanvas(editorRef.current, file),
+            );
           },
         };
         return actions;
@@ -79,8 +76,38 @@ export default function WhiteboardCanvas({
     [],
   );
 
+  // Capture-phase drop handler so PDF drops are intercepted before tldraw
+  // rejects them.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const isPdf = (file?: File | null) => file?.type === "application/pdf";
+    const onDragOver = (e: DragEvent) => {
+      const items = Array.from(e.dataTransfer?.items ?? []);
+      if (items.some((i) => i.type === "application/pdf")) {
+        e.preventDefault();
+      }
+    };
+    const onDrop = (e: DragEvent) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (!isPdf(file) || !editorRef.current) return;
+      e.preventDefault();
+      e.stopPropagation();
+      insertPdfAsImages(editorRef.current, file!).catch((err) => {
+        console.error("[whiteboard] PDF import failed", err);
+        alert(`PDF import failed: ${(err as Error).message}`);
+      });
+    };
+    el.addEventListener("dragover", onDragOver, true);
+    el.addEventListener("drop", onDrop, true);
+    return () => {
+      el.removeEventListener("dragover", onDragOver, true);
+      el.removeEventListener("drop", onDrop, true);
+    };
+  }, []);
+
   return (
-    <div className="tldraw-shell">
+    <div ref={wrapperRef} className="tldraw-shell">
       <Tldraw
         store={store}
         overrides={overrides}
@@ -93,30 +120,57 @@ export default function WhiteboardCanvas({
   );
 }
 
-function UploadButton({ onPick }: { onPick: (file: File) => void }) {
+function openFilePicker(onPick: (file: File) => void) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "application/pdf,image/*";
+  input.onchange = () => {
+    const file = input.files?.[0];
+    if (file) onPick(file);
+  };
+  input.click();
+}
+
+function UploadButton({ onPick }: { onPick: (file: File) => Promise<void> | void }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   return (
-    <label
-      className={`absolute z-10 top-3 right-3 cursor-pointer rounded-md px-3 py-2 text-sm bg-brand-600 hover:bg-brand-500 ${busy ? "opacity-60 pointer-events-none" : ""}`}
+    <div
+      className="absolute top-3 right-3 flex flex-col items-end gap-1"
+      style={{ zIndex: 9999 }}
     >
-      {busy ? "Uploading…" : "Upload document"}
-      <input
-        type="file"
-        accept="application/pdf,image/*"
-        className="hidden"
-        onChange={async (e) => {
-          const f = e.target.files?.[0];
-          if (!f) return;
-          setBusy(true);
-          try {
-            await onPick(f);
-          } finally {
-            setBusy(false);
-            e.currentTarget.value = "";
-          }
-        }}
-      />
-    </label>
+      <label
+        className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-500 text-white shadow-lg ${
+          busy ? "opacity-60 pointer-events-none" : ""
+        }`}
+      >
+        {busy ? "Uploading…" : "Upload document"}
+        <input
+          type="file"
+          accept="application/pdf,image/*"
+          className="hidden"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            setBusy(true);
+            setError(null);
+            try {
+              await onPick(f);
+            } catch (err) {
+              setError((err as Error).message);
+            } finally {
+              setBusy(false);
+              e.currentTarget.value = "";
+            }
+          }}
+        />
+      </label>
+      {error && (
+        <div className="rounded-md bg-red-600/90 text-white text-xs px-2 py-1 max-w-xs">
+          {error}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -126,8 +180,6 @@ async function insertFileOntoCanvas(editor: Editor | null, file: File) {
     await insertPdfAsImages(editor, file);
     return;
   }
-  // Defer to tldraw's built-in handler for images, which uses the asset store
-  // we configured above (which uploads to /api/uploads).
   await editor.putExternalContent({
     type: "files",
     files: [file],
@@ -139,8 +191,7 @@ async function insertFileOntoCanvas(editor: Editor | null, file: File) {
 async function insertPdfAsImages(editor: Editor, file: File) {
   // Lazy-load pdf.js only when we actually need it.
   const pdfjs = await import("pdfjs-dist");
-  // Worker is loaded via CDN to keep bundling simple.
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
 
   const data = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data }).promise;
