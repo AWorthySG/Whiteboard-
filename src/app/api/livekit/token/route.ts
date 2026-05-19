@@ -15,12 +15,23 @@ export async function POST(req: Request) {
     );
   }
 
-  const { room, name } = (await req.json()) as { room?: string; name?: string };
+  const { room, name, userId } = (await req.json()) as {
+    room?: string;
+    name?: string;
+    userId?: string;
+  };
   if (!room) {
     return NextResponse.json({ error: "Missing room" }, { status: 400 });
   }
 
-  const identity = `${name || "guest"}-${Math.random().toString(36).slice(2, 8)}`;
+  // Use the caller's stable per-browser userId as the LiveKit identity.
+  // That way, opening a second tab in the same browser doesn't produce a
+  // ghost participant — LiveKit will close the older session and only the
+  // most recent tab stays in the call.
+  const identity = userId
+    ? `u-${userId}`
+    : `${name || "guest"}-${Math.random().toString(36).slice(2, 8)}`;
+
   const at = new AccessToken(apiKey, apiSecret, {
     identity,
     name: name || "Guest",

@@ -19,10 +19,12 @@ import { useToast } from "./Toast";
 
 export default function VideoPanel({
   roomId,
+  userId,
   userName,
   isHost,
 }: {
   roomId: string;
+  userId: string;
   userName: string;
   isHost: boolean;
 }) {
@@ -43,7 +45,7 @@ export default function VideoPanel({
         const res = await fetch("/api/livekit/token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ room: roomId, name: userName }),
+          body: JSON.stringify({ room: roomId, name: userName, userId }),
         });
         if (!res.ok) throw new Error(`Token request failed (${res.status})`);
         const data = (await res.json()) as { token: string; url: string };
@@ -59,7 +61,7 @@ export default function VideoPanel({
     return () => {
       cancelled = true;
     };
-  }, [roomId, userName]);
+  }, [roomId, userName, userId]);
 
   if (error) {
     return (

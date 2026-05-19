@@ -323,7 +323,7 @@ export default function RoomShell({
               min={VIDEO_WIDTH_MIN}
               max={VIDEO_WIDTH_MAX}
             />
-            <VideoPanel roomId={roomId} userName={name || "Guest"} isHost={isHost} />
+            <VideoPanel roomId={roomId} userId={userId} userName={name || "Guest"} isHost={isHost} />
           </aside>
         )}
 
@@ -341,7 +341,7 @@ export default function RoomShell({
               </button>
             </div>
             <div className="flex-1 min-h-0">
-              <VideoPanel roomId={roomId} userName={name || "Guest"} isHost={isHost} />
+              <VideoPanel roomId={roomId} userId={userId} userName={name || "Guest"} isHost={isHost} />
             </div>
           </div>
         )}
