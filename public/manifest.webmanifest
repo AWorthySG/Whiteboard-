@@ -1,25 +1,25 @@
 {
-  "name": "Whiteboard",
-  "short_name": "Whiteboard",
+  "name": "A Worthy Whiteboard",
+  "short_name": "A Worthy",
   "description": "Live collaborative whiteboard with video, audio, and document upload.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0b0d12",
-  "theme_color": "#0b0d12",
+  "background_color": "#ffffff",
+  "theme_color": "#1f2c4a",
   "categories": ["education", "productivity"],
   "icons": [
     {
-      "src": "/icon.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
       "purpose": "any"
     },
     {
-      "src": "/icon-maskable.svg",
-      "type": "image/svg+xml",
-      "sizes": "any",
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "512x512",
       "purpose": "maskable"
     }
   ]
