@@ -22,6 +22,7 @@ export default function VideoPanel({
   const [token, setToken] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [inCall, setInCall] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,15 +65,32 @@ export default function VideoPanel({
     return <div className="p-4 text-sm text-white/60">Joining call…</div>;
   }
 
+  if (!inCall) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3 p-6 text-center">
+        <p className="text-sm text-white/70">
+          You've left the call. You're still in the whiteboard.
+        </p>
+        <button
+          onClick={() => setInCall(true)}
+          className="rounded-md bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium"
+        >
+          Rejoin call
+        </button>
+      </div>
+    );
+  }
+
   return (
     <LiveKitRoom
       token={token}
       serverUrl={serverUrl}
-      connect
+      connect={inCall}
       video
       audio
       data-lk-theme="default"
       style={{ height: "100%" }}
+      onDisconnected={() => setInCall(false)}
     >
       <div className="flex flex-col h-full">
         <div className="flex-1 min-h-0">
@@ -81,7 +99,12 @@ export default function VideoPanel({
         <RoomAudioRenderer />
         <ControlBar
           variation="minimal"
-          controls={{ microphone: true, camera: true, screenShare: true, leave: false }}
+          controls={{
+            microphone: true,
+            camera: true,
+            screenShare: true,
+            leave: true,
+          }}
         />
       </div>
     </LiveKitRoom>
