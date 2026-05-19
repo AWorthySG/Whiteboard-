@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+export type Theme = "dark" | "light";
+
 export type Settings = {
   pdfLayout: "vertical" | "horizontal";
   pdfScale: 1 | 2 | 3;
@@ -9,6 +11,8 @@ export type Settings = {
   autoJoinCall: boolean;
   defaultCamera: boolean;
   defaultMicrophone: boolean;
+  theme: Theme;
+  hasSeenOnboarding: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -18,6 +22,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoJoinCall: true,
   defaultCamera: true,
   defaultMicrophone: true,
+  theme: "dark",
+  hasSeenOnboarding: false,
 };
 
 const KEY = "wb_settings_v1";

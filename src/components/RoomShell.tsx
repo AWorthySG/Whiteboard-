@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
+import { useRoomMeta } from "@/hooks/useRoomMeta";
+import { useToast } from "./Toast";
 
 const WhiteboardCanvas = dynamic(() => import("./WhiteboardCanvas"), { ssr: false });
 const VideoPanel = dynamic(() => import("./VideoPanel"), { ssr: false });
@@ -14,6 +16,9 @@ const HomeworkDrawer = dynamic(() => import("./HomeworkDrawer"), { ssr: false })
 const KnockGate = dynamic(() => import("./KnockGate"), { ssr: false });
 const AdmissionPanel = dynamic(() => import("./AdmissionPanel"), { ssr: false });
 const RecordButton = dynamic(() => import("./RecordButton"), { ssr: false });
+const InvitePanel = dynamic(() => import("./InvitePanel"), { ssr: false });
+const OnboardingHint = dynamic(() => import("./OnboardingHint"), { ssr: false });
+const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
 
 export default function RoomShell({
   roomId,
@@ -28,10 +33,15 @@ export default function RoomShell({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [hwOpen, setHwOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
   const isHost = useIsHost(roomId);
+  const { meta, setTitle } = useRoomMeta(roomId);
+  const toast = useToast();
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
 
   const userId = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -57,7 +67,6 @@ export default function RoomShell({
     }
   }, [name]);
 
-  // Close mobile menu on outside click.
   useEffect(() => {
     if (!menuOpen) return;
     const onClick = (e: MouseEvent) => {
@@ -70,31 +79,79 @@ export default function RoomShell({
   const inviteUrl =
     typeof window !== "undefined" ? `${window.location.origin}/r/${roomId}` : "";
 
-  const copyInvite = () => {
-    navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+  const exportCanvas = async () => {
+    try {
+      if (!canvasExportRef.current) {
+        toast.error("Canvas not ready yet");
+        return;
+      }
+      await canvasExportRef.current();
+      toast.success("Canvas exported");
+    } catch (e) {
+      toast.error(`Export failed: ${(e as Error).message}`);
+    }
+  };
+
+  const commitTitle = () => {
+    setEditingTitle(false);
+    if (titleDraft.trim() !== meta.title) {
+      void setTitle(titleDraft.trim());
+      if (titleDraft.trim()) toast.success("Lesson title updated");
+    }
   };
 
   if (!userId) return null;
 
+  const headerTitle = meta.title || roomId;
+
   const room = (
     <div className="h-app w-screen flex flex-col">
-      <header className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#11141b] border-b border-white/5 z-10 safe-pt">
+      <header className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[var(--bg-elev)] border-b border-white/5 z-10 safe-pt">
         <Link href="/" className="font-semibold tracking-tight shrink-0">
           A Worthy
         </Link>
         <span className="text-white/30 hidden sm:inline">/</span>
-        <span className="text-white/80 truncate text-sm sm:text-base min-w-0 flex-1 sm:flex-none sm:max-w-[12rem]">
-          {roomId}
-        </span>
+
+        {/* Lesson title (editable by host) */}
+        <div className="min-w-0 flex-1 sm:flex-none sm:max-w-[20rem]">
+          {isHost && editingTitle ? (
+            <input
+              autoFocus
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitTitle();
+                if (e.key === "Escape") setEditingTitle(false);
+              }}
+              placeholder={roomId}
+              className="w-full rounded-md bg-[#0b0d12] border border-white/10 px-2 py-1 text-sm outline-none focus:border-brand-500"
+            />
+          ) : (
+            <button
+              onClick={() => {
+                if (!isHost) return;
+                setTitleDraft(meta.title);
+                setEditingTitle(true);
+              }}
+              className={`truncate block w-full text-left text-sm sm:text-base ${
+                isHost ? "cursor-text hover:text-white" : "cursor-default"
+              } text-white/80`}
+              title={isHost ? "Click to rename" : headerTitle}
+            >
+              {headerTitle}
+            </button>
+          )}
+        </div>
+
         {isHost && (
           <span className="text-[10px] uppercase tracking-wider bg-brand-600/30 text-brand-100 px-1.5 py-0.5 rounded shrink-0">
             Host
           </span>
         )}
+        <PresenceBadge roomId={roomId} userId={userId} userName={name || "Guest"} />
 
-        {/* Desktop controls: visible at md and up */}
+        {/* Desktop controls */}
         <div className="ml-auto hidden md:flex items-center gap-2">
           <input
             value={name}
@@ -116,11 +173,17 @@ export default function RoomShell({
           </button>
           {isHost && <RecordButton roomId={roomId} />}
           <button
-            onClick={copyInvite}
+            onClick={exportCanvas}
             className="text-sm rounded-md border border-white/10 px-3 py-1 hover:bg-white/5"
-            title={inviteUrl}
+            title="Export the canvas as a PNG file"
           >
-            {copied ? "Copied" : "Copy invite"}
+            Export
+          </button>
+          <button
+            onClick={() => setInviteOpen(true)}
+            className="text-sm rounded-md border border-white/10 px-3 py-1 hover:bg-white/5"
+          >
+            Invite
           </button>
           <button
             onClick={() => setVideoOpen((v) => !v)}
@@ -133,7 +196,7 @@ export default function RoomShell({
           </IconBtn>
         </div>
 
-        {/* Mobile controls: visible below md */}
+        {/* Mobile controls */}
         <div className="ml-auto flex md:hidden items-center gap-1 shrink-0">
           <IconBtn
             onClick={() => setVideoOpen((v) => !v)}
@@ -151,21 +214,24 @@ export default function RoomShell({
               <MenuSvg />
             </IconBtn>
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-[#0b0d12] border border-white/10 shadow-2xl p-2 z-50">
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-[var(--bg)] border border-white/10 shadow-2xl p-2 z-50">
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Display name"
-                  className="w-full mb-2 rounded-md bg-[#11141b] border border-white/10 px-2 py-1.5 text-sm outline-none focus:border-brand-500"
+                  className="w-full mb-2 rounded-md bg-[var(--bg-elev)] border border-white/10 px-2 py-1.5 text-sm outline-none focus:border-brand-500"
                 />
+                <MenuItem onClick={() => { setInviteOpen(true); setMenuOpen(false); }}>
+                  Invite (QR + link)
+                </MenuItem>
                 <MenuItem onClick={() => { setDocsOpen(true); setMenuOpen(false); }}>
                   Documents
                 </MenuItem>
                 <MenuItem onClick={() => { setHwOpen(true); setMenuOpen(false); }}>
                   Homework
                 </MenuItem>
-                <MenuItem onClick={() => { copyInvite(); setMenuOpen(false); }}>
-                  {copied ? "Link copied" : "Copy invite link"}
+                <MenuItem onClick={() => { void exportCanvas(); setMenuOpen(false); }}>
+                  Export canvas as PNG
                 </MenuItem>
                 <MenuItem onClick={() => { setSettingsOpen(true); setMenuOpen(false); }}>
                   Settings
@@ -183,26 +249,24 @@ export default function RoomShell({
         </div>
       </header>
 
-      {/* Body: side-by-side on desktop, canvas + slide-up sheet on mobile */}
       <div className="flex-1 min-h-0 relative flex flex-col md:flex-row">
         <div className="relative flex-1 min-w-0 min-h-0">
           <WhiteboardCanvas
             roomId={roomId}
             userId={userId}
             userName={name || "Guest"}
+            exportRef={canvasExportRef}
           />
         </div>
 
-        {/* Desktop video panel */}
         {videoOpen && (
-          <aside className="hidden md:flex w-[360px] shrink-0 border-l border-white/5 bg-[#0e1118] flex-col">
+          <aside className="hidden md:flex w-[360px] shrink-0 border-l border-white/5 bg-[var(--bg-elev-2)] flex-col">
             <VideoPanel roomId={roomId} userName={name || "Guest"} />
           </aside>
         )}
 
-        {/* Mobile video sheet: slides up from the bottom, ~40% viewport */}
         {videoOpen && (
-          <div className="md:hidden absolute inset-x-0 bottom-0 h-[42dvh] border-t border-white/10 bg-[#0e1118] shadow-2xl z-20 flex flex-col safe-pb">
+          <div className="md:hidden absolute inset-x-0 bottom-0 h-[42dvh] border-t border-white/10 bg-[var(--bg-elev-2)] shadow-2xl z-20 flex flex-col safe-pb">
             <div className="flex items-center justify-between px-3 py-1 border-b border-white/5">
               <span className="text-xs uppercase tracking-wider text-white/40">
                 Call
@@ -243,6 +307,12 @@ export default function RoomShell({
         userId={userId}
         isHost={isHost}
       />
+      <InvitePanel
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        inviteUrl={inviteUrl}
+      />
+      <OnboardingHint isHost={isHost} />
     </div>
   );
 
@@ -279,13 +349,7 @@ function IconBtn({
   );
 }
 
-function MenuItem({
-  onClick,
-  children,
-}: {
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+function MenuItem({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
@@ -304,7 +368,6 @@ function GearSvg() {
     </svg>
   );
 }
-
 function CamSvg() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -313,7 +376,6 @@ function CamSvg() {
     </svg>
   );
 }
-
 function CamOffSvg() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -322,7 +384,6 @@ function CamOffSvg() {
     </svg>
   );
 }
-
 function MenuSvg() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useToast } from "./Toast";
 
 type State = "idle" | "recording" | "saving";
 
 export default function RecordButton({ roomId }: { roomId: string }) {
+  const toast = useToast();
   const [state, setState] = useState<State>("idle");
   const [elapsed, setElapsed] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -82,7 +84,7 @@ export default function RecordButton({ roomId }: { roomId: string }) {
       startedAtRef.current = Date.now();
       setState("recording");
     } catch (err) {
-      alert(
+      toast.error(
         "Couldn't start recording: " +
           (err instanceof Error ? err.message : String(err)),
       );

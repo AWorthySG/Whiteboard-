@@ -113,9 +113,24 @@ export default function HomeworkDrawer({
         </header>
 
         <div className="flex-1 overflow-y-auto">
-          {items.length === 0 && !isHost && (
-            <div className="p-6 text-center text-sm text-white/40">
-              No homework assigned yet.
+          {items.length === 0 && (
+            <div className="p-8 text-center">
+              <div className="text-4xl mb-2">📝</div>
+              {isHost ? (
+                <>
+                  <p className="text-sm font-medium">No homework yet</p>
+                  <p className="text-xs text-white/40 mt-1">
+                    Add an assignment below — students see it as soon as you save.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium">No homework yet</p>
+                  <p className="text-xs text-white/40 mt-1">
+                    Your teacher hasn't assigned anything for this lesson.
+                  </p>
+                </>
+              )}
             </div>
           )}
           <ul className="divide-y divide-white/5">

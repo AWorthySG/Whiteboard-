@@ -3,6 +3,8 @@ import "./globals.css";
 import "tldraw/tldraw.css";
 import "@livekit/components-styles";
 import PwaRegister from "@/components/PwaRegister";
+import { ToastProvider } from "@/components/Toast";
+import ThemeApplier from "@/components/ThemeApplier";
 
 export const metadata: Metadata = {
   title: "A Worthy Whiteboard",
@@ -33,8 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        {children}
-        <PwaRegister />
+        <ToastProvider>
+          <ThemeApplier />
+          {children}
+          <PwaRegister />
+        </ToastProvider>
       </body>
     </html>
   );

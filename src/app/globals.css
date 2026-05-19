@@ -2,15 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #0b0d12;
+  --bg-elev: #11141b;
+  --bg-elev-2: #0e1118;
+  --text: #e6e8ee;
+}
+
+html.theme-light {
+  --bg: #f5f6f9;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f0f2f6;
+  --text: #1a1d24;
+}
+
 html,
 body,
 #__next {
   height: 100%;
   margin: 0;
-  background: #0b0d12;
-  color: #e6e8ee;
+  background: var(--bg);
+  color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Match tldraw's own theme attribute to our setting, so the canvas
+   toolbar swaps colors with the rest of the app. */
+html[data-theme="light"] .tl-container,
+html[data-theme="light"] .tl-canvas {
+  --color-background: #ffffff;
 }
 
 /* tldraw needs a positioned container at 100% */

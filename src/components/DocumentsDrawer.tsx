@@ -91,8 +91,14 @@ export default function DocumentsDrawer({
 
         <div className="flex-1 overflow-y-auto">
           {docs.length === 0 ? (
-            <div className="p-6 text-center text-sm text-white/40">
-              No documents yet. Upload one with the "Upload document" button on the canvas.
+            <div className="p-8 text-center">
+              <div className="text-4xl mb-2">📄</div>
+              <p className="text-sm font-medium">No documents yet</p>
+              <p className="text-xs text-white/40 mt-1">
+                Drag a PDF or image onto the canvas, or use the
+                <span className="text-brand-500"> Upload document</span> button.
+                Files appear here for everyone in the room.
+              </p>
             </div>
           ) : (
             <ul className="divide-y divide-white/5">

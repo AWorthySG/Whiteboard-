@@ -1,7 +1,7 @@
 "use client";
 
 import { useSync } from "@tldraw/sync";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   AssetRecordType,
   Editor,
@@ -11,7 +11,8 @@ import {
   getHashForString,
   uniqueId,
 } from "tldraw";
-import { getSettings } from "@/hooks/useSettings";
+import { getSettings, useSettings } from "@/hooks/useSettings";
+import { useToast } from "./Toast";
 
 const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
@@ -95,11 +96,15 @@ export default function WhiteboardCanvas({
   roomId,
   userId,
   userName,
+  exportRef,
 }: {
   roomId: string;
   userId: string;
   userName: string;
+  exportRef?: MutableRefObject<(() => Promise<void>) | null>;
 }) {
+  const [appSettings] = useSettings();
+  const toast = useToast();
   const editorRef = useRef<Editor | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState<Progress>(null);
@@ -139,6 +144,44 @@ export default function WhiteboardCanvas({
     [uploadMeta, reportProgress],
   );
 
+  // Expose canvas export to the parent shell.
+  // Keep tldraw's theme in sync with our app-level theme setting.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.user.updateUserPreferences({ colorScheme: appSettings.theme });
+  }, [appSettings.theme]);
+
+  useEffect(() => {
+    if (!exportRef) return;
+    exportRef.current = async () => {
+      const editor = editorRef.current;
+      if (!editor) throw new Error("Editor not mounted");
+      const ids = Array.from(editor.getCurrentPageShapeIds());
+      if (ids.length === 0) throw new Error("Canvas is empty");
+      // Lazy-load the export pipeline; it's chunky and only needed on click.
+      const { exportToBlob } = await import("tldraw");
+      const blob = await exportToBlob({
+        editor,
+        ids,
+        format: "png",
+        opts: { background: true, padding: 32, scale: 2 },
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const date = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      a.download = `whiteboard-${roomId}-${date}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+    return () => {
+      if (exportRef.current) exportRef.current = null;
+    };
+  }, [exportRef, roomId]);
+
   // Capture-phase drop handler so PDF drops are intercepted before tldraw
   // rejects them.
   useEffect(() => {
@@ -159,7 +202,7 @@ export default function WhiteboardCanvas({
       insertPdfAsImages(editorRef.current, file!, uploadMeta, reportProgress).catch(
         (err) => {
           console.error("[whiteboard] PDF import failed", err);
-          alert(`PDF import failed: ${(err as Error).message}`);
+          toast.error(`PDF import failed: ${(err as Error).message}`);
         },
       );
     };
@@ -169,15 +212,19 @@ export default function WhiteboardCanvas({
       el.removeEventListener("dragover", onDragOver, true);
       el.removeEventListener("drop", onDrop, true);
     };
-  }, [uploadMeta, reportProgress]);
+  }, [uploadMeta, reportProgress, toast]);
 
   return (
     <div ref={wrapperRef} className="tldraw-shell">
       <Tldraw
         store={store}
         overrides={overrides}
+        inferDarkMode={false}
         onMount={(editor) => {
           editorRef.current = editor;
+          editor.user.updateUserPreferences({
+            colorScheme: appSettings.theme,
+          });
         }}
       />
       <UploadButton

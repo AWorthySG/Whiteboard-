@@ -65,6 +65,22 @@ export default function SettingsModal({
             </Field>
           </Section>
 
+          <Section title="Appearance">
+            <Field
+              label="Theme"
+              hint="Light is better when projecting onto a physical screen."
+            >
+              <Segmented
+                value={settings.theme}
+                onChange={(v) => setSettings({ theme: v })}
+                options={[
+                  { value: "dark", label: "Dark" },
+                  { value: "light", label: "Light" },
+                ]}
+              />
+            </Field>
+          </Section>
+
           <Section title="Documents">
             <Field
               label="PDF page layout"
