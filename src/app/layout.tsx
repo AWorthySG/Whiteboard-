@@ -16,8 +16,11 @@ export const metadata: Metadata = {
     title: "Whiteboard",
   },
   icons: {
-    icon: [{ url: "/icon.png", type: "image/png" }],
-    apple: [{ url: "/icon.png" }],
+    icon: [
+      { url: "/icon.png", type: "image/png" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/icon.png" }, { url: "/icon.svg" }],
   },
 };
 
