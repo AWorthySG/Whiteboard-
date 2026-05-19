@@ -17,11 +17,29 @@ body,
 .tldraw-shell {
   position: absolute;
   inset: 0;
+  /* Block browser gestures inside the canvas only — palm rejection on iPad,
+     no inertia scrolling fighting the toolbar. The rest of the page can
+     still scroll normally. */
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
-/* Prevent iPad page scrolling/zooming while drawing with the Pencil. */
 html,
 body {
   overscroll-behavior: none;
-  touch-action: none;
+}
+
+/* Respect iPhone notch / Dynamic Island. */
+.safe-pt {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+.safe-pb {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+/* Fill the visible viewport on phones — accounts for the URL bar that
+   hides/shows during scroll. h-screen would jump as the bar moves. */
+.h-app {
+  height: 100vh;
+  height: 100dvh;
 }
