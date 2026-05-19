@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { markAsHost } from "@/hooks/useHostStatus";
 
 function generateRoomId() {
   const adj = ["bright", "swift", "quiet", "warm", "bold", "calm", "lucky", "neat"];
@@ -16,7 +17,8 @@ export default function Home() {
   const [name, setName] = useState("");
   const [room, setRoom] = useState("");
 
-  const start = (id: string) => {
+  const start = (id: string, isNew: boolean) => {
+    if (isNew) markAsHost(id);
     const params = new URLSearchParams();
     if (name.trim()) params.set("name", name.trim());
     router.push(`/r/${encodeURIComponent(id)}?${params.toString()}`);
@@ -49,7 +51,11 @@ export default function Home() {
               className="flex-1 rounded-lg bg-[#0b0d12] border border-white/10 px-3 py-2 outline-none focus:border-brand-500"
             />
             <button
-              onClick={() => start(room.trim() || generateRoomId())}
+              onClick={() => {
+                const trimmed = room.trim();
+                const id = trimmed || generateRoomId();
+                start(id, !trimmed);
+              }}
               className="rounded-lg bg-brand-600 hover:bg-brand-500 px-4 py-2 font-medium"
             >
               {room.trim() ? "Join" : "Create"}

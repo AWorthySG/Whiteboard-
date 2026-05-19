@@ -18,19 +18,30 @@ const SYNC_URL =
 
 const PDFJS_VERSION = "4.10.38";
 
-function uploadAsset(file: File): Promise<{ url: string }> {
+type UploadMeta = {
+  roomId: string;
+  userId: string;
+  userName: string;
+  originalName?: string;
+};
+
+function uploadAsset(file: File, meta: UploadMeta): Promise<{ url: string }> {
   const form = new FormData();
   form.append("file", file);
+  form.append("roomId", meta.roomId);
+  form.append("userId", meta.userId);
+  form.append("userName", meta.userName);
+  form.append("originalName", meta.originalName ?? file.name);
   return fetch("/api/uploads", { method: "POST", body: form }).then(async (r) => {
     if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
     return (await r.json()) as { url: string };
   });
 }
 
-function makeAssetStore(): TLAssetStore {
+function makeAssetStore(meta: UploadMeta): TLAssetStore {
   return {
     async upload(_asset, file) {
-      const { url } = await uploadAsset(file);
+      const { url } = await uploadAsset(file, meta);
       return { src: url };
     },
     resolve(asset) {
@@ -50,7 +61,14 @@ export default function WhiteboardCanvas({
 }) {
   const editorRef = useRef<Editor | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const assetStore = useMemo(makeAssetStore, []);
+  const assetStore = useMemo(
+    () => makeAssetStore({ roomId, userId, userName }),
+    [roomId, userId, userName],
+  );
+  const uploadMeta = useMemo(
+    () => ({ roomId, userId, userName }),
+    [roomId, userId, userName],
+  );
 
   const store = useSync({
     uri: `${SYNC_URL}/connect/${encodeURIComponent(roomId)}`,
@@ -67,7 +85,7 @@ export default function WhiteboardCanvas({
           kbd: "$u",
           onSelect: () => {
             openFilePicker((file) =>
-              insertFileOntoCanvas(editorRef.current, file),
+              insertFileOntoCanvas(editorRef.current, file, uploadMeta),
             );
           },
         };
@@ -94,7 +112,7 @@ export default function WhiteboardCanvas({
       if (!isPdf(file) || !editorRef.current) return;
       e.preventDefault();
       e.stopPropagation();
-      insertPdfAsImages(editorRef.current, file!).catch((err) => {
+      insertPdfAsImages(editorRef.current, file!, uploadMeta).catch((err) => {
         console.error("[whiteboard] PDF import failed", err);
         alert(`PDF import failed: ${(err as Error).message}`);
       });
@@ -105,7 +123,7 @@ export default function WhiteboardCanvas({
       el.removeEventListener("dragover", onDragOver, true);
       el.removeEventListener("drop", onDrop, true);
     };
-  }, []);
+  }, [uploadMeta]);
 
   return (
     <div ref={wrapperRef} className="tldraw-shell">
@@ -116,7 +134,9 @@ export default function WhiteboardCanvas({
           editorRef.current = editor;
         }}
       />
-      <UploadButton onPick={(f) => insertFileOntoCanvas(editorRef.current, f)} />
+      <UploadButton
+        onPick={(f) => insertFileOntoCanvas(editorRef.current, f, uploadMeta)}
+      />
     </div>
   );
 }
@@ -175,10 +195,14 @@ function UploadButton({ onPick }: { onPick: (file: File) => Promise<void> | void
   );
 }
 
-async function insertFileOntoCanvas(editor: Editor | null, file: File) {
+async function insertFileOntoCanvas(
+  editor: Editor | null,
+  file: File,
+  meta: UploadMeta,
+) {
   if (!editor) return;
   if (file.type === "application/pdf") {
-    await insertPdfAsImages(editor, file);
+    await insertPdfAsImages(editor, file, meta);
     return;
   }
   await editor.putExternalContent({
@@ -189,7 +213,11 @@ async function insertFileOntoCanvas(editor: Editor | null, file: File) {
   });
 }
 
-async function insertPdfAsImages(editor: Editor, file: File) {
+async function insertPdfAsImages(
+  editor: Editor,
+  file: File,
+  meta: UploadMeta,
+) {
   const settings = getSettings();
   const renderScale = settings.pdfScale;
   const layout = settings.pdfLayout;
@@ -221,7 +249,10 @@ async function insertPdfAsImages(editor: Editor, file: File) {
       type: "image/png",
     });
 
-    const { url } = await uploadAsset(pngFile);
+    const { url } = await uploadAsset(pngFile, {
+      ...meta,
+      originalName: file.name,
+    });
 
     // Display each page at a consistent size regardless of render scale,
     // so changing PDF quality doesn't change the on-canvas dimensions.

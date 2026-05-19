@@ -4,10 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSettings } from "@/hooks/useSettings";
+import { useIsHost } from "@/hooks/useHostStatus";
 
 const WhiteboardCanvas = dynamic(() => import("./WhiteboardCanvas"), { ssr: false });
 const VideoPanel = dynamic(() => import("./VideoPanel"), { ssr: false });
 const SettingsModal = dynamic(() => import("./SettingsModal"), { ssr: false });
+const DocumentsDrawer = dynamic(() => import("./DocumentsDrawer"), { ssr: false });
+const HomeworkDrawer = dynamic(() => import("./HomeworkDrawer"), { ssr: false });
+const KnockGate = dynamic(() => import("./KnockGate"), { ssr: false });
+const AdmissionPanel = dynamic(() => import("./AdmissionPanel"), { ssr: false });
+const RecordButton = dynamic(() => import("./RecordButton"), { ssr: false });
 
 export default function RoomShell({
   roomId,
@@ -20,6 +26,9 @@ export default function RoomShell({
   const [name, setName] = useState(userName);
   const [videoOpen, setVideoOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [hwOpen, setHwOpen] = useState(false);
+  const isHost = useIsHost(roomId);
 
   const userId = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -31,7 +40,6 @@ export default function RoomShell({
     return id;
   }, []);
 
-  // Apply "Open video panel on entry" setting once on mount.
   useEffect(() => {
     setVideoOpen(settings.showVideoOnEntry);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -49,22 +57,44 @@ export default function RoomShell({
   const inviteUrl =
     typeof window !== "undefined" ? `${window.location.origin}/r/${roomId}` : "";
 
-  return (
+  if (!userId) return null;
+
+  const room = (
     <div className="h-screen w-screen flex flex-col">
-      <header className="flex items-center gap-3 px-4 py-2 bg-[#11141b] border-b border-white/5 z-10">
+      <header className="flex items-center gap-2 px-4 py-2 bg-[#11141b] border-b border-white/5 z-10">
         <Link href="/" className="font-semibold tracking-tight">
           Whiteboard
         </Link>
         <span className="text-white/30">/</span>
-        <span className="text-white/80">{roomId}</span>
+        <span className="text-white/80 truncate max-w-[12rem]">{roomId}</span>
+        {isHost && (
+          <span className="ml-1 text-[10px] uppercase tracking-wider bg-brand-600/30 text-brand-100 px-1.5 py-0.5 rounded">
+            Host
+          </span>
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Display name"
-            className="rounded-md bg-[#0b0d12] border border-white/10 px-2 py-1 text-sm w-40 outline-none focus:border-brand-500"
+            className="rounded-md bg-[#0b0d12] border border-white/10 px-2 py-1 text-sm w-32 outline-none focus:border-brand-500"
           />
+          <button
+            onClick={() => setDocsOpen(true)}
+            className="text-sm rounded-md border border-white/10 px-3 py-1 hover:bg-white/5"
+            title="Uploaded documents"
+          >
+            Documents
+          </button>
+          <button
+            onClick={() => setHwOpen(true)}
+            className="text-sm rounded-md border border-white/10 px-3 py-1 hover:bg-white/5"
+            title="Homework"
+          >
+            Homework
+          </button>
+          {isHost && <RecordButton roomId={roomId} />}
           <button
             onClick={() => {
               navigator.clipboard.writeText(inviteUrl);
@@ -72,7 +102,7 @@ export default function RoomShell({
             className="text-sm rounded-md border border-white/10 px-3 py-1 hover:bg-white/5"
             title={inviteUrl}
           >
-            Copy invite link
+            Copy invite
           </button>
           <button
             onClick={() => setVideoOpen((v) => !v)}
@@ -94,21 +124,20 @@ export default function RoomShell({
         </div>
       </header>
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 relative">
         <div className="relative flex-1 min-w-0">
-          {userId && (
-            <WhiteboardCanvas
-              roomId={roomId}
-              userId={userId}
-              userName={name || "Guest"}
-            />
-          )}
+          <WhiteboardCanvas
+            roomId={roomId}
+            userId={userId}
+            userName={name || "Guest"}
+          />
         </div>
         {videoOpen && (
           <aside className="w-[360px] shrink-0 border-l border-white/5 bg-[#0e1118] flex flex-col">
             <VideoPanel roomId={roomId} userName={name || "Guest"} />
           </aside>
         )}
+        {isHost && <AdmissionPanel roomId={roomId} hostUserId={userId} />}
       </div>
 
       <SettingsModal
@@ -118,6 +147,27 @@ export default function RoomShell({
         userName={name}
         onUserNameChange={setName}
       />
+      <DocumentsDrawer
+        open={docsOpen}
+        onClose={() => setDocsOpen(false)}
+        roomId={roomId}
+        isHost={isHost}
+      />
+      <HomeworkDrawer
+        open={hwOpen}
+        onClose={() => setHwOpen(false)}
+        roomId={roomId}
+        userId={userId}
+        isHost={isHost}
+      />
     </div>
+  );
+
+  // Guests need admission. Hosts skip the gate entirely.
+  if (isHost) return room;
+  return (
+    <KnockGate roomId={roomId} userId={userId} userName={name || "Guest"}>
+      {room}
+    </KnockGate>
   );
 }
