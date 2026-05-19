@@ -64,3 +64,13 @@ body {
   height: 100vh;
   height: 100dvh;
 }
+
+/* Touch-friendly hit targets on coarse pointer devices (touchscreens
+   and stylus tablets). 44x44px is Apple's recommended minimum. Mouse
+   users get the original tighter sizing. */
+@media (pointer: coarse) {
+  .touch-target {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
