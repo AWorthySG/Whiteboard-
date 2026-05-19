@@ -2,17 +2,40 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "./Toast";
+import { getSupabase } from "@/lib/supabase";
 
 type State = "idle" | "recording" | "saving";
 
-export default function RecordButton({ roomId }: { roomId: string }) {
+export default function RecordButton({
+  roomId,
+  hostUserId,
+  hostName,
+  roomTitle,
+}: {
+  roomId: string;
+  hostUserId: string;
+  hostName: string;
+  roomTitle: string;
+}) {
   const toast = useToast();
   const [state, setState] = useState<State>("idle");
   const [elapsed, setElapsed] = useState(0);
+  const [uploadPct, setUploadPct] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
+
+  // Block accidental tab close mid-recording / mid-upload.
+  useEffect(() => {
+    if (state === "idle") return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [state]);
 
   useEffect(() => {
     if (state !== "recording") return;
@@ -22,9 +45,85 @@ export default function RecordButton({ roomId }: { roomId: string }) {
     return () => clearInterval(id);
   }, [state]);
 
+  const uploadToCloud = async (blob: Blob, mimeType: string, durationSec: number) => {
+    setState("saving");
+    setUploadPct(0);
+
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      toast.error("Cloud upload skipped — Supabase env vars missing");
+      setState("idle");
+      return null;
+    }
+
+    const ext = mimeType.includes("mp4") ? "mp4" : "webm";
+    const fileName = `${roomId}-${Date.now()}.${ext}`;
+    const path = `${roomId}/${fileName}`;
+    const endpoint = `${url}/storage/v1/object/whiteboard-recordings/${path}`;
+
+    try {
+      // XHR for upload progress (supabase-js doesn't expose it).
+      const publicUrl: string = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", endpoint);
+        xhr.setRequestHeader("Authorization", `Bearer ${key}`);
+        xhr.setRequestHeader("apikey", key);
+        xhr.setRequestHeader("Content-Type", mimeType);
+        xhr.setRequestHeader("x-upsert", "false");
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadPct(Math.round((e.loaded / e.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(
+              `${url}/storage/v1/object/public/whiteboard-recordings/${path}`,
+            );
+          } else {
+            reject(new Error(`Upload failed: HTTP ${xhr.status} ${xhr.responseText}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.send(blob);
+      });
+
+      // Save metadata row.
+      const supabase = getSupabase();
+      if (supabase) {
+        const date = new Date();
+        const title =
+          (roomTitle?.trim() || roomId) +
+          " · " +
+          date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+        await supabase.from("room_recordings").insert({
+          room_id: roomId,
+          title,
+          file_url: publicUrl,
+          file_path: path,
+          mime_type: mimeType,
+          size_bytes: blob.size,
+          duration_sec: durationSec,
+          host_user_id: hostUserId,
+          host_name: hostName,
+        });
+      }
+
+      toast.success("Recording uploaded — open Recordings to view");
+      return publicUrl;
+    } catch (e) {
+      toast.error(`Upload failed: ${(e as Error).message}`);
+      return null;
+    } finally {
+      setUploadPct(0);
+      setState("idle");
+      setElapsed(0);
+    }
+  };
+
   const start = async () => {
     try {
-      // Capture the current tab (screen + tab audio) + the host's mic.
       const display = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 30 },
         audio: true,
@@ -53,33 +152,36 @@ export default function RecordButton({ roomId }: { roomId: string }) {
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, {
-          type: mimeType || "video/webm",
-        });
-        const url = URL.createObjectURL(blob);
+      recorder.onstop = async () => {
+        const finalMime = mimeType || "video/webm";
+        const blob = new Blob(chunksRef.current, { type: finalMime });
+        const durationSec = Math.floor(
+          (Date.now() - startedAtRef.current) / 1000,
+        );
+        chunksRef.current = [];
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+
+        // Keep a local download as a safety net while the cloud upload runs.
+        const objectUrl = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url;
+        a.href = objectUrl;
         const date = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        const ext = (mimeType || "video/webm").includes("mp4") ? "mp4" : "webm";
+        const ext = finalMime.includes("mp4") ? "mp4" : "webm";
         a.download = `whiteboard-${roomId}-${date}.${ext}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        chunksRef.current = [];
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-        setState("idle");
-        setElapsed(0);
+        URL.revokeObjectURL(objectUrl);
+
+        await uploadToCloud(blob, finalMime, durationSec);
       };
 
-      // Stop if the user revokes the screen-share permission.
       display.getVideoTracks()[0]?.addEventListener("ended", () => {
         if (recorderRef.current?.state === "recording") stop();
       });
 
-      recorder.start(1000); // gather chunks every second
+      recorder.start(1000);
       recorderRef.current = recorder;
       startedAtRef.current = Date.now();
       setState("recording");
@@ -102,11 +204,11 @@ export default function RecordButton({ roomId }: { roomId: string }) {
     return (
       <button
         onClick={start}
-        className="text-sm rounded-md border border-red-500/40 text-red-300 hover:bg-red-500/10 px-3 py-1 flex items-center gap-1.5"
-        title="Record this lesson to a local MP4/WebM file"
+        className="touch-target text-sm rounded-md border border-red-500/40 text-red-300 hover:bg-red-500/10 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+        title="Record this lesson — saves to cloud and downloads a backup MP4"
       >
         <span className="w-2 h-2 rounded-full bg-red-500" />
-        Record
+        <span className="hidden lg:inline">Record</span>
       </button>
     );
   }
@@ -115,21 +217,25 @@ export default function RecordButton({ roomId }: { roomId: string }) {
     return (
       <button
         onClick={stop}
-        className="text-sm rounded-md bg-red-600 hover:bg-red-500 text-white px-3 py-1 flex items-center gap-1.5"
-        title="Stop and download"
+        className="touch-target text-sm rounded-md bg-red-600 hover:bg-red-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+        title="Stop and upload"
       >
         <span className="w-2 h-2 rounded-sm bg-white animate-pulse" />
-        Stop · {formatTime(elapsed)}
+        <span>{formatTime(elapsed)}</span>
+        <span className="hidden lg:inline">Stop</span>
       </button>
     );
   }
 
+  // saving
   return (
     <button
       disabled
-      className="text-sm rounded-md border border-white/10 px-3 py-1 opacity-60"
+      className="touch-target text-sm rounded-md border border-white/10 px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-90"
+      title="Uploading recording to cloud"
     >
-      Saving…
+      <span className="inline-block w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+      <span>{uploadPct > 0 ? `${uploadPct}%` : "Saving…"}</span>
     </button>
   );
 }

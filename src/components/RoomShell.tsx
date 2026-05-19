@@ -20,6 +20,7 @@ const InvitePanel = dynamic(() => import("./InvitePanel"), { ssr: false });
 const OnboardingHint = dynamic(() => import("./OnboardingHint"), { ssr: false });
 const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
 const VideoPanelResizer = dynamic(() => import("./VideoPanelResizer"), { ssr: false });
+const RecordingsDrawer = dynamic(() => import("./RecordingsDrawer"), { ssr: false });
 
 const VIDEO_WIDTH_MIN = 240;
 const VIDEO_WIDTH_MAX = 600;
@@ -39,6 +40,7 @@ export default function RoomShell({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [hwOpen, setHwOpen] = useState(false);
+  const [recsOpen, setRecsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
@@ -201,7 +203,19 @@ export default function RoomShell({
             label="Homework"
             icon={<HomeworkSvg />}
           />
-          {isHost && <RecordButton roomId={roomId} />}
+          <HeaderBtn
+            onClick={() => setRecsOpen(true)}
+            label="Recordings"
+            icon={<PlaySvg />}
+          />
+          {isHost && (
+            <RecordButton
+              roomId={roomId}
+              hostUserId={userId}
+              hostName={name || "Host"}
+              roomTitle={meta.title}
+            />
+          )}
           <HeaderBtn
             onClick={exportCanvas}
             label="Export"
@@ -261,6 +275,9 @@ export default function RoomShell({
                 <MenuItem onClick={() => { setHwOpen(true); setMenuOpen(false); }}>
                   Homework
                 </MenuItem>
+                <MenuItem onClick={() => { setRecsOpen(true); setMenuOpen(false); }}>
+                  Recordings
+                </MenuItem>
                 <MenuItem onClick={() => { void exportCanvas(); setMenuOpen(false); }}>
                   Export canvas as PNG
                 </MenuItem>
@@ -270,7 +287,12 @@ export default function RoomShell({
                 {isHost && (
                   <div className="pt-2 mt-1 border-t border-white/5">
                     <div className="px-2 pt-1 pb-2">
-                      <RecordButton roomId={roomId} />
+                      <RecordButton
+                        roomId={roomId}
+                        hostUserId={userId}
+                        hostName={name || "Host"}
+                        roomTitle={meta.title}
+                      />
                     </div>
                   </div>
                 )}
@@ -352,6 +374,12 @@ export default function RoomShell({
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         inviteUrl={inviteUrl}
+      />
+      <RecordingsDrawer
+        open={recsOpen}
+        onClose={() => setRecsOpen(false)}
+        roomId={roomId}
+        isHost={isHost}
       />
       <OnboardingHint isHost={isHost} />
     </div>
@@ -492,6 +520,13 @@ function ShareSvg() {
       <circle cx="18" cy="19" r="3" />
       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
       <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+}
+function PlaySvg() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="6 4 20 12 6 20 6 4" />
     </svg>
   );
 }
