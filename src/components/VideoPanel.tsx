@@ -10,7 +10,8 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSettings } from "@/hooks/useSettings";
 
 export default function VideoPanel({
   roomId,
@@ -19,10 +20,16 @@ export default function VideoPanel({
   roomId: string;
   userName: string;
 }) {
+  const [settings] = useSettings();
   const [token, setToken] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [inCall, setInCall] = useState(true);
+  // Latch initial values so toggling settings mid-call doesn't disconnect us.
+  const initialAutoJoin = useMemo(() => settings.autoJoinCall, []);
+  const initialCamera = useMemo(() => settings.defaultCamera, []);
+  const initialMic = useMemo(() => settings.defaultMicrophone, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const [inCall, setInCall] = useState(initialAutoJoin);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,8 +93,8 @@ export default function VideoPanel({
       token={token}
       serverUrl={serverUrl}
       connect={inCall}
-      video
-      audio
+      video={initialCamera}
+      audio={initialMic}
       data-lk-theme="default"
       style={{ height: "100%" }}
       onDisconnected={() => setInCall(false)}

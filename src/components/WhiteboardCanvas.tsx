@@ -11,6 +11,7 @@ import {
   getHashForString,
   uniqueId,
 } from "tldraw";
+import { getSettings } from "@/hooks/useSettings";
 
 const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
@@ -189,6 +190,10 @@ async function insertFileOntoCanvas(editor: Editor | null, file: File) {
 }
 
 async function insertPdfAsImages(editor: Editor, file: File) {
+  const settings = getSettings();
+  const renderScale = settings.pdfScale;
+  const layout = settings.pdfLayout;
+
   // Lazy-load pdf.js only when we actually need it.
   const pdfjs = await import("pdfjs-dist");
   pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
@@ -197,12 +202,12 @@ async function insertPdfAsImages(editor: Editor, file: File) {
   const doc = await pdfjs.getDocument({ data }).promise;
   const center = editor.getViewportPageBounds().center;
 
-  let xOffset = 0;
+  let offset = 0;
   const gap = 40;
 
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale: 2 });
+    const viewport = page.getViewport({ scale: renderScale });
     const canvas = document.createElement("canvas");
     canvas.width = viewport.width;
     canvas.height = viewport.height;
@@ -218,8 +223,10 @@ async function insertPdfAsImages(editor: Editor, file: File) {
 
     const { url } = await uploadAsset(pngFile);
 
-    const w = viewport.width / 2;
-    const h = viewport.height / 2;
+    // Display each page at a consistent size regardless of render scale,
+    // so changing PDF quality doesn't change the on-canvas dimensions.
+    const w = viewport.width / renderScale;
+    const h = viewport.height / renderScale;
     const assetId = AssetRecordType.createId(getHashForString(url));
 
     editor.createAssets([
@@ -239,15 +246,20 @@ async function insertPdfAsImages(editor: Editor, file: File) {
       },
     ]);
 
+    const x =
+      layout === "horizontal" ? center.x - w / 2 + offset : center.x - w / 2;
+    const y =
+      layout === "horizontal" ? center.y - h / 2 : center.y - h / 2 + offset;
+
     editor.createShape({
       id: `shape:${uniqueId()}` as never,
       type: "image",
-      x: center.x - w / 2 + xOffset,
-      y: center.y - h / 2,
+      x,
+      y,
       props: { assetId, w, h },
     });
 
-    xOffset += w + gap;
+    offset += (layout === "horizontal" ? w : h) + gap;
   }
 }
 
