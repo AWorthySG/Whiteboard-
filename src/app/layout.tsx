@@ -31,9 +31,40 @@ export const viewport: Viewport = {
   themeColor: "#0b0d12",
 };
 
+// Compute https origins for preconnect from the env vars that point at
+// our upstream services. The browser uses these hints to warm up TLS
+// + DNS before the JS bundle even asks for a token or a websocket.
+function originOf(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url.replace(/^wss?:/, "https:"));
+    return u.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+const PRECONNECT_ORIGINS = Array.from(
+  new Set(
+    [
+      originOf(process.env.NEXT_PUBLIC_SUPABASE_URL),
+      originOf(process.env.NEXT_PUBLIC_LIVEKIT_URL),
+      originOf(process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL),
+    ].filter(Boolean) as string[],
+  ),
+);
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {PRECONNECT_ORIGINS.map((origin) => (
+          <link key={origin} rel="preconnect" href={origin} crossOrigin="" />
+        ))}
+        {PRECONNECT_ORIGINS.map((origin) => (
+          <link key={`dns-${origin}`} rel="dns-prefetch" href={origin} />
+        ))}
+      </head>
       <body>
         <ToastProvider>
           <ThemeApplier />

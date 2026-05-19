@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { markAsHost } from "@/hooks/useHostStatus";
+import BrandLogo from "@/components/BrandLogo";
 
 function generateRoomId() {
   const adj = ["bright", "swift", "quiet", "warm", "bold", "calm", "lucky", "neat"];
@@ -27,12 +28,17 @@ export default function Home() {
   return (
     <main className="min-h-[100dvh] flex items-center justify-center px-4 py-8 sm:px-6">
       <div className="w-full max-w-xl rounded-2xl bg-[#11141b] border border-white/5 shadow-xl p-6 sm:p-8">
-        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-          A Worthy Whiteboard
-        </h1>
-        <p className="text-white/60 mt-1 text-sm sm:text-base">
-          Real-time collaborative whiteboard with video, audio, and document upload.
-        </p>
+        <div className="flex items-center gap-4">
+          <BrandLogo size={64} priority className="rounded-xl" />
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+              A Worthy Whiteboard
+            </h1>
+            <p className="text-white/60 mt-1 text-sm sm:text-base">
+              Real-time collaborative whiteboard with video, audio, and document upload.
+            </p>
+          </div>
+        </div>
 
         <div className="mt-6 sm:mt-8 space-y-4">
           <label className="block">

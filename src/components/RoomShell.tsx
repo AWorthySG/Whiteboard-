@@ -7,6 +7,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { useToast } from "./Toast";
+import BrandLogo from "./BrandLogo";
 
 const WhiteboardCanvas = dynamic(() => import("./WhiteboardCanvas"), { ssr: false });
 const VideoPanel = dynamic(() => import("./VideoPanel"), { ssr: false });
@@ -137,8 +138,13 @@ export default function RoomShell({
   const room = (
     <div className="h-app w-screen flex flex-col">
       <header className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[var(--bg-elev)] border-b border-white/5 z-10 safe-pt">
-        <Link href="/" className="font-semibold tracking-tight shrink-0">
-          A Worthy
+        <Link
+          href="/"
+          className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
+          title="Back to home"
+        >
+          <BrandLogo size={28} priority />
+          <span className="hidden sm:inline">A Worthy</span>
         </Link>
         <span className="text-white/30 hidden sm:inline">/</span>
 

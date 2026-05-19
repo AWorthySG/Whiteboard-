@@ -140,6 +140,13 @@ export default function WhiteboardCanvas({
             );
           },
         };
+        actions["insert-brand-logo"] = {
+          id: "insert-brand-logo",
+          label: "Insert A Worthy logo",
+          onSelect: () => {
+            void insertBrandLogo(editorRef.current);
+          },
+        };
         return actions;
       },
     }),
@@ -478,6 +485,41 @@ async function insertPdfAsImages(
   } finally {
     onProgress(null);
   }
+}
+
+async function insertBrandLogo(editor: Editor | null) {
+  if (!editor) return;
+  const url = `${window.location.origin}/icon.png`;
+  const w = 200;
+  const h = 200;
+  const assetId = AssetRecordType.createId(getHashForString(url));
+  // Reuse the same asset record if the logo was inserted earlier in the room.
+  if (!editor.getAsset(assetId)) {
+    editor.createAssets([
+      {
+        id: assetId,
+        type: "image",
+        typeName: "asset",
+        props: {
+          name: "A Worthy logo",
+          src: url,
+          w,
+          h,
+          mimeType: "image/png",
+          isAnimated: false,
+        },
+        meta: {},
+      },
+    ]);
+  }
+  const center = editor.getViewportPageBounds().center;
+  editor.createShape({
+    id: `shape:${uniqueId()}` as never,
+    type: "image",
+    x: center.x - w / 2,
+    y: center.y - h / 2,
+    props: { assetId, w, h },
+  });
 }
 
 function pickColor(seed: string) {
