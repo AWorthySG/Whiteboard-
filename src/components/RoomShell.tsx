@@ -261,7 +261,7 @@ export default function RoomShell({
 
         {videoOpen && (
           <aside className="hidden md:flex w-[360px] shrink-0 border-l border-white/5 bg-[var(--bg-elev-2)] flex-col">
-            <VideoPanel roomId={roomId} userName={name || "Guest"} />
+            <VideoPanel roomId={roomId} userName={name || "Guest"} isHost={isHost} />
           </aside>
         )}
 
@@ -279,7 +279,7 @@ export default function RoomShell({
               </button>
             </div>
             <div className="flex-1 min-h-0">
-              <VideoPanel roomId={roomId} userName={name || "Guest"} />
+              <VideoPanel roomId={roomId} userName={name || "Guest"} isHost={isHost} />
             </div>
           </div>
         )}
@@ -305,6 +305,7 @@ export default function RoomShell({
         onClose={() => setHwOpen(false)}
         roomId={roomId}
         userId={userId}
+        userName={name || "Guest"}
         isHost={isHost}
       />
       <InvitePanel

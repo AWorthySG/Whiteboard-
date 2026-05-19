@@ -13,6 +13,8 @@ import {
 } from "tldraw";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
+import ReconnectBanner from "./ReconnectBanner";
+import PagesTabBar from "./PagesTabBar";
 
 const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
@@ -227,12 +229,51 @@ export default function WhiteboardCanvas({
           });
         }}
       />
-      <UploadButton
-        onPick={(f) =>
+      <CanvasTopRightActions
+        onUpload={(f) =>
           insertFileOntoCanvas(editorRef.current, f, uploadMeta, reportProgress)
+        }
+        onPointer={() => {
+          const editor = editorRef.current;
+          if (!editor) return;
+          editor.setCurrentTool("laser");
+        }}
+      />
+      <PagesTabBar editor={editorRef.current} />
+      <ReconnectBanner
+        status={store.status}
+        connectionStatus={
+          store.status === "synced-remote"
+            ? (store as { connectionStatus: "online" | "offline" }).connectionStatus
+            : undefined
         }
       />
       <ProgressBar progress={progress} />
+    </div>
+  );
+}
+
+function CanvasTopRightActions({
+  onUpload,
+  onPointer,
+}: {
+  onUpload: (file: File) => Promise<void> | void;
+  onPointer: () => void;
+}) {
+  return (
+    <div
+      className="absolute top-3 right-3 flex flex-col items-end gap-2"
+      style={{ zIndex: 9999 }}
+    >
+      <UploadButton onPick={onUpload} />
+      <button
+        onClick={onPointer}
+        className="rounded-md px-3 py-1.5 text-xs font-medium bg-[var(--bg-elev)] border border-white/10 hover:bg-white/5 text-white/80 shadow-lg flex items-center gap-1.5"
+        title="Switch to laser pointer (K)"
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+        Pointer
+      </button>
     </div>
   );
 }
@@ -256,10 +297,7 @@ function UploadButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
-    <div
-      className="absolute top-3 right-3 flex flex-col items-end gap-1"
-      style={{ zIndex: 9999 }}
-    >
+    <>
       <label
         className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-500 text-white shadow-lg ${
           busy ? "opacity-60 pointer-events-none" : ""
@@ -291,7 +329,7 @@ function UploadButton({
           {error}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
