@@ -1,7 +1,7 @@
 "use client";
 
 import { useSync } from "@tldraw/sync";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AssetRecordType,
   Editor,
@@ -25,24 +25,65 @@ type UploadMeta = {
   originalName?: string;
 };
 
-function uploadAsset(file: File, meta: UploadMeta): Promise<{ url: string }> {
-  const form = new FormData();
-  form.append("file", file);
-  form.append("roomId", meta.roomId);
-  form.append("userId", meta.userId);
-  form.append("userName", meta.userName);
-  form.append("originalName", meta.originalName ?? file.name);
-  return fetch("/api/uploads", { method: "POST", body: form }).then(async (r) => {
-    if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
-    return (await r.json()) as { url: string };
+type Progress = {
+  label: string;
+  percent: number; // 0–100
+} | null;
+
+type ProgressFn = (p: Progress) => void;
+
+function uploadAsset(
+  file: File,
+  meta: UploadMeta,
+  onUploadProgress?: (frac: number) => void,
+): Promise<{ url: string }> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("roomId", meta.roomId);
+    form.append("userId", meta.userId);
+    form.append("userName", meta.userName);
+    form.append("originalName", meta.originalName ?? file.name);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/uploads");
+    xhr.responseType = "json";
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable || !onUploadProgress) return;
+      onUploadProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300 && xhr.response?.url) {
+        resolve(xhr.response as { url: string });
+      } else {
+        reject(
+          new Error(
+            xhr.response?.error || `Upload failed: HTTP ${xhr.status}`,
+          ),
+        );
+      }
+    };
+    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.onabort = () => reject(new Error("Upload cancelled"));
+    xhr.send(form);
   });
 }
 
-function makeAssetStore(meta: UploadMeta): TLAssetStore {
+function makeAssetStore(meta: UploadMeta, onProgress: ProgressFn): TLAssetStore {
   return {
     async upload(_asset, file) {
-      const { url } = await uploadAsset(file, meta);
-      return { src: url };
+      onProgress({ label: `Uploading ${file.name}…`, percent: 0 });
+      try {
+        const { url } = await uploadAsset(file, meta, (frac) => {
+          onProgress({
+            label: `Uploading ${file.name}…`,
+            percent: Math.round(frac * 100),
+          });
+        });
+        return { src: url };
+      } finally {
+        onProgress(null);
+      }
     },
     resolve(asset) {
       return asset.props.src ?? null;
@@ -61,9 +102,12 @@ export default function WhiteboardCanvas({
 }) {
   const editorRef = useRef<Editor | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [progress, setProgress] = useState<Progress>(null);
+  const reportProgress = useCallback<ProgressFn>((p) => setProgress(p), []);
+
   const assetStore = useMemo(
-    () => makeAssetStore({ roomId, userId, userName }),
-    [roomId, userId, userName],
+    () => makeAssetStore({ roomId, userId, userName }, reportProgress),
+    [roomId, userId, userName, reportProgress],
   );
   const uploadMeta = useMemo(
     () => ({ roomId, userId, userName }),
@@ -85,14 +129,14 @@ export default function WhiteboardCanvas({
           kbd: "$u",
           onSelect: () => {
             openFilePicker((file) =>
-              insertFileOntoCanvas(editorRef.current, file, uploadMeta),
+              insertFileOntoCanvas(editorRef.current, file, uploadMeta, reportProgress),
             );
           },
         };
         return actions;
       },
     }),
-    [],
+    [uploadMeta, reportProgress],
   );
 
   // Capture-phase drop handler so PDF drops are intercepted before tldraw
@@ -112,10 +156,12 @@ export default function WhiteboardCanvas({
       if (!isPdf(file) || !editorRef.current) return;
       e.preventDefault();
       e.stopPropagation();
-      insertPdfAsImages(editorRef.current, file!, uploadMeta).catch((err) => {
-        console.error("[whiteboard] PDF import failed", err);
-        alert(`PDF import failed: ${(err as Error).message}`);
-      });
+      insertPdfAsImages(editorRef.current, file!, uploadMeta, reportProgress).catch(
+        (err) => {
+          console.error("[whiteboard] PDF import failed", err);
+          alert(`PDF import failed: ${(err as Error).message}`);
+        },
+      );
     };
     el.addEventListener("dragover", onDragOver, true);
     el.addEventListener("drop", onDrop, true);
@@ -123,7 +169,7 @@ export default function WhiteboardCanvas({
       el.removeEventListener("dragover", onDragOver, true);
       el.removeEventListener("drop", onDrop, true);
     };
-  }, [uploadMeta]);
+  }, [uploadMeta, reportProgress]);
 
   return (
     <div ref={wrapperRef} className="tldraw-shell">
@@ -135,8 +181,11 @@ export default function WhiteboardCanvas({
         }}
       />
       <UploadButton
-        onPick={(f) => insertFileOntoCanvas(editorRef.current, f, uploadMeta)}
+        onPick={(f) =>
+          insertFileOntoCanvas(editorRef.current, f, uploadMeta, reportProgress)
+        }
       />
+      <ProgressBar progress={progress} />
     </div>
   );
 }
@@ -152,7 +201,11 @@ function openFilePicker(onPick: (file: File) => void) {
   input.click();
 }
 
-function UploadButton({ onPick }: { onPick: (file: File) => Promise<void> | void }) {
+function UploadButton({
+  onPick,
+}: {
+  onPick: (file: File) => Promise<void> | void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
@@ -195,32 +248,64 @@ function UploadButton({ onPick }: { onPick: (file: File) => Promise<void> | void
   );
 }
 
+function ProgressBar({ progress }: { progress: Progress }) {
+  if (!progress) return null;
+  return (
+    <div
+      className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[min(420px,90vw)] rounded-lg bg-[#11141b] border border-white/10 shadow-2xl p-3"
+      style={{ zIndex: 9999 }}
+    >
+      <div className="flex items-center justify-between text-xs mb-1.5">
+        <span className="truncate text-white/80">{progress.label}</span>
+        <span className="text-white/60 tabular-nums shrink-0 ml-2">
+          {progress.percent}%
+        </span>
+      </div>
+      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+        <div
+          className="h-full bg-brand-500 transition-all duration-200 ease-out"
+          style={{ width: `${progress.percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 async function insertFileOntoCanvas(
   editor: Editor | null,
   file: File,
   meta: UploadMeta,
+  onProgress: ProgressFn,
 ) {
   if (!editor) return;
   if (file.type === "application/pdf") {
-    await insertPdfAsImages(editor, file, meta);
+    await insertPdfAsImages(editor, file, meta, onProgress);
     return;
   }
-  await editor.putExternalContent({
-    type: "files",
-    files: [file],
-    point: editor.getViewportPageBounds().center,
-    ignoreParent: false,
-  });
+  onProgress({ label: `Uploading ${file.name}…`, percent: 0 });
+  try {
+    await editor.putExternalContent({
+      type: "files",
+      files: [file],
+      point: editor.getViewportPageBounds().center,
+      ignoreParent: false,
+    });
+  } finally {
+    onProgress(null);
+  }
 }
 
 async function insertPdfAsImages(
   editor: Editor,
   file: File,
   meta: UploadMeta,
+  onProgress: ProgressFn,
 ) {
   const settings = getSettings();
   const renderScale = settings.pdfScale;
   const layout = settings.pdfLayout;
+
+  onProgress({ label: `Reading ${file.name}…`, percent: 0 });
 
   // Lazy-load pdf.js only when we actually need it.
   const pdfjs = await import("pdfjs-dist");
@@ -229,68 +314,84 @@ async function insertPdfAsImages(
   const data = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data }).promise;
   const center = editor.getViewportPageBounds().center;
+  const totalPages = doc.numPages;
 
   let offset = 0;
   const gap = 40;
 
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const viewport = page.getViewport({ scale: renderScale });
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport }).promise;
+  try {
+    for (let i = 1; i <= totalPages; i++) {
+      const pageProgressBase = ((i - 1) / totalPages) * 100;
+      const pagePortion = 100 / totalPages;
+      onProgress({
+        label: `Rendering page ${i} of ${totalPages}…`,
+        percent: Math.round(pageProgressBase),
+      });
 
-    const blob: Blob = await new Promise((res) =>
-      canvas.toBlob((b) => res(b!), "image/png"),
-    );
-    const pngFile = new File([blob], `${file.name}-page-${i}.png`, {
-      type: "image/png",
-    });
+      const page = await doc.getPage(i);
+      const viewport = page.getViewport({ scale: renderScale });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d")!;
+      await page.render({ canvasContext: ctx, viewport }).promise;
 
-    const { url } = await uploadAsset(pngFile, {
-      ...meta,
-      originalName: file.name,
-    });
+      const blob: Blob = await new Promise((res) =>
+        canvas.toBlob((b) => res(b!), "image/png"),
+      );
+      const pngFile = new File([blob], `${file.name}-page-${i}.png`, {
+        type: "image/png",
+      });
 
-    // Display each page at a consistent size regardless of render scale,
-    // so changing PDF quality doesn't change the on-canvas dimensions.
-    const w = viewport.width / renderScale;
-    const h = viewport.height / renderScale;
-    const assetId = AssetRecordType.createId(getHashForString(url));
-
-    editor.createAssets([
-      {
-        id: assetId,
-        type: "image",
-        typeName: "asset",
-        props: {
-          name: pngFile.name,
-          src: url,
-          w,
-          h,
-          mimeType: "image/png",
-          isAnimated: false,
+      const { url } = await uploadAsset(
+        pngFile,
+        { ...meta, originalName: file.name },
+        (frac) => {
+          onProgress({
+            label: `Uploading page ${i} of ${totalPages}…`,
+            percent: Math.round(pageProgressBase + frac * pagePortion),
+          });
         },
-        meta: {},
-      },
-    ]);
+      );
 
-    const x =
-      layout === "horizontal" ? center.x - w / 2 + offset : center.x - w / 2;
-    const y =
-      layout === "horizontal" ? center.y - h / 2 : center.y - h / 2 + offset;
+      const w = viewport.width / renderScale;
+      const h = viewport.height / renderScale;
+      const assetId = AssetRecordType.createId(getHashForString(url));
 
-    editor.createShape({
-      id: `shape:${uniqueId()}` as never,
-      type: "image",
-      x,
-      y,
-      props: { assetId, w, h },
-    });
+      editor.createAssets([
+        {
+          id: assetId,
+          type: "image",
+          typeName: "asset",
+          props: {
+            name: pngFile.name,
+            src: url,
+            w,
+            h,
+            mimeType: "image/png",
+            isAnimated: false,
+          },
+          meta: {},
+        },
+      ]);
 
-    offset += (layout === "horizontal" ? w : h) + gap;
+      const x =
+        layout === "horizontal" ? center.x - w / 2 + offset : center.x - w / 2;
+      const y =
+        layout === "horizontal" ? center.y - h / 2 : center.y - h / 2 + offset;
+
+      editor.createShape({
+        id: `shape:${uniqueId()}` as never,
+        type: "image",
+        x,
+        y,
+        props: { assetId, w, h },
+      });
+
+      offset += (layout === "horizontal" ? w : h) + gap;
+    }
+  } finally {
+    onProgress(null);
   }
 }
 
