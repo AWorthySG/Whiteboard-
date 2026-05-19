@@ -5,23 +5,20 @@ import "@livekit/components-styles";
 import PwaRegister from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
-  title: "Whiteboard — live collaborative classroom",
+  title: "A Worthy Whiteboard",
   description:
     "Live whiteboard with document upload, audio/video calls, and real-time stylus support.",
-  applicationName: "Whiteboard",
+  applicationName: "A Worthy Whiteboard",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Whiteboard",
+    title: "A Worthy",
   },
-  icons: {
-    icon: [
-      { url: "/icon.png", type: "image/png" },
-      { url: "/icon.svg", type: "image/svg+xml" },
-    ],
-    apple: [{ url: "/icon.png" }, { url: "/icon.svg" }],
-  },
+  // The favicon comes from src/app/icon.png (Next.js auto-generates the
+  // <link rel="icon"> tag with a cache-busting hash). Don't duplicate it
+  // here or browsers may pick the non-cache-busted /icon.png and keep
+  // serving the stale version.
 };
 
 export const viewport: Viewport = {

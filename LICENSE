@@ -1,0 +1,25 @@
+A Worthy Whiteboard
+Copyright (c) 2026 Jeremy Lim Guan Fong. All rights reserved.
+
+This source code and its compiled artifacts are proprietary and confidential.
+No part of this codebase may be copied, modified, distributed, sublicensed,
+or used to create derivative works — in whole or in part, for any purpose,
+commercial or non-commercial — without the prior written permission of the
+copyright holder.
+
+Viewing source code in browser developer tools is incidental to using the
+hosted application and does not grant any license to copy, redistribute, or
+build derivative works from that source.
+
+Third-party libraries and components remain subject to their own licenses;
+see package.json for the full list. Use of those libraries here is permitted
+under each library's terms and does not extend to the original work in this
+repository.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
