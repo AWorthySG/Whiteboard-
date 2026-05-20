@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Editor,
   AssetRecordType,
@@ -15,7 +15,18 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
   // Force re-render when tldraw's page state changes.
   const [, setTick] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const toast = useToast();
+
+  // Close template menu when clicking outside.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!editor) return;
@@ -92,7 +103,7 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
                 onDoubleClick={() => renamePage(page.id)}
                 className={`text-xs px-3 py-1.5 rounded-full transition truncate max-w-[10rem] ${
                   active
-                    ? "bg-brand-600 text-[var(--text)]"
+                    ? "bg-brand-600 text-white"
                     : "text-[var(--text-muted)] hover:bg-[var(--hover)]"
                 }`}
                 title={`${page.name} (double-click to rename)`}
@@ -113,19 +124,34 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
           );
         })}
       </div>
-      <div className="relative">
-        <button
-          onClick={() => setMenuOpen((o) => !o)}
-          className="text-sm w-7 h-7 rounded-full bg-[var(--border)] hover:bg-[var(--border)] flex items-center justify-center shrink-0"
-          aria-label="New page"
-          title="New page"
-        >
-          +
-        </button>
+      <div ref={menuRef} className="relative shrink-0">
+        <div className="flex items-center">
+          {/* Big primary action: blank page in one click. Most users
+              just want another blank sheet — surfacing this directly
+              saves a click vs. opening the template menu. */}
+          <button
+            onClick={() => addPage("blank")}
+            className="text-xs px-3 py-1.5 rounded-full bg-brand-600 hover:bg-brand-500 text-white font-medium flex items-center gap-1.5 shrink-0"
+            aria-label="Add a new blank page"
+            title="Add a new blank page"
+          >
+            <span className="text-base leading-none">+</span>
+            <span>New page</span>
+          </button>
+          {/* Secondary: open template picker for grid / lined / coords / etc. */}
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="text-xs ml-1 px-2 py-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--text-muted)] shrink-0"
+            aria-label="New page from template"
+            title="New page from template"
+          >
+            ▾
+          </button>
+        </div>
         {menuOpen && (
-          <div className="absolute bottom-full mb-1 right-0 w-52 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-1 z-50">
+          <div className="absolute bottom-full mb-2 right-0 w-52 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-1 z-50">
             <div className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] px-2 pt-1 pb-1">
-              New page
+              New page from template
             </div>
             <TemplateBtn onClick={() => addPage("blank")} emoji="📄">
               Blank
