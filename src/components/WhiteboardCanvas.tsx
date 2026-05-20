@@ -167,6 +167,7 @@ export default function WhiteboardCanvas({
   leaderUserId,
   onToggleLeader,
   exportRef,
+  addPageRef,
 }: {
   roomId: string;
   userId: string;
@@ -176,6 +177,7 @@ export default function WhiteboardCanvas({
   leaderUserId: string | null;
   onToggleLeader: () => void | Promise<void>;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
+  addPageRef?: MutableRefObject<(() => void) | null>;
 }) {
   const [appSettings] = useSettings();
   const toast = useToast();
@@ -331,6 +333,25 @@ export default function WhiteboardCanvas({
       if (exportRef.current) exportRef.current = null;
     };
   }, [exportRef, roomId]);
+
+  // Expose a one-shot "add a blank page" action to the room header so the
+  // user can spawn a fresh page from the top bar (matches what the
+  // bottom-center pages pill already does).
+  useEffect(() => {
+    if (!addPageRef) return;
+    addPageRef.current = () => {
+      const editor = editorRef.current;
+      if (!editor) return;
+      const num = editor.getPages().length + 1;
+      editor.createPage({ name: `Page ${num}` });
+      const pages = editor.getPages();
+      const newPage = pages[pages.length - 1];
+      if (newPage) editor.setCurrentPage(newPage.id);
+    };
+    return () => {
+      if (addPageRef.current) addPageRef.current = null;
+    };
+  }, [addPageRef]);
 
   // Capture-phase drop handler so PDF drops are intercepted before tldraw
   // rejects them.
