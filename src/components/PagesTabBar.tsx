@@ -90,7 +90,12 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
 
   return (
     <div
-      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl px-1.5 py-1 max-w-[92vw]"
+      // Hidden on phones — the header 'Pages (n) ▾' dropdown already
+      // covers navigation and template-add there, and stacking the
+      // bottom pill on a narrow screen overlaps the ZoomControls. From
+      // tablet up (md), the bottom tabs are still nicer for fast
+      // switching between many pages.
+      className="hidden md:flex absolute bottom-20 left-1/2 -translate-x-1/2 z-[60] items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl px-1.5 py-1 max-w-[92vw]"
       style={{ pointerEvents: "auto" }}
     >
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">

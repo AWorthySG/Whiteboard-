@@ -103,7 +103,7 @@ export default function VideoPanel({
             setAudioOnlyMode(false);
             setInCall(true);
           }}
-          className="w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
+          className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
         >
           Rejoin with video
         </button>
@@ -112,7 +112,7 @@ export default function VideoPanel({
             setAudioOnlyMode(true);
             setInCall(true);
           }}
-          className="w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
+          className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
         >
           Rejoin audio only
         </button>

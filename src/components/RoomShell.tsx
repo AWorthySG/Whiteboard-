@@ -239,7 +239,7 @@ export default function RoomShell({
                 toast.error(`Couldn't add page: ${(e as Error).message}`);
               }
             }}
-            className="touch-target shrink-0 text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+            className="touch-target shrink-0 text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 flex items-center gap-1.5"
             title="Add a new blank page to this whiteboard"
           >
             <span className="text-base leading-none">+</span>
@@ -272,7 +272,7 @@ export default function RoomShell({
             {pagesMenuOpen && (
               <div
                 role="listbox"
-                className="absolute top-full left-0 mt-1 w-72 max-h-96 overflow-y-auto rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1 z-50"
+                className="absolute top-full left-0 mt-1 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 overflow-y-auto rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1 z-50"
               >
                 {pagesState.pages.map((p, i) => {
                   const active = p.id === pagesState.currentId;
