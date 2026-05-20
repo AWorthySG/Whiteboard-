@@ -7,6 +7,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { trackRoomVisit } from "@/hooks/useRecentRooms";
+import { useWhiteboardRecorder } from "@/hooks/useWhiteboardRecorder";
 import { useToast } from "./Toast";
 import BrandLogo from "./BrandLogo";
 
@@ -123,6 +124,13 @@ export default function RoomShell({
   const canvasEditorRef = useRef<
     import("tldraw").Editor | null
   >(null);
+  // Captures the whiteboard timeline alongside the screen recording.
+  // Tied to RecordButton's lifecycle via onRecordingStarted /
+  // onRecordingFinished callbacks below.
+  const whiteboardRecorder = useWhiteboardRecorder(
+    roomId,
+    () => canvasEditorRef.current,
+  );
   const [endLessonOpen, setEndLessonOpen] = useState(false);
   // Cache of pageId -> data URL for the Pages dropdown thumbnails.
   // We don't auto-invalidate as the page changes; a refresh triggers
@@ -472,6 +480,8 @@ export default function RoomShell({
                 hostUserId={userId}
                 hostName={name || "Host"}
                 roomTitle={meta.title}
+                onRecordingStarted={whiteboardRecorder.start}
+                onRecordingFinished={whiteboardRecorder.finish}
               />
             )}
           </div>
@@ -597,6 +607,8 @@ export default function RoomShell({
                         hostUserId={userId}
                         hostName={name || "Host"}
                         roomTitle={meta.title}
+                        onRecordingStarted={whiteboardRecorder.start}
+                        onRecordingFinished={whiteboardRecorder.finish}
                       />
                     </div>
                   </div>

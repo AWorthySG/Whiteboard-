@@ -16,6 +16,7 @@ type Recording = {
   duration_sec: number | null;
   host_name: string | null;
   recorded_at: string;
+  frames_url: string | null;
 };
 
 export default function RecordingsDrawer({
@@ -135,6 +136,17 @@ export default function RecordingsDrawer({
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1 shrink-0">
+                        {r.frames_url && (
+                          <a
+                            href={`/playback/${r.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-brand-700 hover:text-brand-800 font-medium"
+                            title="Open synchronised whiteboard + video playback in a new tab"
+                          >
+                            ▶ Play with whiteboard
+                          </a>
+                        )}
                         <a
                           href={r.file_url}
                           download
