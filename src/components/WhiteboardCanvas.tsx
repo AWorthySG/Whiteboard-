@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   AssetRecordType,
+  DefaultSizeStyle,
   DefaultToolbar,
   Editor,
   TLAssetStore,
@@ -346,6 +347,11 @@ export default function WhiteboardCanvas({
           onMount={(editor) => {
             editorRef.current = editor;
             editor.user.updateUserPreferences({ colorScheme: "light" });
+            // Default stroke thickness — tldraw's "m" (medium) felt too
+            // thick under stylus pressure on iPad/Apple Pencil. Drop to
+            // "s" (small) so pressure modulation produces a natural
+            // hairline-to-medium range instead of medium-to-marker.
+            editor.setStyleForNextShapes(DefaultSizeStyle, "s");
             if (appSettings.penOnly) {
               editor.updateInstanceState({ isPenMode: true });
             }
