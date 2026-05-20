@@ -88,7 +88,7 @@ export default function RoomShell({
       window.localStorage.setItem(VIDEO_WIDTH_KEY, String(n));
     } catch {}
   };
-  const { meta, setTitle } = useRoomMeta(roomId);
+  const { meta, setTitle, setLeaderMode } = useRoomMeta(roomId);
   const toast = useToast();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
@@ -341,6 +341,11 @@ export default function RoomShell({
             userId={userId}
             userName={name || "Guest"}
             isHost={isHost}
+            leaderMode={meta.leaderMode}
+            leaderUserId={meta.leaderUserId}
+            onToggleLeader={async () => {
+              await setLeaderMode(!meta.leaderMode, userId);
+            }}
             exportRef={canvasExportRef}
           />
         </div>

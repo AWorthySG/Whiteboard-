@@ -16,7 +16,6 @@ import {
 } from "tldraw";
 import dynamic from "next/dynamic";
 import { getSettings, useSettings } from "@/hooks/useSettings";
-import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
@@ -107,12 +106,18 @@ export default function WhiteboardCanvas({
   userId,
   userName,
   isHost,
+  leaderMode,
+  leaderUserId,
+  onToggleLeader,
   exportRef,
 }: {
   roomId: string;
   userId: string;
   userName: string;
   isHost: boolean;
+  leaderMode: boolean;
+  leaderUserId: string | null;
+  onToggleLeader: () => void | Promise<void>;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
 }) {
   const [appSettings] = useSettings();
@@ -122,7 +127,6 @@ export default function WhiteboardCanvas({
   const [progress, setProgress] = useState<Progress>(null);
   const [equationOpen, setEquationOpen] = useState(false);
   const reportProgress = useCallback<ProgressFn>((p) => setProgress(p), []);
-  const { meta, setLeaderMode } = useRoomMeta(roomId);
 
   const assetStore = useMemo(
     () => makeAssetStore({ roomId, userId, userName }, reportProgress),
@@ -191,17 +195,16 @@ export default function WhiteboardCanvas({
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    const leaderId = meta.leaderUserId;
     try {
-      if (meta.leaderMode && leaderId && leaderId !== userId) {
-        editor.startFollowingUser(leaderId);
+      if (leaderMode && leaderUserId && leaderUserId !== userId) {
+        editor.startFollowingUser(leaderUserId);
       } else {
         editor.stopFollowingUser();
       }
     } catch (err) {
       console.warn("[whiteboard] follow toggle failed", err);
     }
-  }, [meta.leaderMode, meta.leaderUserId, userId]);
+  }, [leaderMode, leaderUserId, userId]);
 
   useEffect(() => {
     if (!exportRef) return;
@@ -313,12 +316,10 @@ export default function WhiteboardCanvas({
         }}
         onEquation={() => setEquationOpen(true)}
         isHost={isHost}
-        leaderMode={meta.leaderMode}
-        leaderUserId={meta.leaderUserId}
+        leaderMode={leaderMode}
+        leaderUserId={leaderUserId}
         userId={userId}
-        onToggleLeader={async () => {
-          await setLeaderMode(!meta.leaderMode, userId);
-        }}
+        onToggleLeader={onToggleLeader}
       />
       <EquationModal
         open={equationOpen}
