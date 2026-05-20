@@ -152,8 +152,8 @@ export default function RoomShell({
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
           title="Back to home"
         >
-          <BrandLogo size={44} priority className="rounded-md" />
-          <span className="hidden sm:inline text-base">A Worthy</span>
+          <BrandLogo size={56} priority className="rounded-lg" />
+          <span className="hidden sm:inline text-lg">A Worthy</span>
         </Link>
         <span className="text-[var(--text-dim)] hidden sm:inline">/</span>
 
