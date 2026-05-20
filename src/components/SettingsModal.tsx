@@ -203,7 +203,7 @@ export default function SettingsModal({
               label="Live captions"
               checked={settings.captionsEnabled}
               onChange={(v) => setSettings({ captionsEnabled: v })}
-              hint="Transcribes everyone's speech and shows the words on screen. Chrome / Edge / Samsung Internet only contribute their own caption text; Safari and Firefox can still read what others say. Toggle the 'CC' button in the header for the same effect."
+              hint="Transcribes everyone's speech and shows the words on screen. Chrome, Edge, and Samsung Internet contribute their own captions; Safari and Firefox can read others' captions but can't transcribe their own voice. If your own speech isn't being captioned, open the room in Google Chrome instead. Toggle the 'CC' button in the header for the same effect."
             />
           </Section>
 

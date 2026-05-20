@@ -34,14 +34,21 @@ export default function CaptionsOverlay({
     .slice(-3);
 
   // Special case: feature is on, but local browser can't transcribe.
-  // We let the user know once, then stay quiet (no actual captions
-  // coming in yet from remote speakers).
+  // The notice only appears in quiet moments (no captions on screen)
+  // so it doesn't compete with actual caption text.
   if (visible.length === 0 && !supported) {
     return (
-      <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-[55] max-w-[min(92vw,32rem)] px-3 py-1.5 rounded-md bg-black/55 text-white/85 text-xs text-center shadow-lg pointer-events-none">
-        Captions are on, but your browser can't transcribe your own
-        speech. You'll still see what Chrome / Edge / Samsung Internet
-        users say.
+      <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-[55] max-w-[min(92vw,34rem)] px-3 py-2 rounded-md bg-black/70 text-white text-xs text-center shadow-lg pointer-events-none leading-relaxed">
+        <div className="font-medium">
+          Your browser can't caption your own speech.
+        </div>
+        <div className="text-white/80 mt-0.5">
+          You'll still see captions from anyone else who's speaking.
+          To caption your own voice, open this room in{" "}
+          <span className="font-medium">Google Chrome</span> (desktop
+          or Android) — Safari and Firefox don't support live
+          transcription.
+        </div>
       </div>
     );
   }
