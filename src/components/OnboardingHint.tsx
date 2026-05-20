@@ -24,11 +24,11 @@ export default function OnboardingHint({ isHost }: { isHost: boolean }) {
   return (
     <div className="fixed inset-0 z-[15000] flex items-end sm:items-center justify-center p-4 bg-black/60" onClick={dismiss}>
       <div
-        className="w-full max-w-sm rounded-2xl bg-[#11141b] border border-white/10 shadow-2xl p-6"
+        className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold mb-3">Welcome 👋</h2>
-        <ul className="space-y-3 text-sm text-white/80">
+        <ul className="space-y-3 text-sm text-[var(--text)]">
           <li className="flex gap-3">
             <span className="text-2xl leading-none">✏️</span>
             <span>

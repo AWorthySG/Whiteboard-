@@ -129,24 +129,24 @@ export default function ChatBubble({
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Hide chat" : "Open chat"}
-        className="touch-target fixed bottom-4 right-4 z-[8000] rounded-full bg-brand-600 hover:bg-brand-500 text-white w-12 h-12 shadow-2xl flex items-center justify-center"
+        className="touch-target fixed bottom-4 right-4 z-[8000] rounded-full bg-brand-600 hover:bg-brand-500 text-[var(--text)] w-12 h-12 shadow-2xl flex items-center justify-center"
         title="Chat"
       >
         <ChatSvg />
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-[10px] font-semibold px-1 flex items-center justify-center text-white border border-[var(--bg)]">
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-[10px] font-semibold px-1 flex items-center justify-center text-[var(--text)] border border-[var(--bg)]">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="fixed bottom-20 right-4 z-[8000] w-[min(320px,calc(100vw-2rem))] h-[min(440px,calc(100dvh-7rem))] rounded-xl bg-[var(--bg-elev)] border border-white/10 shadow-2xl flex flex-col">
-          <header className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+        <div className="fixed bottom-20 right-4 z-[8000] w-[min(320px,calc(100vw-2rem))] h-[min(440px,calc(100dvh-7rem))] rounded-xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl flex flex-col">
+          <header className="flex items-center justify-between px-3 py-2 border-b border-[color:var(--border-subtle)]">
             <h3 className="text-sm font-semibold">Chat</h3>
             <button
               onClick={() => setOpen(false)}
-              className="text-white/60 hover:text-white text-xl leading-none"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] text-xl leading-none"
               aria-label="Close chat"
             >
               ×
@@ -158,7 +158,7 @@ export default function ChatBubble({
             className="flex-1 overflow-y-auto px-3 py-2 space-y-2 text-sm"
           >
             {messages.length === 0 ? (
-              <div className="text-center text-xs text-white/40 py-6">
+              <div className="text-center text-xs text-[var(--text-dim)] py-6">
                 No messages yet. Say hi 👋
               </div>
             ) : (
@@ -170,13 +170,13 @@ export default function ChatBubble({
                     className={`flex flex-col ${mine ? "items-end" : "items-start"}`}
                   >
                     {!mine && (
-                      <span className="text-[10px] text-white/40">{m.user_name}</span>
+                      <span className="text-[10px] text-[var(--text-dim)]">{m.user_name}</span>
                     )}
                     <span
                       className={`max-w-[85%] rounded-lg px-2.5 py-1.5 break-words whitespace-pre-wrap ${
                         mine
-                          ? "bg-brand-600 text-white"
-                          : "bg-white/5 text-white/90"
+                          ? "bg-brand-600 text-[var(--text)]"
+                          : "bg-[var(--hover)] text-[var(--text)]"
                       }`}
                     >
                       {m.text}
@@ -192,14 +192,14 @@ export default function ChatBubble({
               e.preventDefault();
               void send();
             }}
-            className="border-t border-white/5 p-2 flex gap-1.5"
+            className="border-t border-[color:var(--border-subtle)] p-2 flex gap-1.5"
           >
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Type a message…"
               maxLength={2000}
-              className="flex-1 rounded-md bg-[var(--bg)] border border-white/10 px-2 py-1.5 text-sm outline-none focus:border-brand-500"
+              className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1.5 text-sm outline-none focus:border-brand-500"
             />
             <button
               type="submit"

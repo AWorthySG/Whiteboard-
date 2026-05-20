@@ -62,14 +62,14 @@ export default function SettingsModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-[#11141b] border border-white/10 shadow-2xl"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
           <h2 className="text-lg font-semibold">Settings</h2>
           <button
             onClick={onClose}
-            className="text-white/60 hover:text-white text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
             aria-label="Close settings"
           >
             ×
@@ -83,7 +83,7 @@ export default function SettingsModal({
                 value={userName}
                 onChange={(e) => onUserNameChange(e.target.value)}
                 placeholder="Your name"
-                className="w-full rounded-md bg-[#0b0d12] border border-white/10 px-3 py-2 text-sm outline-none focus:border-brand-500"
+                className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500"
               />
             </Field>
           </Section>
@@ -93,7 +93,7 @@ export default function SettingsModal({
               {user ? (
                 <>
                   <Field label="Signed in as">
-                    <div className="text-sm text-white/80 px-1">{user.email}</div>
+                    <div className="text-sm text-[var(--text)] px-1">{user.email}</div>
                   </Field>
                   <button
                     onClick={claimRoom}
@@ -105,14 +105,14 @@ export default function SettingsModal({
                   </button>
                   <button
                     onClick={() => signOut()}
-                    className="block text-xs text-white/50 hover:text-white underline underline-offset-2"
+                    className="block text-xs text-[var(--text-dim)] hover:text-[var(--text)] underline underline-offset-2"
                   >
                     Sign out
                   </button>
                 </>
               ) : (
                 <>
-                  <p className="text-xs text-white/60">
+                  <p className="text-xs text-[var(--text-muted)]">
                     Sign in to keep host access to your rooms across all your
                     devices.
                   </p>
@@ -215,7 +215,7 @@ export default function SettingsModal({
                 <input
                   readOnly
                   value={inviteUrl}
-                  className="flex-1 rounded-md bg-[#0b0d12] border border-white/10 px-3 py-2 text-sm text-white/70 outline-none"
+                  className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] outline-none"
                 />
                 <button
                   onClick={() => {
@@ -223,7 +223,7 @@ export default function SettingsModal({
                     setCopied(true);
                     setTimeout(() => setCopied(false), 1200);
                   }}
-                  className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5"
+                  className="rounded-md border border-[color:var(--border)] px-3 py-2 text-sm hover:bg-[var(--hover)]"
                 >
                   {copied ? "Copied" : "Copy"}
                 </button>
@@ -254,7 +254,7 @@ function Section({
 }) {
   return (
     <section>
-      <h3 className="text-xs font-medium uppercase tracking-wider text-white/40 mb-2">
+      <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--text-dim)] mb-2">
         {title}
       </h3>
       <div className="space-y-3">{children}</div>
@@ -273,9 +273,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-sm text-white/80">{label}</label>
+      <label className="text-sm text-[var(--text)]">{label}</label>
       <div className="mt-1">{children}</div>
-      {hint && <p className="text-xs text-white/40 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-[var(--text-dim)] mt-1">{hint}</p>}
     </div>
   );
 }
@@ -293,9 +293,9 @@ function Toggle({
 }) {
   return (
     <label className="flex items-start justify-between gap-3 cursor-pointer">
-      <span className="text-sm text-white/80">
+      <span className="text-sm text-[var(--text)]">
         {label}
-        {hint && <span className="block text-xs text-white/40 mt-0.5">{hint}</span>}
+        {hint && <span className="block text-xs text-[var(--text-dim)] mt-0.5">{hint}</span>}
       </span>
       <button
         type="button"
@@ -303,7 +303,7 @@ function Toggle({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative shrink-0 w-10 h-6 rounded-full transition ${
-          checked ? "bg-brand-600" : "bg-white/10"
+          checked ? "bg-brand-600" : "bg-[var(--border)]"
         }`}
       >
         <span
@@ -326,15 +326,15 @@ function Segmented<T extends string>({
   options: { value: T; label: string }[];
 }) {
   return (
-    <div className="inline-flex rounded-md bg-[#0b0d12] border border-white/10 p-0.5">
+    <div className="inline-flex rounded-md bg-[var(--bg)] border border-[color:var(--border)] p-0.5">
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
           className={`px-3 py-1.5 text-sm rounded-[5px] transition ${
             value === opt.value
-              ? "bg-brand-600 text-white"
-              : "text-white/70 hover:text-white"
+              ? "bg-brand-600 text-[var(--text)]"
+              : "text-[var(--text-muted)] hover:text-[var(--text)]"
           }`}
         >
           {opt.label}

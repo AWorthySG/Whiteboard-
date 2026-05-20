@@ -113,7 +113,7 @@ export default function Home() {
 
   return (
     <main className="min-h-[100dvh] flex items-center justify-center px-4 py-8 sm:px-6">
-      <div className="w-full max-w-xl rounded-2xl bg-[#11141b] border border-white/5 shadow-xl p-6 sm:p-8">
+      <div className="w-full max-w-xl rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border-subtle)] shadow-xl p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
             <BrandLogo size={64} priority className="rounded-xl shrink-0" />
@@ -121,7 +121,7 @@ export default function Home() {
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
                 A Worthy Whiteboard
               </h1>
-              <p className="text-white/60 mt-1 text-sm sm:text-base">
+              <p className="text-[var(--text-muted)] mt-1 text-sm sm:text-base">
                 Real-time collaborative whiteboard with video, audio, and document upload.
               </p>
             </div>
@@ -137,12 +137,12 @@ export default function Home() {
 
         <div className="mt-6 sm:mt-8 space-y-4">
           <label className="block">
-            <span className="text-sm text-white/70">Your name</span>
+            <span className="text-sm text-[var(--text-muted)]">Your name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Alex"
-              className="mt-1 w-full rounded-lg bg-[#0b0d12] border border-white/10 px-3 py-2.5 text-base outline-none focus:border-brand-500"
+              className="mt-1 w-full rounded-lg bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-base outline-none focus:border-brand-500"
             />
           </label>
 
@@ -151,7 +151,7 @@ export default function Home() {
               value={room}
               onChange={(e) => setRoom(e.target.value)}
               placeholder="Room code (optional)"
-              className="flex-1 rounded-lg bg-[#0b0d12] border border-white/10 px-3 py-2.5 text-base outline-none focus:border-brand-500"
+              className="flex-1 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-base outline-none focus:border-brand-500"
             />
             <button
               onClick={onCreateOrJoin}
@@ -161,7 +161,7 @@ export default function Home() {
             </button>
           </div>
 
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-[var(--text-dim)]">
             {user
               ? "Signed in — any rooms you create are tied to your account and you can host them from any device."
               : "Tip: sign in before creating a room to keep host access on every device you use."}
@@ -173,7 +173,7 @@ export default function Home() {
                 setPendingSignIn(true);
                 void start(generateRoomId(), true);
               }}
-              className="text-xs text-white/40 hover:text-white/70 underline underline-offset-2"
+              className="text-xs text-[var(--text-dim)] hover:text-[var(--text-muted)] underline underline-offset-2"
             >
               Continue as guest (host status only on this browser)
             </button>
@@ -181,15 +181,15 @@ export default function Home() {
         </div>
 
         {recent.length > 0 && (
-          <section className="mt-8 border-t border-white/5 pt-5">
-            <h2 className="text-xs uppercase tracking-wider text-white/40 mb-2">
+          <section className="mt-8 border-t border-[color:var(--border-subtle)] pt-5">
+            <h2 className="text-xs uppercase tracking-wider text-[var(--text-dim)] mb-2">
               Recent rooms
             </h2>
             <ul className="space-y-1">
               {recent.map((r) => (
                 <li
                   key={r.roomId}
-                  className="group flex items-center gap-2 rounded-lg hover:bg-white/5 px-2 py-1.5"
+                  className="group flex items-center gap-2 rounded-lg hover:bg-[var(--hover)] px-2 py-1.5"
                 >
                   <button
                     onClick={() => start(r.roomId, false)}
@@ -199,7 +199,7 @@ export default function Home() {
                       className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
                         r.role === "host"
                           ? "bg-brand-600/30 text-brand-100"
-                          : "bg-white/5 text-white/50"
+                          : "bg-[var(--hover)] text-[var(--text-dim)]"
                       }`}
                     >
                       {r.role}
@@ -208,19 +208,19 @@ export default function Home() {
                       {r.title || r.roomId}
                     </span>
                     {r.title && r.title !== r.roomId && (
-                      <span className="text-xs text-white/30 truncate shrink-0">
+                      <span className="text-xs text-[var(--text-dim)] truncate shrink-0">
                         {r.roomId}
                       </span>
                     )}
                   </button>
-                  <span className="text-xs text-white/30 shrink-0">
+                  <span className="text-xs text-[var(--text-dim)] shrink-0">
                     {r.lastVisitedAt
                       ? formatRelative(r.lastVisitedAt)
                       : ""}
                   </span>
                   <button
                     onClick={() => removeRoomFromRecents(r.roomId)}
-                    className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs px-1"
+                    className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-red-400 text-xs px-1"
                     aria-label="Remove from recent rooms"
                     title="Remove from recent"
                   >
@@ -262,7 +262,7 @@ function AccountChip({
     return (
       <button
         onClick={onSignIn}
-        className="text-xs rounded-md border border-white/10 hover:bg-white/5 px-3 py-1.5 shrink-0"
+        className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-3 py-1.5 shrink-0"
       >
         Sign in
       </button>
@@ -270,12 +270,12 @@ function AccountChip({
   }
   return (
     <div className="text-xs text-right shrink-0 max-w-[10rem]">
-      <div className="text-white/70 truncate" title={user.email ?? ""}>
+      <div className="text-[var(--text-muted)] truncate" title={user.email ?? ""}>
         {user.email}
       </div>
       <button
         onClick={onSignOut}
-        className="text-white/40 hover:text-white/70 underline underline-offset-2 mt-0.5"
+        className="text-[var(--text-dim)] hover:text-[var(--text-muted)] underline underline-offset-2 mt-0.5"
       >
         Sign out
       </button>

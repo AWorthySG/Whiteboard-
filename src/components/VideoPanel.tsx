@@ -67,7 +67,7 @@ export default function VideoPanel({
     return (
       <div className="p-4 text-sm text-red-300">
         Couldn't connect to video: {error}
-        <p className="mt-2 text-white/50">
+        <p className="mt-2 text-[var(--text-dim)]">
           Make sure <code>LIVEKIT_API_KEY</code>, <code>LIVEKIT_API_SECRET</code>,
           and <code>NEXT_PUBLIC_LIVEKIT_URL</code> are set.
         </p>
@@ -76,13 +76,13 @@ export default function VideoPanel({
   }
 
   if (!token || !serverUrl) {
-    return <div className="p-4 text-sm text-white/60">Joining call…</div>;
+    return <div className="p-4 text-sm text-[var(--text-muted)]">Joining call…</div>;
   }
 
   if (!inCall) {
     return (
       <div className="flex flex-col h-full items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-white/70">
+        <p className="text-sm text-[var(--text-muted)]">
           You've left the call. You're still in the whiteboard.
         </p>
         <button
@@ -226,7 +226,7 @@ function RoomCoordinator({
   void room; // keep ref so the hook is bound to the right room
 
   return (
-    <div className="border-t border-white/10 bg-[var(--bg-elev)]">
+    <div className="border-t border-[color:var(--border)] bg-[var(--bg-elev)]">
       {raisedHands.size > 0 && (
         <ul className="max-h-32 overflow-y-auto px-3 py-2 space-y-1 text-sm">
           {[...raisedHands.entries()].map(([id, info]) => (
@@ -236,7 +236,7 @@ function RoomCoordinator({
               {isHost && (
                 <button
                   onClick={() => lowerHand(id)}
-                  className="text-xs text-white/40 hover:text-white"
+                  className="text-xs text-[var(--text-dim)] hover:text-[var(--text)]"
                 >
                   Lower
                 </button>
@@ -251,7 +251,7 @@ function RoomCoordinator({
           className={`flex-1 text-sm rounded-md px-3 py-1.5 border ${
             handUp
               ? "bg-amber-500 text-black border-amber-400"
-              : "border-white/10 hover:bg-white/5"
+              : "border-[color:var(--border)] hover:bg-[var(--hover)]"
           }`}
         >
           {handUp ? "Lower hand" : "✋ Raise hand"}
@@ -259,7 +259,7 @@ function RoomCoordinator({
         {isHost && (
           <button
             onClick={muteAll}
-            className="text-sm rounded-md px-3 py-1.5 border border-white/10 hover:bg-white/5"
+            className="text-sm rounded-md px-3 py-1.5 border border-[color:var(--border)] hover:bg-[var(--hover)]"
             title="Send everyone a request to mute"
           >
             Mute all

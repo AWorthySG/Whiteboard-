@@ -146,16 +146,16 @@ export default function RoomShell({
 
   const room = (
     <div className="h-app w-screen flex flex-col">
-      <header className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[var(--bg-elev)] border-b border-white/5 z-10 safe-pt">
+      <header className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[var(--bg-elev)] border-b border-[color:var(--border-subtle)] z-10 safe-pt">
         <Link
           href="/"
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
           title="Back to home"
         >
-          <BrandLogo size={28} priority />
-          <span className="hidden sm:inline">A Worthy</span>
+          <BrandLogo size={44} priority className="rounded-md" />
+          <span className="hidden sm:inline text-base">A Worthy</span>
         </Link>
-        <span className="text-white/30 hidden sm:inline">/</span>
+        <span className="text-[var(--text-dim)] hidden sm:inline">/</span>
 
         {/* Lesson title (editable by host) */}
         <div className="min-w-0 flex-1 sm:flex-none sm:max-w-[20rem]">
@@ -170,7 +170,7 @@ export default function RoomShell({
                 if (e.key === "Escape") setEditingTitle(false);
               }}
               placeholder={roomId}
-              className="w-full rounded-md bg-[#0b0d12] border border-white/10 px-2 py-1 text-sm outline-none focus:border-brand-500"
+              className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1 text-sm outline-none focus:border-brand-500"
             />
           ) : (
             <button
@@ -180,8 +180,8 @@ export default function RoomShell({
                 setEditingTitle(true);
               }}
               className={`truncate block w-full text-left text-sm sm:text-base ${
-                isHost ? "cursor-text hover:text-white" : "cursor-default"
-              } text-white/80`}
+                isHost ? "cursor-text hover:text-[var(--text)]" : "cursor-default"
+              } text-[var(--text)]`}
               title={isHost ? "Click to rename" : headerTitle}
             >
               {headerTitle}
@@ -206,7 +206,7 @@ export default function RoomShell({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Display name"
-            className="hidden xl:block rounded-md bg-[var(--bg)] border border-white/10 px-2 py-1 text-sm w-32 outline-none focus:border-brand-500"
+            className="hidden xl:block rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1 text-sm w-32 outline-none focus:border-brand-500"
           />
           <HeaderBtn
             onClick={() => setDocsOpen(true)}
@@ -274,12 +274,12 @@ export default function RoomShell({
               <MenuSvg />
             </IconBtn>
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-[var(--bg)] border border-white/10 shadow-2xl p-2 z-50">
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2 z-50">
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Display name"
-                  className="w-full mb-2 rounded-md bg-[var(--bg-elev)] border border-white/10 px-2 py-1.5 text-sm outline-none focus:border-brand-500"
+                  className="w-full mb-2 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] px-2 py-1.5 text-sm outline-none focus:border-brand-500"
                 />
                 <MenuItem onClick={() => { setInviteOpen(true); setMenuOpen(false); }}>
                   Invite (QR + link)
@@ -300,7 +300,7 @@ export default function RoomShell({
                   Settings
                 </MenuItem>
                 {isHost && (
-                  <div className="pt-2 mt-1 border-t border-white/5">
+                  <div className="pt-2 mt-1 border-t border-[color:var(--border-subtle)]">
                     <div className="px-2 pt-1 pb-2">
                       <RecordButton
                         roomId={roomId}
@@ -329,7 +329,7 @@ export default function RoomShell({
 
         {videoOpen && (
           <aside
-            className="hidden md:flex shrink-0 border-l border-white/5 bg-[var(--bg-elev-2)] flex-col relative"
+            className="hidden md:flex shrink-0 border-l border-[color:var(--border-subtle)] bg-[var(--bg-elev-2)] flex-col relative"
             style={{ width: videoPanelWidth }}
           >
             <VideoPanelResizer
@@ -343,14 +343,14 @@ export default function RoomShell({
         )}
 
         {videoOpen && (
-          <div className="md:hidden h-[42dvh] shrink-0 border-t border-white/10 bg-[var(--bg-elev-2)] shadow-2xl flex flex-col safe-pb">
-            <div className="flex items-center justify-between px-3 py-1 border-b border-white/5">
-              <span className="text-xs uppercase tracking-wider text-white/40">
+          <div className="md:hidden h-[42dvh] shrink-0 border-t border-[color:var(--border)] bg-[var(--bg-elev-2)] shadow-2xl flex flex-col safe-pb">
+            <div className="flex items-center justify-between px-3 py-1 border-b border-[color:var(--border-subtle)]">
+              <span className="text-xs uppercase tracking-wider text-[var(--text-dim)]">
                 Call
               </span>
               <button
                 onClick={() => setVideoOpen(false)}
-                className="text-xs text-white/60 hover:text-white px-2 py-0.5"
+                className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-0.5"
               >
                 Hide
               </button>
@@ -425,8 +425,8 @@ function IconBtn({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`touch-target w-9 h-9 flex items-center justify-center rounded-md border border-white/10 ${
-        active ? "bg-brand-600/30 text-brand-100" : "hover:bg-white/5"
+      className={`touch-target w-9 h-9 flex items-center justify-center rounded-md border border-[color:var(--border)] ${
+        active ? "bg-brand-600/30 text-brand-100" : "hover:bg-[var(--hover)]"
       }`}
     >
       {children}
@@ -450,7 +450,7 @@ function HeaderBtn({
       onClick={onClick}
       title={title ?? label}
       aria-label={label}
-      className="touch-target text-sm rounded-md border border-white/10 hover:bg-white/5 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+      className="touch-target text-sm rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
     >
       {icon}
       <span className="hidden lg:inline">{label}</span>
@@ -462,7 +462,7 @@ function MenuItem({ onClick, children }: { onClick: () => void; children: React.
   return (
     <button
       onClick={onClick}
-      className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-white/5"
+      className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-[var(--hover)]"
     >
       {children}
     </button>

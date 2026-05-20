@@ -183,14 +183,14 @@ export default function HomeworkDrawer({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md h-full bg-[var(--bg-elev)] border-l border-white/10 shadow-2xl flex flex-col"
+        className="w-full max-w-md h-full bg-[var(--bg-elev)] border-l border-[color:var(--border)] shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
           <h2 className="text-lg font-semibold">Homework</h2>
           <button
             onClick={onClose}
-            className="text-white/60 hover:text-white text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
             aria-label="Close"
           >
             ×
@@ -202,14 +202,14 @@ export default function HomeworkDrawer({
             <div className="p-8 text-center">
               <div className="text-4xl mb-2">📝</div>
               <p className="text-sm font-medium">No homework yet</p>
-              <p className="text-xs text-white/40 mt-1">
+              <p className="text-xs text-[var(--text-dim)] mt-1">
                 {isHost
                   ? "Add an assignment below — students see it as soon as you save."
                   : "Your teacher hasn't assigned anything for this lesson."}
               </p>
             </div>
           )}
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-[color:var(--border-subtle)]">
             {items.map((h) => {
               const subs = submissionsByHomework(h.id);
               const mine = mySubmissionFor(h.id);
@@ -220,7 +220,7 @@ export default function HomeworkDrawer({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium">{h.title}</div>
                       {h.description && (
-                        <div className="text-sm text-white/70 mt-1 whitespace-pre-wrap">
+                        <div className="text-sm text-[var(--text-muted)] mt-1 whitespace-pre-wrap">
                           {h.description}
                         </div>
                       )}
@@ -238,7 +238,7 @@ export default function HomeworkDrawer({
                     {isHost && (
                       <button
                         onClick={() => remove(h.id)}
-                        className="text-xs text-white/40 hover:text-red-400 shrink-0"
+                        className="text-xs text-[var(--text-dim)] hover:text-red-400 shrink-0"
                       >
                         Delete
                       </button>
@@ -257,7 +257,7 @@ export default function HomeworkDrawer({
                     ) : (
                       <button
                         onClick={() => setExpanded(open ? null : h.id)}
-                        className="text-xs text-white/60 hover:text-white"
+                        className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                       >
                         {subs.length} submission{subs.length === 1 ? "" : "s"}{" "}
                         {open ? "▴" : "▾"}
@@ -268,7 +268,7 @@ export default function HomeworkDrawer({
                         href={mine.file_url ?? "#"}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-white/50 truncate max-w-[55%]"
+                        className="text-xs text-[var(--text-dim)] truncate max-w-[55%]"
                         title={mine.file_name ?? ""}
                       >
                         ✓ {mine.file_name}
@@ -277,11 +277,11 @@ export default function HomeworkDrawer({
                   </div>
 
                   {isHost && open && subs.length > 0 && (
-                    <ul className="mt-2 space-y-1 rounded-md bg-[var(--bg)] border border-white/5 p-2">
+                    <ul className="mt-2 space-y-1 rounded-md bg-[var(--bg)] border border-[color:var(--border-subtle)] p-2">
                       {subs.map((s) => (
                         <li key={s.id} className="flex items-center gap-2 text-xs">
                           <span className="flex-1 min-w-0">
-                            <span className="text-white/80">{s.student_name}</span>
+                            <span className="text-[var(--text)]">{s.student_name}</span>
                             <a
                               href={s.file_url ?? "#"}
                               target="_blank"
@@ -291,12 +291,12 @@ export default function HomeworkDrawer({
                               {s.file_name}
                             </a>
                           </span>
-                          <span className="text-white/30">
+                          <span className="text-[var(--text-dim)]">
                             {new Date(s.submitted_at).toLocaleString()}
                           </span>
                           <button
                             onClick={() => removeSubmission(s.id)}
-                            className="text-white/30 hover:text-red-400"
+                            className="text-[var(--text-dim)] hover:text-red-400"
                             title="Remove submission"
                           >
                             ×
@@ -312,26 +312,26 @@ export default function HomeworkDrawer({
         </div>
 
         {isHost && (
-          <div className="border-t border-white/5 p-4 space-y-2">
+          <div className="border-t border-[color:var(--border-subtle)] p-4 space-y-2">
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Homework title"
-              className="w-full rounded-md bg-[var(--bg)] border border-white/10 px-3 py-2 text-sm outline-none focus:border-brand-500"
+              className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500"
             />
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)"
               rows={3}
-              className="w-full rounded-md bg-[var(--bg)] border border-white/10 px-3 py-2 text-sm outline-none focus:border-brand-500 resize-none"
+              className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500 resize-none"
             />
             <div className="flex gap-2">
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="flex-1 rounded-md bg-[var(--bg)] border border-white/10 px-3 py-2 text-sm outline-none focus:border-brand-500"
+                className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500"
               />
               <button
                 onClick={add}

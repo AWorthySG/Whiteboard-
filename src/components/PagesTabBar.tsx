@@ -79,7 +79,7 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
 
   return (
     <div
-      className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-white/10 shadow-2xl px-1.5 py-1 max-w-[92vw]"
+      className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl px-1.5 py-1 max-w-[92vw]"
       style={{ pointerEvents: "auto" }}
     >
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
@@ -92,8 +92,8 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
                 onDoubleClick={() => renamePage(page.id)}
                 className={`text-xs px-3 py-1.5 rounded-full transition truncate max-w-[10rem] ${
                   active
-                    ? "bg-brand-600 text-white"
-                    : "text-white/70 hover:bg-white/5"
+                    ? "bg-brand-600 text-[var(--text)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--hover)]"
                 }`}
                 title={`${page.name} (double-click to rename)`}
               >
@@ -102,7 +102,7 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
               {active && pages.length > 1 && (
                 <button
                   onClick={() => removePage(page.id)}
-                  className="text-white/40 hover:text-red-400 text-xs px-1"
+                  className="text-[var(--text-dim)] hover:text-red-400 text-xs px-1"
                   aria-label="Delete page"
                   title="Delete page"
                 >
@@ -116,15 +116,15 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
       <div className="relative">
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="text-sm w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center shrink-0"
+          className="text-sm w-7 h-7 rounded-full bg-[var(--border)] hover:bg-[var(--border)] flex items-center justify-center shrink-0"
           aria-label="New page"
           title="New page"
         >
           +
         </button>
         {menuOpen && (
-          <div className="absolute bottom-full mb-1 right-0 w-52 rounded-lg bg-[var(--bg)] border border-white/10 shadow-2xl p-1 z-50">
-            <div className="text-[10px] uppercase tracking-wider text-white/40 px-2 pt-1 pb-1">
+          <div className="absolute bottom-full mb-1 right-0 w-52 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-1 z-50">
+            <div className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] px-2 pt-1 pb-1">
               New page
             </div>
             <TemplateBtn onClick={() => addPage("blank")} emoji="📄">
@@ -164,7 +164,7 @@ function TemplateBtn({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-white/5 flex items-center gap-2"
+      className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-[var(--hover)] flex items-center gap-2"
     >
       <span className="text-base shrink-0">{emoji}</span>
       <span>{children}</span>

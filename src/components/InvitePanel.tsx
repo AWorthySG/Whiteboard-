@@ -75,14 +75,14 @@ export default function InvitePanel({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-[#11141b] border border-white/10 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
           <h2 className="text-lg font-semibold">Invite</h2>
           <button
             onClick={onClose}
-            className="text-white/60 hover:text-white text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
             aria-label="Close"
           >
             ×
@@ -107,11 +107,11 @@ export default function InvitePanel({
             <input
               readOnly
               value={inviteUrl}
-              className="flex-1 rounded-md bg-[#0b0d12] border border-white/10 px-3 py-2 text-sm text-white/80 outline-none"
+              className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm text-[var(--text)] outline-none"
             />
             <button
               onClick={copyLink}
-              className="rounded-md border border-white/10 px-3 py-2 text-sm hover:bg-white/5"
+              className="rounded-md border border-[color:var(--border)] px-3 py-2 text-sm hover:bg-[var(--hover)]"
             >
               Copy
             </button>
@@ -126,7 +126,7 @@ export default function InvitePanel({
             </button>
           )}
 
-          <p className="text-xs text-white/40 text-center">
+          <p className="text-xs text-[var(--text-dim)] text-center">
             Anyone with this link can request to join. You'll admit them
             individually.
           </p>

@@ -365,7 +365,7 @@ function UploadButton({
   return (
     <>
       <label
-        className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-500 text-white shadow-lg ${
+        className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-500 text-[var(--text)] shadow-lg ${
           busy ? "opacity-60 pointer-events-none" : ""
         }`}
       >
@@ -391,7 +391,7 @@ function UploadButton({
         />
       </label>
       {error && (
-        <div className="rounded-md bg-red-600/90 text-white text-xs px-2 py-1 max-w-xs">
+        <div className="rounded-md bg-red-600/90 text-[var(--text)] text-xs px-2 py-1 max-w-xs">
           {error}
         </div>
       )}
@@ -403,16 +403,16 @@ function ProgressBar({ progress }: { progress: Progress }) {
   if (!progress) return null;
   return (
     <div
-      className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[min(420px,90vw)] rounded-lg bg-[#11141b] border border-white/10 shadow-2xl p-3"
+      className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[min(420px,90vw)] rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-3"
       style={{ zIndex: 9999 }}
     >
       <div className="flex items-center justify-between text-xs mb-1.5">
-        <span className="truncate text-white/80">{progress.label}</span>
-        <span className="text-white/60 tabular-nums shrink-0 ml-2">
+        <span className="truncate text-[var(--text)]">{progress.label}</span>
+        <span className="text-[var(--text-muted)] tabular-nums shrink-0 ml-2">
           {progress.percent}%
         </span>
       </div>
-      <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+      <div className="w-full h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
         <div
           className="h-full bg-brand-500 transition-all duration-200 ease-out"
           style={{ width: `${progress.percent}%` }}

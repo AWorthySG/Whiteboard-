@@ -68,7 +68,7 @@ export default function VideoPanelResizer({ width, setWidth, min, max }: Props) 
     >
       <div
         className={`h-10 w-1 rounded-full transition ${
-          dragging ? "bg-brand-500" : "bg-white/15 group-hover:bg-brand-500"
+          dragging ? "bg-brand-500" : "bg-[var(--border)] group-hover:bg-brand-500"
         }`}
       />
     </div>

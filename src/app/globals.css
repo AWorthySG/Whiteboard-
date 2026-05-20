@@ -8,7 +8,9 @@
   --bg-elev-2: #0e1118;
   --text: #e6e8ee;
   --text-muted: rgba(230, 232, 238, 0.7);
+  --text-dim: rgba(230, 232, 238, 0.4);
   --border: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.05);
   --hover: rgba(255, 255, 255, 0.05);
 }
 
@@ -18,7 +20,9 @@ html.theme-light {
   --bg-elev-2: #f0f2f6;
   --text: #1a1d24;
   --text-muted: rgba(26, 29, 36, 0.65);
+  --text-dim: rgba(26, 29, 36, 0.4);
   --border: rgba(0, 0, 0, 0.12);
+  --border-subtle: rgba(0, 0, 0, 0.06);
   --hover: rgba(0, 0, 0, 0.05);
 }
 

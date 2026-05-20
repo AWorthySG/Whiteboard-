@@ -41,9 +41,9 @@ function Inner() {
   if (error) {
     return (
       <main className="min-h-[100dvh] flex items-center justify-center px-4">
-        <div className="rounded-lg bg-[var(--bg-elev)] border border-white/10 p-6 text-center">
+        <div className="rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] p-6 text-center">
           <p className="text-red-300 font-medium">Sign-in failed</p>
-          <p className="text-xs text-white/60 mt-1">{error}</p>
+          <p className="text-xs text-[var(--text-muted)] mt-1">{error}</p>
         </div>
       </main>
     );
@@ -54,9 +54,9 @@ function Inner() {
 function Pending() {
   return (
     <main className="min-h-[100dvh] flex items-center justify-center px-4">
-      <div className="rounded-lg bg-[var(--bg-elev)] border border-white/10 p-6 text-center">
-        <div className="inline-block w-6 h-6 border-2 border-white/20 border-t-brand-500 rounded-full animate-spin" />
-        <p className="text-sm text-white/70 mt-3">Signing you in…</p>
+      <div className="rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] p-6 text-center">
+        <div className="inline-block w-6 h-6 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
+        <p className="text-sm text-[var(--text-muted)] mt-3">Signing you in…</p>
       </div>
     </main>
   );

@@ -83,14 +83,14 @@ export default function RecordingsDrawer({
         onClick={onClose}
       >
         <div
-          className="w-full max-w-md h-full bg-[var(--bg-elev)] border-l border-white/10 shadow-2xl flex flex-col"
+          className="w-full max-w-md h-full bg-[var(--bg-elev)] border-l border-[color:var(--border)] shadow-2xl flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          <header className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+          <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
             <h2 className="text-lg font-semibold">Recordings</h2>
             <button
               onClick={onClose}
-              className="text-white/60 hover:text-white text-2xl leading-none"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
               aria-label="Close"
             >
               ×
@@ -102,14 +102,14 @@ export default function RecordingsDrawer({
               <div className="p-8 text-center">
                 <div className="text-4xl mb-2">🎬</div>
                 <p className="text-sm font-medium">No recordings yet</p>
-                <p className="text-xs text-white/40 mt-1">
+                <p className="text-xs text-[var(--text-dim)] mt-1">
                   {isHost
                     ? "Click Record in the header to capture this lesson. It will appear here once the upload finishes."
                     : "The teacher hasn't recorded this lesson yet."}
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-white/5">
+              <ul className="divide-y divide-[color:var(--border-subtle)]">
                 {items.map((r) => (
                   <li key={r.id} className="px-4 py-3">
                     <div className="flex items-start gap-3">
@@ -124,11 +124,11 @@ export default function RecordingsDrawer({
                         <div className="text-sm font-medium truncate" title={r.title ?? ""}>
                           {r.title ?? "Recording"}
                         </div>
-                        <div className="text-xs text-white/40 mt-0.5">
+                        <div className="text-xs text-[var(--text-dim)] mt-0.5">
                           {r.host_name ? `${r.host_name} · ` : ""}
                           {new Date(r.recorded_at).toLocaleString()}
                         </div>
-                        <div className="text-xs text-white/40 mt-0.5 flex gap-3">
+                        <div className="text-xs text-[var(--text-dim)] mt-0.5 flex gap-3">
                           {r.duration_sec !== null && <span>{formatDuration(r.duration_sec)}</span>}
                           {r.size_bytes !== null && <span>{formatBytes(r.size_bytes)}</span>}
                         </div>
@@ -137,7 +137,7 @@ export default function RecordingsDrawer({
                         <a
                           href={r.file_url}
                           download
-                          className="text-xs text-white/60 hover:text-white"
+                          className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                           title="Download"
                         >
                           Download
@@ -145,7 +145,7 @@ export default function RecordingsDrawer({
                         {isHost && (
                           <button
                             onClick={() => remove(r)}
-                            className="text-xs text-white/40 hover:text-red-400"
+                            className="text-xs text-[var(--text-dim)] hover:text-red-400"
                             title="Delete recording"
                           >
                             Delete
@@ -190,14 +190,14 @@ function PlayerModal({
         className="w-full max-w-3xl bg-black rounded-2xl overflow-hidden shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elev)] text-white">
+        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elev)] text-[var(--text)]">
           <div className="text-sm font-medium truncate">
             {recording.title ?? "Recording"}
           </div>
           <button
             onClick={onClose}
             aria-label="Close player"
-            className="text-white/70 hover:text-white text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
           >
             ×
           </button>

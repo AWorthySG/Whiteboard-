@@ -83,13 +83,13 @@ export default function AdmissionPanel({
   if (pending.length === 0) return null;
 
   return (
-    <div className="absolute top-16 right-4 z-[100] w-80 rounded-lg bg-[#11141b] border border-brand-500/40 shadow-2xl overflow-hidden">
-      <header className="px-3 py-2 border-b border-white/5 bg-brand-600/10">
+    <div className="absolute top-16 right-4 z-[100] w-80 rounded-lg bg-[var(--bg-elev)] border border-brand-500/40 shadow-2xl overflow-hidden">
+      <header className="px-3 py-2 border-b border-[color:var(--border-subtle)] bg-brand-600/10">
         <h3 className="text-sm font-semibold">
           {pending.length} waiting to join
         </h3>
       </header>
-      <ul className="divide-y divide-white/5 max-h-80 overflow-y-auto">
+      <ul className="divide-y divide-[color:var(--border-subtle)] max-h-80 overflow-y-auto">
         {pending.map((req) => (
           <li
             key={req.id}
@@ -97,13 +97,13 @@ export default function AdmissionPanel({
           >
             <div className="flex-1 min-w-0">
               <div className="text-sm truncate">{req.user_name || "Guest"}</div>
-              <div className="text-xs text-white/40">
+              <div className="text-xs text-[var(--text-dim)]">
                 {new Date(req.requested_at).toLocaleTimeString()}
               </div>
             </div>
             <button
               onClick={() => decide(req, "denied")}
-              className="text-xs px-2 py-1 rounded border border-white/10 text-white/60 hover:bg-white/5"
+              className="text-xs px-2 py-1 rounded border border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
             >
               Deny
             </button>

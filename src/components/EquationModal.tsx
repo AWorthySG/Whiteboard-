@@ -108,14 +108,14 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--bg-elev)] border border-white/10 shadow-2xl"
+        className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
           <h2 className="text-lg font-semibold">Insert equation</h2>
           <button
             onClick={onClose}
-            className="text-white/60 hover:text-white text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
             aria-label="Close"
           >
             ×
@@ -124,13 +124,13 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="text-xs text-white/60">LaTeX</label>
+            <label className="text-xs text-[var(--text-muted)]">LaTeX</label>
             <textarea
               value={latex}
               onChange={(e) => setLatex(e.target.value)}
               rows={3}
               spellCheck={false}
-              className="mt-1 w-full rounded-md bg-[var(--bg)] border border-white/10 px-3 py-2 text-sm font-mono outline-none focus:border-brand-500 resize-none"
+              className="mt-1 w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm font-mono outline-none focus:border-brand-500 resize-none"
             />
           </div>
 
@@ -144,8 +144,8 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
           </label>
 
           <div>
-            <label className="text-xs text-white/60">Preview</label>
-            <div className="mt-1 rounded-md bg-white border border-white/10 p-4 min-h-[80px] flex items-center justify-center">
+            <label className="text-xs text-[var(--text-muted)]">Preview</label>
+            <div className="mt-1 rounded-md bg-white border border-[color:var(--border)] p-4 min-h-[80px] flex items-center justify-center">
               {previewErr ? (
                 <span className="text-red-500 text-sm">{previewErr}</span>
               ) : previewSvg ? (
@@ -161,13 +161,13 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
           </div>
 
           <div>
-            <label className="text-xs text-white/60">Quick samples</label>
+            <label className="text-xs text-[var(--text-muted)]">Quick samples</label>
             <div className="flex flex-wrap gap-1.5 mt-1">
               {SAMPLES.map((s) => (
                 <button
                   key={s.label}
                   onClick={() => setLatex(s.latex)}
-                  className="text-xs rounded-md border border-white/10 hover:bg-white/5 px-2 py-1"
+                  className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2 py-1"
                   title={s.latex}
                 >
                   {s.label}
@@ -179,7 +179,7 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={onClose}
-              className="text-sm rounded-md border border-white/10 hover:bg-white/5 px-3 py-1.5"
+              className="text-sm rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-3 py-1.5"
             >
               Cancel
             </button>

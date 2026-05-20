@@ -88,22 +88,22 @@ export default function KnockGate({
 
   return (
     <div className="h-full w-full flex items-center justify-center p-6">
-      <div className="max-w-md w-full rounded-2xl bg-[#11141b] border border-white/10 p-8 text-center">
+      <div className="max-w-md w-full rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] p-8 text-center">
         {status === "checking" && (
           <>
             <Spinner />
-            <p className="mt-4 text-white/70">Connecting…</p>
+            <p className="mt-4 text-[var(--text-muted)]">Connecting…</p>
           </>
         )}
         {status === "pending" && (
           <>
             <Spinner />
             <h2 className="mt-4 text-lg font-semibold">Waiting to be let in</h2>
-            <p className="mt-2 text-sm text-white/60">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               The host has been notified you're here. They'll admit you shortly.
             </p>
-            <p className="mt-4 text-xs text-white/40">
-              Joining as <span className="text-white/70">{userName}</span>
+            <p className="mt-4 text-xs text-[var(--text-dim)]">
+              Joining as <span className="text-[var(--text-muted)]">{userName}</span>
             </p>
           </>
         )}
@@ -111,7 +111,7 @@ export default function KnockGate({
           <>
             <div className="text-3xl">🚫</div>
             <h2 className="mt-4 text-lg font-semibold">Not admitted</h2>
-            <p className="mt-2 text-sm text-white/60">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               The host declined your request. Refresh to try again or contact them.
             </p>
           </>
@@ -121,7 +121,7 @@ export default function KnockGate({
             <h2 className="text-lg font-semibold text-red-300">
               Couldn't request to join
             </h2>
-            <p className="mt-2 text-sm text-white/60">{error}</p>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">{error}</p>
           </>
         )}
       </div>
@@ -131,6 +131,6 @@ export default function KnockGate({
 
 function Spinner() {
   return (
-    <div className="inline-block w-8 h-8 border-2 border-white/20 border-t-brand-500 rounded-full animate-spin" />
+    <div className="inline-block w-8 h-8 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
   );
 }

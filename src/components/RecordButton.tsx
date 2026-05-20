@@ -217,7 +217,7 @@ export default function RecordButton({
     return (
       <button
         onClick={stop}
-        className="touch-target text-sm rounded-md bg-red-600 hover:bg-red-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+        className="touch-target text-sm rounded-md bg-red-600 hover:bg-red-500 text-[var(--text)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
         title="Stop and upload"
       >
         <span className="w-2 h-2 rounded-sm bg-white animate-pulse" />
@@ -231,10 +231,10 @@ export default function RecordButton({
   return (
     <button
       disabled
-      className="touch-target text-sm rounded-md border border-white/10 px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-90"
+      className="touch-target text-sm rounded-md border border-[color:var(--border)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-90"
       title="Uploading recording to cloud"
     >
-      <span className="inline-block w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+      <span className="inline-block w-3 h-3 rounded-full border-2 border-[color:var(--border)] border-t-[var(--text)] animate-spin" />
       <span>{uploadPct > 0 ? `${uploadPct}%` : "Saving…"}</span>
     </button>
   );

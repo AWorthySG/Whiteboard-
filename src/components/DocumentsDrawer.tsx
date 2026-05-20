@@ -75,14 +75,14 @@ export default function DocumentsDrawer({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md h-full bg-[#11141b] border-l border-white/10 shadow-2xl flex flex-col"
+        className="w-full max-w-md h-full bg-[var(--bg-elev)] border-l border-[color:var(--border)] shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
           <h2 className="text-lg font-semibold">Documents</h2>
           <button
             onClick={onClose}
-            className="text-white/60 hover:text-white text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
             aria-label="Close"
           >
             ×
@@ -94,14 +94,14 @@ export default function DocumentsDrawer({
             <div className="p-8 text-center">
               <div className="text-4xl mb-2">📄</div>
               <p className="text-sm font-medium">No documents yet</p>
-              <p className="text-xs text-white/40 mt-1">
+              <p className="text-xs text-[var(--text-dim)] mt-1">
                 Drag a PDF or image onto the canvas, or use the
                 <span className="text-brand-500"> Upload document</span> button.
                 Files appear here for everyone in the room.
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-white/5">
+            <ul className="divide-y divide-[color:var(--border-subtle)]">
               {docs.map((d) => (
                 <li key={d.id} className="px-4 py-3 flex items-center gap-3">
                   <div className="text-2xl">
@@ -117,7 +117,7 @@ export default function DocumentsDrawer({
                     >
                       {d.name}
                     </a>
-                    <div className="text-xs text-white/40">
+                    <div className="text-xs text-[var(--text-dim)]">
                       {d.uploaded_by_name || "Someone"} ·{" "}
                       {new Date(d.uploaded_at).toLocaleString()}
                     </div>
@@ -125,7 +125,7 @@ export default function DocumentsDrawer({
                   {isHost && (
                     <button
                       onClick={() => remove(d.id)}
-                      className="text-xs text-white/40 hover:text-red-400"
+                      className="text-xs text-[var(--text-dim)] hover:text-red-400"
                       title="Remove from list (file stays in storage)"
                     >
                       Remove
