@@ -245,6 +245,7 @@ export default function WhiteboardCanvas({
       <Tldraw
         store={store}
         overrides={overrides}
+        licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
         components={{
           // Hide the whole top-left stack (main menu, page selector,
           // undo/redo toolbar, kebab actions menu). Keyboard shortcuts
