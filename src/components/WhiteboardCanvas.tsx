@@ -168,6 +168,8 @@ export default function WhiteboardCanvas({
   onToggleLeader,
   exportRef,
   addPageRef,
+  onPagesChange,
+  switchPageRef,
 }: {
   roomId: string;
   userId: string;
@@ -178,6 +180,11 @@ export default function WhiteboardCanvas({
   onToggleLeader: () => void | Promise<void>;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
   addPageRef?: MutableRefObject<(() => void) | null>;
+  onPagesChange?: (state: {
+    pages: { id: string; name: string }[];
+    currentId: string;
+  }) => void;
+  switchPageRef?: MutableRefObject<((pageId: string) => void) | null>;
 }) {
   const [appSettings] = useSettings();
   const toast = useToast();
@@ -352,6 +359,45 @@ export default function WhiteboardCanvas({
       if (addPageRef.current) addPageRef.current = null;
     };
   }, [addPageRef]);
+
+  // Mirror tldraw's page list up to the room header so the header can
+  // render a Pages dropdown. Use a store listener so renames + remote
+  // page edits flow through immediately.
+  useEffect(() => {
+    if (!onPagesChange && !switchPageRef) return;
+    if (switchPageRef) {
+      switchPageRef.current = (pageId: string) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.setCurrentPage(pageId as never);
+      };
+    }
+    let cancelled = false;
+    let unsub: (() => void) | null = null;
+    const publish = () => {
+      const editor = editorRef.current;
+      if (!editor || cancelled) return;
+      onPagesChange?.({
+        pages: editor.getPages().map((p) => ({ id: p.id, name: p.name })),
+        currentId: editor.getCurrentPageId(),
+      });
+    };
+    // editorRef is set inside onMount; poll briefly until it's ready,
+    // then attach the store listener.
+    const waitForEditor = setInterval(() => {
+      const editor = editorRef.current;
+      if (!editor || cancelled) return;
+      clearInterval(waitForEditor);
+      publish();
+      unsub = editor.store.listen(publish, { scope: "all" });
+    }, 50);
+    return () => {
+      cancelled = true;
+      clearInterval(waitForEditor);
+      unsub?.();
+      if (switchPageRef?.current) switchPageRef.current = null;
+    };
+  }, [onPagesChange, switchPageRef]);
 
   // Capture-phase drop handler so PDF drops are intercepted before tldraw
   // rejects them.

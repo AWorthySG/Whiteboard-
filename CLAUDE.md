@@ -110,7 +110,12 @@ promotes a legacy localStorage room into a proper `rooms` row.
 RoomShell.tsx          Top-level room layout — header, canvas wrapper, side video panel (or
                        mobile bottom sheet), drawers, modals, chat bubble.
                        The room header has a host-only "+ New page" pill in the top-left
-                       (calls into WhiteboardCanvas via addPageRef, mirroring exportRef).
+                       plus a "Pages (n) ▾" dropdown that lists every page in the room
+                       (click to switch). Both call into WhiteboardCanvas via
+                       addPageRef / switchPageRef, mirroring the exportRef pattern.
+                       The page list itself is mirrored up via the onPagesChange callback
+                       (subscribed to editor.store) so the dropdown stays live across
+                       renames + remote edits.
 
 WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Uploads go BROWSER → SUPABASE STORAGE
                        directly (uploadAsset() POSTs to /storage/v1/object/whiteboard-assets/

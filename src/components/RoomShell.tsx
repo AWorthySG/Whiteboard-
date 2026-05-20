@@ -93,6 +93,25 @@ export default function RoomShell({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
   const canvasAddPageRef = useRef<(() => void) | null>(null);
+  const canvasSwitchPageRef = useRef<((pageId: string) => void) | null>(null);
+  const [pagesState, setPagesState] = useState<{
+    pages: { id: string; name: string }[];
+    currentId: string;
+  } | null>(null);
+  const [pagesMenuOpen, setPagesMenuOpen] = useState(false);
+  const pagesMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close the Pages dropdown on outside click.
+  useEffect(() => {
+    if (!pagesMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!pagesMenuRef.current?.contains(e.target as Node)) {
+        setPagesMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, [pagesMenuOpen]);
 
   const userId = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -193,6 +212,62 @@ export default function RoomShell({
             <span className="text-base leading-none">+</span>
             <span className="hidden sm:inline">New page</span>
           </button>
+        )}
+
+        {/* Pages dropdown — shows every page in this room with the
+            current one highlighted, click any to switch. Same source
+            of truth as the bottom pages pill (the tldraw editor). */}
+        {pagesState && pagesState.pages.length > 0 && (
+          <div ref={pagesMenuRef} className="relative shrink-0">
+            <button
+              onClick={() => setPagesMenuOpen((o) => !o)}
+              className="touch-target text-sm rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+              title="Switch pages"
+              aria-haspopup="listbox"
+              aria-expanded={pagesMenuOpen}
+            >
+              <span className="hidden sm:inline">
+                {pagesState.pages.find((p) => p.id === pagesState.currentId)
+                  ?.name ?? "Pages"}
+              </span>
+              <span className="sm:hidden">Pages</span>
+              <span className="text-xs text-[var(--text-dim)]">
+                ({pagesState.pages.length})
+              </span>
+              <span className="text-xs">▾</span>
+            </button>
+            {pagesMenuOpen && (
+              <div
+                role="listbox"
+                className="absolute top-full left-0 mt-1 min-w-[14rem] max-h-72 overflow-y-auto rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1 z-50"
+              >
+                {pagesState.pages.map((p, i) => {
+                  const active = p.id === pagesState.currentId;
+                  return (
+                    <button
+                      key={p.id}
+                      role="option"
+                      aria-selected={active}
+                      onClick={() => {
+                        canvasSwitchPageRef.current?.(p.id);
+                        setPagesMenuOpen(false);
+                      }}
+                      className={`w-full text-left text-sm rounded-md px-2.5 py-1.5 flex items-center gap-2 ${
+                        active
+                          ? "bg-brand-100 text-brand-800 font-medium"
+                          : "hover:bg-[var(--hover)] text-[var(--text)]"
+                      }`}
+                    >
+                      <span className="text-xs text-[var(--text-dim)] w-5 shrink-0">
+                        {i + 1}.
+                      </span>
+                      <span className="truncate">{p.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         <span className="text-[var(--text-dim)] hidden sm:inline">/</span>
@@ -371,6 +446,8 @@ export default function RoomShell({
             }}
             exportRef={canvasExportRef}
             addPageRef={canvasAddPageRef}
+            switchPageRef={canvasSwitchPageRef}
+            onPagesChange={setPagesState}
           />
         </div>
 
