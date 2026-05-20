@@ -1,7 +1,16 @@
 "use client";
 
 import { useSync } from "@tldraw/sync";
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 import {
   AssetRecordType,
   DefaultToolbar,
@@ -165,6 +174,28 @@ export default function WhiteboardCanvas({
         };
         return actions;
       },
+      // Replace the built-in 'asset' (image upload) tool with our own
+      // file picker so PDFs go through the PDF-to-images pipeline. The
+      // tool keeps its native icon + position in the toolbar.
+      tools(_editor, tools) {
+        if (tools.asset) {
+          tools.asset = {
+            ...tools.asset,
+            label: "Upload document",
+            onSelect: () => {
+              openFilePicker((file) =>
+                insertFileOntoCanvas(
+                  editorRef.current,
+                  file,
+                  uploadMeta,
+                  reportProgress,
+                ),
+              );
+            },
+          };
+        }
+        return tools;
+      },
     }),
     [uploadMeta, reportProgress],
   );
@@ -268,58 +299,57 @@ export default function WhiteboardCanvas({
     };
   }, [uploadMeta, reportProgress, toast]);
 
+  const canvasActions = useMemo<CanvasActionsCtx>(
+    () => ({
+      onEquation: () => setEquationOpen(true),
+      onToggleLeader,
+      isHost,
+      leaderMode,
+    }),
+    [onToggleLeader, isHost, leaderMode],
+  );
+
   return (
     <div ref={wrapperRef} className="tldraw-shell">
-      <Tldraw
-        store={store}
-        overrides={overrides}
-        licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
-        components={{
-          // Hide the whole top-left stack (main menu, page selector,
-          // undo/redo toolbar, kebab actions menu). Keyboard shortcuts
-          // for undo (Cmd+Z), redo (Cmd+Shift+Z), delete and duplicate
-          // still work; page navigation lives in our own PagesTabBar
-          // at the bottom of the canvas.
-          MenuPanel: null,
-          // Hide tldraw's full style panel (color + opacity + fill +
-          // dash + size). The color picker lives in our own toolbar.
-          StylePanel: null,
-          // Replace the bottom toolbar with a minimal set: select,
-          // pen, highlighter, eraser, post-it, image upload. All the
-          // geometric shape tools, arrow tool, text tool, line, frame,
-          // and laser are hidden (palette + keyboard shortcuts still
-          // work for power users).
-          Toolbar: SlimToolbar,
-          // Faded A Worthy logo as a fixed canvas background watermark.
-          Background: CanvasWatermark,
-        }}
-        inferDarkMode={false}
-        onMount={(editor) => {
-          editorRef.current = editor;
-          editor.user.updateUserPreferences({
-            colorScheme: appSettings.theme,
-          });
-          if (appSettings.penOnly) {
-            editor.updateInstanceState({ isPenMode: true });
-          }
-        }}
-      />
-      <CanvasTopRightActions
+      <CanvasActionsContext.Provider value={canvasActions}>
+        <Tldraw
+          store={store}
+          overrides={overrides}
+          licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
+          components={{
+            // Hide the whole top-left stack (main menu, page selector,
+            // undo/redo toolbar, kebab actions menu). Keyboard shortcuts
+            // for undo (Cmd+Z), redo (Cmd+Shift+Z), delete and duplicate
+            // still work; page navigation lives in our own PagesTabBar
+            // at the bottom of the canvas.
+            MenuPanel: null,
+            // Hide tldraw's full style panel (color + opacity + fill +
+            // dash + size). The color picker lives in our own toolbar.
+            StylePanel: null,
+            // Slimmed toolbar: select / hand (scroll) / draw / highlight
+            // / laser (pointer) / eraser / note / asset (upload, our PDF
+            // pipeline) plus custom Equation and Lead-view buttons.
+            Toolbar: SlimToolbar,
+            // Faded A Worthy logo as a fixed canvas background watermark.
+            Background: CanvasWatermark,
+          }}
+          inferDarkMode={false}
+          onMount={(editor) => {
+            editorRef.current = editor;
+            editor.user.updateUserPreferences({
+              colorScheme: appSettings.theme,
+            });
+            if (appSettings.penOnly) {
+              editor.updateInstanceState({ isPenMode: true });
+            }
+          }}
+        />
+      </CanvasActionsContext.Provider>
+      <CanvasFloatingPanel
         editor={editorRef.current}
-        onUpload={(f) =>
-          insertFileOntoCanvas(editorRef.current, f, uploadMeta, reportProgress)
-        }
-        onPointer={() => {
-          const editor = editorRef.current;
-          if (!editor) return;
-          editor.setCurrentTool("laser");
-        }}
-        onEquation={() => setEquationOpen(true)}
-        isHost={isHost}
         leaderMode={leaderMode}
         leaderUserId={leaderUserId}
         userId={userId}
-        onToggleLeader={onToggleLeader}
       />
       <EquationModal
         open={equationOpen}
@@ -342,69 +372,28 @@ export default function WhiteboardCanvas({
   );
 }
 
-function CanvasTopRightActions({
+// Slim floating panel: the color picker (which belongs near where you
+// draw, not buried in the toolbar) plus the 'Following host' indicator
+// when this client is being led by the host's camera. Upload, Pointer,
+// Equation and Lead-view now live in the bottom toolbar — see
+// SlimToolbar.
+function CanvasFloatingPanel({
   editor,
-  onUpload,
-  onPointer,
-  onEquation,
-  isHost,
   leaderMode,
   leaderUserId,
   userId,
-  onToggleLeader,
 }: {
   editor: Editor | null;
-  onUpload: (file: File) => Promise<void> | void;
-  onPointer: () => void;
-  onEquation: () => void;
-  isHost: boolean;
   leaderMode: boolean;
   leaderUserId: string | null;
   userId: string;
-  onToggleLeader: () => void | Promise<void>;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
-
   return (
     <div
       className="absolute top-3 right-3 flex flex-col items-end gap-2"
       style={{ zIndex: 9999 }}
     >
-      <UploadButton onPick={onUpload} />
-      <button
-        onClick={onPointer}
-        className="rounded-md px-3 py-1.5 text-xs font-medium shadow-lg flex items-center gap-1.5 border bg-[var(--bg-elev)] text-[var(--text)] border-[color:var(--border)] hover:bg-[var(--hover)]"
-        title="Switch to laser pointer (K)"
-      >
-        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-        Pointer
-      </button>
-      <button
-        onClick={onEquation}
-        className="rounded-md px-3 py-1.5 text-xs font-medium shadow-lg flex items-center gap-1.5 border bg-[var(--bg-elev)] text-[var(--text)] border-[color:var(--border)] hover:bg-[var(--hover)]"
-        title="Insert math equation (LaTeX)"
-      >
-        <span className="font-serif italic">fx</span>
-        Equation
-      </button>
-      {isHost && (
-        <button
-          onClick={() => void onToggleLeader()}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium shadow-lg flex items-center gap-1.5 border ${
-            leaderMode
-              ? "bg-amber-500 text-black border-amber-400 hover:bg-amber-400"
-              : "bg-[var(--bg-elev)] text-[var(--text)] border-[color:var(--border)] hover:bg-[var(--hover)]"
-          }`}
-          title={
-            leaderMode
-              ? "Stop leading — students can pan/zoom freely"
-              : "Lock everyone's view to match yours"
-          }
-        >
-          <EyeSvg />
-          {leaderMode ? "Stop leading" : "Lead view"}
-        </button>
-      )}
       {beingFollowed && (
         <div
           className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-amber-500/15 text-amber-300 border-amber-400/40 shadow-lg flex items-center gap-1.5"
@@ -419,15 +408,6 @@ function CanvasTopRightActions({
   );
 }
 
-function EyeSvg() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
 function openFilePicker(onPick: (file: File) => void) {
   const input = document.createElement("input");
   input.type = "file";
@@ -437,50 +417,6 @@ function openFilePicker(onPick: (file: File) => void) {
     if (file) onPick(file);
   };
   input.click();
-}
-
-function UploadButton({
-  onPick,
-}: {
-  onPick: (file: File) => Promise<void> | void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  return (
-    <>
-      <label
-        className={`cursor-pointer rounded-md px-3 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-500 text-[var(--text)] shadow-lg ${
-          busy ? "opacity-60 pointer-events-none" : ""
-        }`}
-      >
-        {busy ? "Uploading…" : "Upload document"}
-        <input
-          type="file"
-          accept="application/pdf,image/*"
-          className="hidden"
-          onChange={async (e) => {
-            const f = e.target.files?.[0];
-            if (!f) return;
-            setBusy(true);
-            setError(null);
-            try {
-              await onPick(f);
-            } catch (err) {
-              setError((err as Error).message);
-            } finally {
-              setBusy(false);
-              e.currentTarget.value = "";
-            }
-          }}
-        />
-      </label>
-      {error && (
-        <div className="rounded-md bg-red-600/90 text-[var(--text)] text-xs px-2 py-1 max-w-xs">
-          {error}
-        </div>
-      )}
-    </>
-  );
 }
 
 function ProgressBar({ progress }: { progress: Progress }) {
@@ -701,17 +637,77 @@ async function insertBrandLogo(editor: Editor | null) {
   });
 }
 
+// Context lets SlimToolbar reach back into WhiteboardCanvas's state
+// (equation modal, leader toggle) — tldraw mounts the toolbar inside its
+// own tree so we can't close over WhiteboardCanvas locals directly.
+type CanvasActionsCtx = {
+  onEquation: () => void;
+  onToggleLeader: () => void | Promise<void>;
+  isHost: boolean;
+  leaderMode: boolean;
+};
+
+const CanvasActionsContext = createContext<CanvasActionsCtx | null>(null);
+
 function SlimToolbar() {
   const tools = useTools();
+  const actions = useContext(CanvasActionsContext);
   return (
     <DefaultToolbar>
       <TldrawUiMenuItem {...tools["select"]} />
+      <TldrawUiMenuItem {...tools["hand"]} />
       <TldrawUiMenuItem {...tools["draw"]} />
       <TldrawUiMenuItem {...tools["highlight"]} />
+      <TldrawUiMenuItem {...tools["laser"]} />
       <TldrawUiMenuItem {...tools["eraser"]} />
       <TldrawUiMenuItem {...tools["note"]} />
       <TldrawUiMenuItem {...tools["asset"]} />
+      {actions && <CustomToolbarButtons actions={actions} />}
     </DefaultToolbar>
+  );
+}
+
+function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
+  // Use tldraw's own button classes so the size + hit area match the
+  // surrounding tool icons across themes.
+  return (
+    <>
+      <button
+        type="button"
+        className="tlui-button tlui-button__icon"
+        onClick={actions.onEquation}
+        title="Insert equation"
+        aria-label="Insert equation"
+      >
+        <span className="font-serif italic text-base leading-none">fx</span>
+      </button>
+      {actions.isHost && (
+        <button
+          type="button"
+          className={`tlui-button tlui-button__icon ${
+            actions.leaderMode ? "text-amber-500" : ""
+          }`}
+          onClick={() => void actions.onToggleLeader()}
+          title={
+            actions.leaderMode
+              ? "Stop leading the view"
+              : "Lock everyone's view to yours"
+          }
+          aria-label={actions.leaderMode ? "Stop leading view" : "Lead view"}
+        >
+          <ToolbarEyeSvg />
+        </button>
+      )}
+    </>
+  );
+}
+
+function ToolbarEyeSvg() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   );
 }
 
