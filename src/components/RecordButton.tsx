@@ -6,6 +6,17 @@ import { getSupabase } from "@/lib/supabase";
 
 type State = "idle" | "recording" | "saving";
 
+// Browsers without screen capture support: iPhone Safari (no
+// getDisplayMedia at all), some embedded WebViews, and pre-2020
+// browsers. We render a clear 'unsupported' button rather than a
+// dead one that silently does nothing.
+function recordingSupported(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!("MediaRecorder" in window)) return false;
+  const md = navigator?.mediaDevices as MediaDevices | undefined;
+  return !!(md && typeof md.getDisplayMedia === "function");
+}
+
 export default function RecordButton({
   roomId,
   hostUserId,
@@ -97,17 +108,25 @@ export default function RecordButton({
           (roomTitle?.trim() || roomId) +
           " · " +
           date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-        await supabase.from("room_recordings").insert({
-          room_id: roomId,
-          title,
-          file_url: publicUrl,
-          file_path: path,
-          mime_type: mimeType,
-          size_bytes: blob.size,
-          duration_sec: durationSec,
-          host_user_id: hostUserId,
-          host_name: hostName,
-        });
+        const { error: dbErr } = await supabase
+          .from("room_recordings")
+          .insert({
+            room_id: roomId,
+            title,
+            file_url: publicUrl,
+            file_path: path,
+            mime_type: mimeType,
+            size_bytes: blob.size,
+            duration_sec: durationSec,
+            host_user_id: hostUserId,
+            host_name: hostName,
+          });
+        if (dbErr) {
+          console.error("[record] metadata insert failed", dbErr);
+          toast.error(
+            `Recording uploaded but couldn't save its listing: ${dbErr.message}`,
+          );
+        }
       }
 
       toast.success("Recording uploaded — open Recordings to view");
@@ -123,6 +142,12 @@ export default function RecordButton({
   };
 
   const start = async () => {
+    if (!recordingSupported()) {
+      toast.error(
+        "Screen recording isn't supported on this browser. Try Chrome, Edge, or Firefox on desktop.",
+      );
+      return;
+    }
     try {
       const display = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 30 },
@@ -186,10 +211,22 @@ export default function RecordButton({
       startedAtRef.current = Date.now();
       setState("recording");
     } catch (err) {
-      toast.error(
-        "Couldn't start recording: " +
-          (err instanceof Error ? err.message : String(err)),
-      );
+      console.error("[record] start failed", err);
+      const e = err as { name?: string; message?: string };
+      const name = e?.name ?? "";
+      const message = e?.message ?? String(err);
+      let hint = message;
+      if (name === "NotAllowedError") {
+        hint =
+          "Permission denied. Click 'Allow' in the browser prompt — and on macOS check System Settings → Privacy & Security → Screen Recording.";
+      } else if (name === "NotFoundError") {
+        hint = "No screen/window was selected to share.";
+      } else if (name === "NotSupportedError") {
+        hint = "This browser doesn't support screen recording.";
+      } else if (name === "AbortError") {
+        hint = "Recording was cancelled before it started.";
+      }
+      toast.error(`Couldn't start recording: ${hint}`);
     }
   };
 
@@ -201,13 +238,30 @@ export default function RecordButton({
   };
 
   if (state === "idle") {
+    const supported = recordingSupported();
+    if (!supported) {
+      return (
+        <button
+          onClick={() =>
+            toast.error(
+              "Screen recording isn't supported on this browser. Use Chrome, Edge, or Firefox on desktop.",
+            )
+          }
+          className="touch-target text-sm rounded-md border border-[color:var(--border)] text-[var(--text-muted)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-60"
+          title="Screen recording isn't supported on this browser/device"
+        >
+          <span className="w-2 h-2 rounded-full bg-[var(--text-muted)]" />
+          <span className="hidden lg:inline">Record (n/a)</span>
+        </button>
+      );
+    }
     return (
       <button
         onClick={start}
-        className="touch-target text-sm rounded-md border border-red-500/40 text-red-300 hover:bg-red-500/10 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+        className="touch-target text-sm rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
         title="Record this lesson — saves to cloud and downloads a backup MP4"
       >
-        <span className="w-2 h-2 rounded-full bg-red-500" />
+        <span className="w-2 h-2 rounded-full bg-red-600" />
         <span className="hidden lg:inline">Record</span>
       </button>
     );

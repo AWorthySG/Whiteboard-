@@ -23,7 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoJoinCall: true,
   defaultCamera: true,
   defaultMicrophone: true,
-  theme: "dark",
+  theme: "light",
   hasSeenOnboarding: false,
   penOnly: false,
 };

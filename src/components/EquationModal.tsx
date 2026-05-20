@@ -155,7 +155,7 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
                   className="max-h-32 max-w-full"
                 />
               ) : (
-                <span className="text-black/40 text-sm">Type LaTeX above…</span>
+                <span className="text-[var(--text-muted)] text-sm">Type LaTeX above…</span>
               )}
             </div>
           </div>
@@ -186,7 +186,7 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
             <button
               onClick={handleInsert}
               disabled={inserting || !latex.trim() || !!previewErr}
-              className="text-sm rounded-md bg-brand-600 hover:bg-brand-500 disabled:opacity-50 px-3 py-1.5 font-medium"
+              className="text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-3 py-1.5 font-medium"
             >
               {inserting ? "Inserting…" : "Insert"}
             </button>

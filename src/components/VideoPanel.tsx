@@ -65,11 +65,15 @@ export default function VideoPanel({
 
   if (error) {
     return (
-      <div className="p-4 text-sm text-red-300">
+      <div role="alert" className="p-4 text-sm text-red-700">
         Couldn't connect to video: {error}
         <p className="mt-2 text-[var(--text-dim)]">
-          Make sure <code>LIVEKIT_API_KEY</code>, <code>LIVEKIT_API_SECRET</code>,
-          and <code>NEXT_PUBLIC_LIVEKIT_URL</code> are set.
+          Make sure{" "}
+          <code className="bg-[var(--bg)] rounded px-1">LIVEKIT_API_KEY</code>,{" "}
+          <code className="bg-[var(--bg)] rounded px-1">LIVEKIT_API_SECRET</code>,
+          and{" "}
+          <code className="bg-[var(--bg)] rounded px-1">NEXT_PUBLIC_LIVEKIT_URL</code>{" "}
+          are set.
         </p>
       </div>
     );
@@ -87,7 +91,7 @@ export default function VideoPanel({
         </p>
         <button
           onClick={() => setInCall(true)}
-          className="rounded-md bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium"
+          className="rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
         >
           Rejoin call
         </button>

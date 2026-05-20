@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useSettings } from "@/hooks/useSettings";
-import { useAuth, signOut } from "@/hooks/useAuth";
+import { useAuth, signOut, displayUsername } from "@/hooks/useAuth";
 import { markAsHost } from "@/hooks/useHostStatus";
 import { useToast } from "./Toast";
 
@@ -93,12 +93,14 @@ export default function SettingsModal({
               {user ? (
                 <>
                   <Field label="Signed in as">
-                    <div className="text-sm text-[var(--text)] px-1">{user.email}</div>
+                    <div className="text-sm text-[var(--text)] px-1">
+                      {displayUsername(user)}
+                    </div>
                   </Field>
                   <button
                     onClick={claimRoom}
                     disabled={claiming}
-                    className="text-xs rounded-md border border-brand-500/40 text-brand-200 hover:bg-brand-500/10 px-2.5 py-1 disabled:opacity-50"
+                    className="text-xs rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2.5 py-1 disabled:opacity-50"
                     title="Make sure you're the registered host of this room on every device"
                   >
                     {claiming ? "Claiming…" : "Claim this room for my account"}
@@ -118,7 +120,7 @@ export default function SettingsModal({
                   </p>
                   <button
                     onClick={() => setSignInOpen(true)}
-                    className="text-sm rounded-md bg-brand-600 hover:bg-brand-500 px-3 py-1.5"
+                    className="text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5"
                   >
                     Sign in
                   </button>
@@ -126,22 +128,6 @@ export default function SettingsModal({
               )}
             </Section>
           )}
-
-          <Section title="Appearance">
-            <Field
-              label="Theme"
-              hint="Light is better when projecting onto a physical screen."
-            >
-              <Segmented
-                value={settings.theme}
-                onChange={(v) => setSettings({ theme: v })}
-                options={[
-                  { value: "dark", label: "Dark" },
-                  { value: "light", label: "Light" },
-                ]}
-              />
-            </Field>
-          </Section>
 
           <Section title="Whiteboard">
             <Toggle
@@ -233,7 +219,7 @@ export default function SettingsModal({
               onClick={() => {
                 window.location.href = "/";
               }}
-              className="w-full rounded-md border border-red-500/40 text-red-300 hover:bg-red-500/10 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-3 py-2 text-sm"
             >
               Leave room
             </button>

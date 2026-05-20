@@ -27,8 +27,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  // Disable page-level pinch-zoom so two-finger gestures reach tldraw's
+  // own pan/zoom handler instead of zooming the whole page.
   userScalable: false,
-  themeColor: "#0b0d12",
+  themeColor: "#f5f6f9",
 };
 
 // Compute https origins for preconnect from the env vars that point at

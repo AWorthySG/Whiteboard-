@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { markAsHost } from "@/hooks/useHostStatus";
-import { useAuth, signOut } from "@/hooks/useAuth";
+import { useAuth, signOut, displayUsername } from "@/hooks/useAuth";
 import {
   useRecentRooms,
   removeRoomFromRecents,
@@ -91,7 +91,7 @@ export default function Home() {
 
   const start = async (id: string, isNew: boolean) => {
     if (isNew) {
-      await markAsHost(id, user, name.trim() || user?.email);
+      await markAsHost(id, user, name.trim() || displayUsername(user) || undefined);
     }
     const params = new URLSearchParams();
     if (name.trim()) params.set("name", name.trim());
@@ -155,7 +155,7 @@ export default function Home() {
             />
             <button
               onClick={onCreateOrJoin}
-              className="rounded-lg bg-brand-600 hover:bg-brand-500 px-4 py-2.5 font-medium"
+              className="rounded-lg bg-brand-600 hover:bg-brand-500 text-white px-4 py-2.5 font-medium"
             >
               {room.trim() ? "Join" : "Create"}
             </button>
@@ -163,8 +163,8 @@ export default function Home() {
 
           <p className="text-xs text-[var(--text-dim)]">
             {user
-              ? "Signed in — any rooms you create are tied to your account and you can host them from any device."
-              : "Tip: sign in before creating a room to keep host access on every device you use."}
+              ? "Signed in — any rooms you create are tied to your account, so you stay the host on every device."
+              : "Tip: sign in with your host username and password before creating a room to keep host access on every device."}
           </p>
 
           {!user && !authLoading && (
@@ -198,7 +198,7 @@ export default function Home() {
                     <span
                       className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
                         r.role === "host"
-                          ? "bg-brand-600/30 text-brand-100"
+                          ? "bg-brand-100 text-brand-800"
                           : "bg-[var(--hover)] text-[var(--text-dim)]"
                       }`}
                     >
@@ -220,7 +220,7 @@ export default function Home() {
                   </span>
                   <button
                     onClick={() => removeRoomFromRecents(r.roomId)}
-                    className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-red-400 text-xs px-1"
+                    className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-red-600 text-xs px-1"
                     aria-label="Remove from recent rooms"
                     title="Remove from recent"
                   >
@@ -268,10 +268,11 @@ function AccountChip({
       </button>
     );
   }
+  const name = displayUsername(user);
   return (
     <div className="text-xs text-right shrink-0 max-w-[10rem]">
-      <div className="text-[var(--text-muted)] truncate" title={user.email ?? ""}>
-        {user.email}
+      <div className="text-[var(--text-muted)] truncate" title={name ?? ""}>
+        {name}
       </div>
       <button
         onClick={onSignOut}

@@ -129,7 +129,7 @@ export default function ChatBubble({
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? "Hide chat" : "Open chat"}
-        className="touch-target fixed bottom-4 right-4 z-[8000] rounded-full bg-brand-600 hover:bg-brand-500 text-[var(--text)] w-12 h-12 shadow-2xl flex items-center justify-center"
+        className="touch-target fixed bottom-4 right-4 z-[8000] rounded-full bg-brand-600 hover:bg-brand-500 text-white w-12 h-12 shadow-2xl flex items-center justify-center"
         title="Chat"
       >
         <ChatSvg />
@@ -204,7 +204,7 @@ export default function ChatBubble({
             <button
               type="submit"
               disabled={!draft.trim()}
-              className="rounded-md bg-brand-600 hover:bg-brand-500 disabled:opacity-50 px-3 text-sm font-medium"
+              className="rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-3 text-sm font-medium"
             >
               Send
             </button>

@@ -26,12 +26,16 @@ export default function AdmissionPanel({
     if (!supabase) return;
 
     const fetchPending = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("join_requests")
         .select("*")
         .eq("room_id", roomId)
         .eq("status", "pending")
         .order("requested_at", { ascending: true });
+      if (error) {
+        console.error("[admission] fetchPending failed", error);
+        return;
+      }
       setPending((data as JoinRequest[]) ?? []);
     };
 
@@ -55,16 +59,21 @@ export default function AdmissionPanel({
 
     // Make sure the host themselves doesn't get stuck in the waiting room.
     // Upsert a self-admitted record for the host's userId.
-    void supabase.from("join_requests").upsert(
-      {
-        room_id: roomId,
-        user_id: hostUserId,
-        user_name: "Host",
-        status: "admitted",
-        decided_at: new Date().toISOString(),
-      },
-      { onConflict: "room_id,user_id" },
-    );
+    void supabase
+      .from("join_requests")
+      .upsert(
+        {
+          room_id: roomId,
+          user_id: hostUserId,
+          user_name: "Host",
+          status: "admitted",
+          decided_at: new Date().toISOString(),
+        },
+        { onConflict: "room_id,user_id" },
+      )
+      .then(({ error }) => {
+        if (error) console.error("[admission] host self-admit failed", error);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -74,18 +83,21 @@ export default function AdmissionPanel({
   const decide = async (req: JoinRequest, status: "admitted" | "denied") => {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase
+    const { error } = await supabase
       .from("join_requests")
       .update({ status, decided_at: new Date().toISOString() })
       .eq("id", req.id);
+    if (error) {
+      console.error("[admission] decide failed", error);
+    }
   };
 
   if (pending.length === 0) return null;
 
   return (
-    <div className="absolute top-16 right-4 z-[100] w-80 rounded-lg bg-[var(--bg-elev)] border border-brand-500/40 shadow-2xl overflow-hidden">
-      <header className="px-3 py-2 border-b border-[color:var(--border-subtle)] bg-brand-600/10">
-        <h3 className="text-sm font-semibold">
+    <div className="absolute top-16 right-4 z-[100] w-80 rounded-lg bg-[var(--bg-elev)] border-2 border-brand-600 shadow-2xl overflow-hidden">
+      <header className="px-3 py-2 border-b border-[color:var(--border-subtle)] bg-brand-100">
+        <h3 className="text-sm font-semibold text-brand-800">
           {pending.length} waiting to join
         </h3>
       </header>
@@ -109,7 +121,7 @@ export default function AdmissionPanel({
             </button>
             <button
               onClick={() => decide(req, "admitted")}
-              className="text-xs px-2 py-1 rounded bg-brand-600 hover:bg-brand-500 font-medium"
+              className="text-xs px-2 py-1 rounded bg-brand-600 text-white hover:bg-brand-500 font-medium"
             >
               Admit
             </button>

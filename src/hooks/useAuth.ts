@@ -43,3 +43,15 @@ export async function signOut() {
   if (!supabase) return;
   await supabase.auth.signOut();
 }
+
+// Auth uses synthetic emails like `<username>@a-worthy.local`. Strip
+// that suffix for display so the UI shows the bare username.
+export function displayUsername(
+  user: { email?: string | null } | null,
+): string | null {
+  const e = user?.email;
+  if (!e) return null;
+  const at = e.lastIndexOf("@");
+  if (at <= 0) return e;
+  return e.slice(0, at);
+}

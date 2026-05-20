@@ -207,7 +207,7 @@ export default function RoomShell({
         </div>
 
         {isHost && (
-          <span className="text-[10px] uppercase tracking-wider bg-brand-600/30 text-brand-100 px-1.5 py-0.5 rounded shrink-0">
+          <span className="text-[10px] uppercase tracking-wider bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded shrink-0">
             Host
           </span>
         )}
@@ -261,7 +261,7 @@ export default function RoomShell({
           />
           <button
             onClick={() => setVideoOpen((v) => !v)}
-            className="touch-target text-sm rounded-md bg-brand-600 hover:bg-brand-500 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+            className="touch-target text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
             title={videoOpen ? "Hide video" : "Show video"}
             aria-label={videoOpen ? "Hide video" : "Show video"}
           >
@@ -420,6 +420,8 @@ export default function RoomShell({
         open={docsOpen}
         onClose={() => setDocsOpen(false)}
         roomId={roomId}
+        userId={userId}
+        userName={name || "Guest"}
         isHost={isHost}
       />
       <HomeworkDrawer
@@ -471,7 +473,7 @@ function IconBtn({
       aria-label={label}
       title={label}
       className={`touch-target w-9 h-9 flex items-center justify-center rounded-md border border-[color:var(--border)] ${
-        active ? "bg-brand-600/30 text-brand-100" : "hover:bg-[var(--hover)]"
+        active ? "bg-brand-100 text-brand-800" : "hover:bg-[var(--hover)]"
       }`}
     >
       {children}

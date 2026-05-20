@@ -115,7 +115,7 @@ export default function RecordingsDrawer({
                     <div className="flex items-start gap-3">
                       <button
                         onClick={() => setPlaying(r)}
-                        className="shrink-0 w-12 h-12 rounded-md bg-brand-600/30 hover:bg-brand-600/50 flex items-center justify-center text-brand-200"
+                        className="shrink-0 w-12 h-12 rounded-md bg-brand-600 hover:bg-brand-500 flex items-center justify-center text-white"
                         aria-label={`Play ${r.title ?? "recording"}`}
                       >
                         ▶
@@ -145,7 +145,7 @@ export default function RecordingsDrawer({
                         {isHost && (
                           <button
                             onClick={() => remove(r)}
-                            className="text-xs text-[var(--text-dim)] hover:text-red-400"
+                            className="text-xs text-[var(--text-dim)] hover:text-red-600"
                             title="Delete recording"
                           >
                             Delete

@@ -4,6 +4,21 @@ import { useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 
+// Supabase Auth requires an email. We let users pick a plain username
+// and map it to a synthetic email under this domain — they never see
+// or type it. Domain just needs to be a syntactically valid email host
+// that nobody will actually receive mail at.
+const USERNAME_EMAIL_DOMAIN = "a-worthy.local";
+
+function usernameToEmail(username: string): string {
+  // Lowercase, strip whitespace, replace anything not alphanumeric / dot
+  // / dash / underscore with a dash. Keeps it a valid email local-part.
+  const safe = username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "-");
+  return `${safe}@${USERNAME_EMAIL_DOMAIN}`;
+}
+
+type Mode = "signin" | "signup";
+
 export default function SignInModal({
   open,
   onClose,
@@ -11,33 +26,55 @@ export default function SignInModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const [email, setEmail] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>("signin");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
 
   if (!open) return null;
 
-  const send = async () => {
+  const submit = async () => {
     const supabase = getSupabase();
     if (!supabase) {
       toast.error("Supabase not configured");
       return;
     }
-    const e = email.trim();
-    if (!e) return;
-    setSending(true);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: e,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    setSending(false);
-    if (error) {
-      toast.error(error.message);
+    const u = username.trim();
+    if (!u || !password) return;
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setSubmitting(true);
+    const email = usernameToEmail(u);
+    if (mode === "signin") {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      setSubmitting(false);
+      if (error) {
+        // "Invalid login credentials" is the generic Supabase message —
+        // make it friendlier and offer the signup path.
+        if (error.message.toLowerCase().includes("invalid")) {
+          toast.error("Wrong username or password.");
+        } else {
+          toast.error(error.message);
+        }
+        return;
+      }
+      toast.success(`Signed in as ${u}`);
+      onClose();
     } else {
-      setSentTo(e);
+      const { error } = await supabase.auth.signUp({ email, password });
+      setSubmitting(false);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(`Account created — you're signed in as ${u}`);
+      onClose();
     }
   };
 
@@ -51,7 +88,9 @@ export default function SignInModal({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
-          <h2 className="text-lg font-semibold">Sign in</h2>
+          <h2 className="text-lg font-semibold">
+            {mode === "signin" ? "Sign in" : "Create account"}
+          </h2>
           <button
             onClick={onClose}
             className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
@@ -61,55 +100,64 @@ export default function SignInModal({
           </button>
         </header>
 
-        {sentTo ? (
-          <div className="p-6 space-y-3 text-sm">
-            <p>
-              We sent a sign-in link to <b>{sentTo}</b>.
-            </p>
-            <p className="text-[var(--text-muted)]">
-              Click the link in the email to finish signing in. The link
-              opens this app and brings you back here automatically.
-            </p>
-            <button
-              onClick={() => setSentTo(null)}
-              className="text-xs text-brand-300 hover:underline"
-            >
-              Use a different email
-            </button>
-          </div>
-        ) : (
-          <div className="p-6 space-y-4">
-            <p className="text-sm text-[var(--text-muted)]">
-              Sign in to keep host access to your rooms across all your
-              devices. Students don't need an account — they just enter a
-              name when joining.
-            </p>
-            <label className="block">
-              <span className="text-xs text-[var(--text-muted)]">Email</span>
-              <input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void send();
-                }}
-                placeholder="you@example.com"
-                className="mt-1 w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-sm outline-none focus:border-brand-500"
-              />
-            </label>
-            <button
-              onClick={send}
-              disabled={!email.trim() || sending}
-              className="w-full rounded-md bg-brand-600 hover:bg-brand-500 disabled:opacity-50 px-4 py-2.5 text-sm font-medium"
-            >
-              {sending ? "Sending…" : "Send sign-in link"}
-            </button>
-            <p className="text-xs text-[var(--text-dim)] text-center">
-              No password — we'll email you a one-time link.
-            </p>
-          </div>
-        )}
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-[var(--text-muted)]">
+            {mode === "signin"
+              ? "Sign in with your host username and password. Works on any device."
+              : "Pick a username and password. You'll use these to sign in from any device."}
+          </p>
+          <label className="block">
+            <span className="text-xs text-[var(--text-muted)]">Username</span>
+            <input
+              type="text"
+              autoComplete="username"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. jeremy"
+              className="mt-1 w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-[var(--text-muted)]">Password</span>
+            <input
+              type="password"
+              autoComplete={
+                mode === "signin" ? "current-password" : "new-password"
+              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void submit();
+              }}
+              placeholder="At least 6 characters"
+              className="mt-1 w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+            />
+          </label>
+          <button
+            onClick={submit}
+            disabled={!username.trim() || !password || submitting}
+            className="w-full rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-4 py-2.5 text-sm font-medium"
+          >
+            {submitting
+              ? mode === "signin"
+                ? "Signing in…"
+                : "Creating account…"
+              : mode === "signin"
+                ? "Sign in"
+                : "Create account"}
+          </button>
+          <button
+            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+            className="block w-full text-xs text-[var(--text-dim)] hover:text-[var(--text-muted)] underline underline-offset-2 text-center"
+          >
+            {mode === "signin"
+              ? "First time? Create an account"
+              : "Already have an account? Sign in"}
+          </button>
+        </div>
       </div>
     </div>
   );
