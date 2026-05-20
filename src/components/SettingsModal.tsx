@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 import { useSettings } from "@/hooks/useSettings";
-import { useAuth, signOut } from "@/hooks/useAuth";
+import { useAuth, signOut, displayUsername } from "@/hooks/useAuth";
 import { markAsHost } from "@/hooks/useHostStatus";
 import { useToast } from "./Toast";
 
@@ -93,7 +93,9 @@ export default function SettingsModal({
               {user ? (
                 <>
                   <Field label="Signed in as">
-                    <div className="text-sm text-[var(--text)] px-1">{user.email}</div>
+                    <div className="text-sm text-[var(--text)] px-1">
+                      {displayUsername(user)}
+                    </div>
                   </Field>
                   <button
                     onClick={claimRoom}

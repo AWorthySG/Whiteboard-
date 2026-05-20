@@ -42,12 +42,18 @@ export async function markAsHost(
   if (user) {
     const supabase = getSupabase();
     if (supabase) {
+      // The email column on `rooms` is kept for back-compat — it now
+      // stores the synthetic username@a-worthy.local string, but nobody
+      // reads it for display. Display uses the username portion only.
+      const username = user.email
+        ? user.email.slice(0, user.email.lastIndexOf("@") || undefined)
+        : null;
       await supabase.from("rooms").upsert(
         {
           id: roomId,
           host_user_id: user.id,
           host_email: user.email ?? null,
-          host_name: displayName?.trim() || user.email || null,
+          host_name: displayName?.trim() || username || null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" },

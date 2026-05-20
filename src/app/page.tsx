@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { markAsHost } from "@/hooks/useHostStatus";
-import { useAuth, signOut } from "@/hooks/useAuth";
+import { useAuth, signOut, displayUsername } from "@/hooks/useAuth";
 import {
   useRecentRooms,
   removeRoomFromRecents,
@@ -91,7 +91,7 @@ export default function Home() {
 
   const start = async (id: string, isNew: boolean) => {
     if (isNew) {
-      await markAsHost(id, user, name.trim() || user?.email);
+      await markAsHost(id, user, name.trim() || displayUsername(user) || undefined);
     }
     const params = new URLSearchParams();
     if (name.trim()) params.set("name", name.trim());
@@ -163,8 +163,8 @@ export default function Home() {
 
           <p className="text-xs text-[var(--text-dim)]">
             {user
-              ? "Signed in — any rooms you create are tied to your account and you can host them from any device."
-              : "Tip: sign in before creating a room to keep host access on every device you use."}
+              ? "Signed in — any rooms you create are tied to your account, so you stay the host on every device."
+              : "Tip: sign in with your host username and password before creating a room to keep host access on every device."}
           </p>
 
           {!user && !authLoading && (
@@ -268,10 +268,11 @@ function AccountChip({
       </button>
     );
   }
+  const name = displayUsername(user);
   return (
     <div className="text-xs text-right shrink-0 max-w-[10rem]">
-      <div className="text-[var(--text-muted)] truncate" title={user.email ?? ""}>
-        {user.email}
+      <div className="text-[var(--text-muted)] truncate" title={name ?? ""}>
+        {name}
       </div>
       <button
         onClick={onSignOut}
