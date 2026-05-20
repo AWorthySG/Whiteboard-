@@ -241,6 +241,14 @@ export default function WhiteboardCanvas({
       <Tldraw
         store={store}
         overrides={overrides}
+        components={{
+          // Hide the whole top-left stack (main menu, page selector,
+          // undo/redo toolbar, kebab actions menu). Keyboard shortcuts
+          // for undo (Cmd+Z), redo (Cmd+Shift+Z), delete and duplicate
+          // still work; page navigation lives in our own PagesTabBar
+          // at the bottom of the canvas.
+          MenuPanel: null,
+        }}
         inferDarkMode={false}
         onMount={(editor) => {
           editorRef.current = editor;
