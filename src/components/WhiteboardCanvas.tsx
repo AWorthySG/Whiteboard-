@@ -29,6 +29,7 @@ import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
+import ZoomControls from "./ZoomControls";
 import ColorPickerRow from "./ColorPickerRow";
 
 const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
@@ -495,6 +496,7 @@ export default function WhiteboardCanvas({
         }}
       />
       <PagesTabBar editor={editorRef.current} />
+      <ZoomControls editor={editorRef.current} />
       <ReconnectBanner
         status={store.status}
         connectionStatus={

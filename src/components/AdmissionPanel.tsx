@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { useToast } from "./Toast";
 
 type JoinRequest = {
   id: string;
@@ -20,6 +21,10 @@ export default function AdmissionPanel({
   hostUserId: string;
 }) {
   const [pending, setPending] = useState<JoinRequest[]>([]);
+  const toast = useToast();
+  // Track which requests we've already announced so we don't re-toast
+  // on every fetch.
+  const announcedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -36,7 +41,17 @@ export default function AdmissionPanel({
         console.error("[admission] fetchPending failed", error);
         return;
       }
-      setPending((data as JoinRequest[]) ?? []);
+      const list = (data as JoinRequest[]) ?? [];
+      // Announce any new pending requests we haven't seen before — so
+      // the host gets a toast even if they're not looking at the
+      // top-right corner of the canvas.
+      for (const req of list) {
+        if (!announcedRef.current.has(req.id)) {
+          announcedRef.current.add(req.id);
+          toast.info(`${req.user_name || "A guest"} is asking to join`);
+        }
+      }
+      setPending(list);
     };
 
     void fetchPending();
