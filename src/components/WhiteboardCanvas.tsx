@@ -44,6 +44,11 @@ type UploadMeta = {
   userId: string;
   userName: string;
   originalName?: string;
+  /** When true, uploadAsset uploads the file to Storage but skips the
+   *  room_documents row insert. Used by insertPdfAsImages for the
+   *  per-page PNG rasterisations — we want the parent PDF as ONE
+   *  drawer entry, not N entries (one per page). */
+  skipDocumentInsert?: boolean;
 };
 
 type Progress = {
@@ -97,9 +102,10 @@ function uploadAsset(
         );
         return;
       }
-      // Only record originals in room_documents — not the per-page PNGs
-      // we generate from PDFs (they'd flood the documents drawer).
-      if (!originalName.match(/-page-\d+\.png$/i)) {
+      // Only record originals in room_documents. Per-page PDF
+      // rasterisations set skipDocumentInsert so the parent PDF (one
+      // upload, one row) is what shows up in the drawer.
+      if (!meta.skipDocumentInsert) {
         try {
           const { getSupabase } = await import("@/lib/supabase");
           const supabase = getSupabase();
@@ -745,6 +751,16 @@ async function insertPdfAsImages(
   const center = editor.getViewportPageBounds().center;
   const totalPages = doc.numPages;
 
+  // Upload the original PDF file itself ONCE, so the Documents drawer
+  // shows a single entry per PDF rather than one per rasterised page.
+  // Best-effort — if the upload fails, we still rasterise the pages
+  // onto the canvas so the lesson isn't blocked.
+  try {
+    await uploadAsset(file, { ...meta, originalName: file.name });
+  } catch (e) {
+    console.warn("[pdf] original-PDF upload failed", e);
+  }
+
   let offset = 0;
   const gap = 40;
 
@@ -774,7 +790,7 @@ async function insertPdfAsImages(
 
       const { url } = await uploadAsset(
         pngFile,
-        { ...meta, originalName: file.name },
+        { ...meta, originalName: pngFile.name, skipDocumentInsert: true },
         (frac) => {
           onProgress({
             label: `Uploading page ${i} of ${totalPages}…`,
