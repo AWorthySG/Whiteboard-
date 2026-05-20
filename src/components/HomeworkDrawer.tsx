@@ -153,15 +153,31 @@ export default function HomeworkDrawer({
       document.body.removeChild(input);
       if (!file) return;
       try {
-        const form = new FormData();
-        form.append("file", file);
-        form.append("roomId", roomId);
-        form.append("userId", userId);
-        form.append("userName", userName);
-        form.append("originalName", file.name);
-        const res = await fetch("/api/uploads", { method: "POST", body: form });
-        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-        const { url } = (await res.json()) as { url: string };
+        // Direct browser → Supabase Storage upload (no Next.js proxy).
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!supabaseUrl || !supabaseKey) {
+          throw new Error("Supabase env vars missing");
+        }
+        const ext = file.name.split(".").pop() ?? "bin";
+        const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+        const upRes = await fetch(
+          `${supabaseUrl}/storage/v1/object/whiteboard-assets/${path}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${supabaseKey}`,
+              apikey: supabaseKey,
+              "Content-Type": file.type || "application/octet-stream",
+              "x-upsert": "false",
+            },
+            body: file,
+          },
+        );
+        if (!upRes.ok) {
+          throw new Error(`Upload failed (${upRes.status})`);
+        }
+        const url = `${supabaseUrl}/storage/v1/object/public/whiteboard-assets/${path}`;
 
         const supabase = getSupabase();
         if (!supabase) return;

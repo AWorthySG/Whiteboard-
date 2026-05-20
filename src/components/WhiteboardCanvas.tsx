@@ -52,41 +52,88 @@ type Progress = {
 
 type ProgressFn = (p: Progress) => void;
 
+// Upload directly to Supabase Storage from the browser. This removes
+// the Vercel function hop (browser → /api/uploads → Supabase) and ships
+// the bytes once instead of twice — roughly halves wall-clock time for
+// anything over a few hundred KB.
 function uploadAsset(
   file: File,
   meta: UploadMeta,
   onUploadProgress?: (frac: number) => void,
 ): Promise<{ url: string }> {
-  return new Promise((resolve, reject) => {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("roomId", meta.roomId);
-    form.append("userId", meta.userId);
-    form.append("userName", meta.userName);
-    form.append("originalName", meta.originalName ?? file.name);
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    return Promise.reject(new Error("Supabase env vars not configured"));
+  }
 
+  const ext = file.name.split(".").pop() ?? "bin";
+  const path = `${Date.now()}-${cryptoRandomId()}.${ext}`;
+  const endpoint = `${supabaseUrl}/storage/v1/object/whiteboard-assets/${path}`;
+  const publicUrl = `${supabaseUrl}/storage/v1/object/public/whiteboard-assets/${path}`;
+  const originalName = meta.originalName ?? file.name;
+
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/uploads");
-    xhr.responseType = "json";
+    xhr.open("POST", endpoint);
+    xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
+    xhr.setRequestHeader("apikey", supabaseKey);
+    xhr.setRequestHeader(
+      "Content-Type",
+      file.type || "application/octet-stream",
+    );
+    xhr.setRequestHeader("x-upsert", "false");
     xhr.upload.onprogress = (e) => {
       if (!e.lengthComputable || !onUploadProgress) return;
       onUploadProgress(e.loaded / e.total);
     };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300 && xhr.response?.url) {
-        resolve(xhr.response as { url: string });
-      } else {
+    xhr.onload = async () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
         reject(
           new Error(
-            xhr.response?.error || `Upload failed: HTTP ${xhr.status}`,
+            `Upload failed: HTTP ${xhr.status} ${xhr.responseText || ""}`.trim(),
           ),
         );
+        return;
       }
+      // Only record originals in room_documents — not the per-page PNGs
+      // we generate from PDFs (they'd flood the documents drawer).
+      if (!originalName.match(/-page-\d+\.png$/i)) {
+        try {
+          const { getSupabase } = await import("@/lib/supabase");
+          const supabase = getSupabase();
+          if (supabase) {
+            await supabase.from("room_documents").insert({
+              room_id: meta.roomId,
+              name: originalName,
+              url: publicUrl,
+              mime_type: file.type || null,
+              uploaded_by_user_id: meta.userId,
+              uploaded_by_name: meta.userName,
+            });
+          }
+        } catch (e) {
+          // File is uploaded — don't fail the whole upload just because
+          // the listing row didn't save. Log it.
+          console.warn("[upload] room_documents insert failed", e);
+        }
+      }
+      resolve({ url: publicUrl });
     };
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.onabort = () => reject(new Error("Upload cancelled"));
-    xhr.send(form);
+    xhr.send(file);
   });
+}
+
+function cryptoRandomId(): string {
+  // crypto.randomUUID is widely available; fall back to Math.random for
+  // ancient browsers (no UUID guarantees, just a unique-enough path).
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
 }
 
 function makeAssetStore(meta: UploadMeta, onProgress: ProgressFn): TLAssetStore {
@@ -193,6 +240,9 @@ export default function WhiteboardCanvas({
       // Replace the built-in 'asset' (image upload) tool with our own
       // file picker so PDFs go through the PDF-to-images pipeline. The
       // tool keeps its native icon + position in the toolbar.
+      // Also clear keyboard shortcuts for geometric-shape tools so
+      // R/O/A/L/T can't accidentally switch you out of the pen mid-
+      // lesson — these tools were already hidden from the toolbar.
       tools(_editor, tools) {
         if (tools.asset) {
           tools.asset = {
@@ -202,6 +252,12 @@ export default function WhiteboardCanvas({
               openFilePicker(runUpload);
             },
           };
+        }
+        const shapeToolIds = ["arrow", "line", "geo", "text", "frame"];
+        for (const id of shapeToolIds) {
+          if (tools[id]) {
+            tools[id] = { ...tools[id], kbd: "" };
+          }
         }
         return tools;
       },

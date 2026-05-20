@@ -89,16 +89,43 @@ export default function DocumentsDrawer({
       if (!file) return;
       try {
         setUploading(true);
-        const form = new FormData();
-        form.append("file", file);
-        form.append("roomId", roomId);
-        form.append("userId", userId);
-        form.append("userName", userName);
-        form.append("originalName", file.name);
-        const res = await fetch("/api/uploads", { method: "POST", body: form });
-        if (!res.ok) {
-          const body = await res.text();
-          throw new Error(`HTTP ${res.status}: ${body || "Upload failed"}`);
+        // Upload straight from the browser to Supabase Storage — bypasses
+        // the Next.js /api/uploads proxy, saves a hop, and stops Vercel
+        // from billing function invocation time on every upload.
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!url || !key) throw new Error("Supabase env vars missing");
+        const ext = file.name.split(".").pop() ?? "bin";
+        const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+        const upRes = await fetch(
+          `${url}/storage/v1/object/whiteboard-assets/${path}`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${key}`,
+              apikey: key,
+              "Content-Type": file.type || "application/octet-stream",
+              "x-upsert": "false",
+            },
+            body: file,
+          },
+        );
+        if (!upRes.ok) {
+          const body = await upRes.text();
+          throw new Error(`Storage upload failed: ${body || upRes.status}`);
+        }
+        const publicUrl = `${url}/storage/v1/object/public/whiteboard-assets/${path}`;
+        const supabase = getSupabase();
+        if (supabase) {
+          const { error } = await supabase.from("room_documents").insert({
+            room_id: roomId,
+            name: file.name,
+            url: publicUrl,
+            mime_type: file.type || null,
+            uploaded_by_user_id: userId,
+            uploaded_by_name: userName,
+          });
+          if (error) throw new Error(`DB insert failed: ${error.message}`);
         }
         toast.success(`Uploaded ${file.name}`);
       } catch (e) {
