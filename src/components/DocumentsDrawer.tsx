@@ -44,7 +44,20 @@ export default function DocumentsDrawer({
         .select("*")
         .eq("room_id", roomId)
         .order("uploaded_at", { ascending: false });
-      setDocs((data as Document[]) ?? []);
+      const rows = (data as Document[]) ?? [];
+      // Collapse legacy duplicates from rooms uploaded before the
+      // PDF-pipeline fix: per-page PNGs were inserted as N rows all
+      // named "lesson.pdf". Keep the most recent unique (name + url)
+      // and hide the per-page PNG rows that slipped through ("…-page-1.png").
+      const seen = new Set<string>();
+      const filtered = rows.filter((r) => {
+        if (/-page-\d+\.png$/i.test(r.name)) return false;
+        const key = `${r.name}::${r.url}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setDocs(filtered);
     };
 
     void fetchDocs();
