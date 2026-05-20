@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { useToast } from "./Toast";
 
 type Document = {
   id: string;
@@ -17,14 +18,20 @@ export default function DocumentsDrawer({
   open,
   onClose,
   roomId,
+  userId,
+  userName,
   isHost,
 }: {
   open: boolean;
   onClose: () => void;
   roomId: string;
+  userId: string;
+  userName: string;
   isHost: boolean;
 }) {
+  const toast = useToast();
   const [docs, setDocs] = useState<Document[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -64,7 +71,44 @@ export default function DocumentsDrawer({
   const remove = async (id: string) => {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from("room_documents").delete().eq("id", id);
+    const { error } = await supabase.from("room_documents").delete().eq("id", id);
+    if (error) toast.error(`Couldn't remove: ${error.message}`);
+  };
+
+  const pickAndUpload = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/pdf,image/*";
+    input.style.position = "fixed";
+    input.style.top = "-9999px";
+    input.style.opacity = "0";
+    document.body.appendChild(input);
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      document.body.removeChild(input);
+      if (!file) return;
+      try {
+        setUploading(true);
+        const form = new FormData();
+        form.append("file", file);
+        form.append("roomId", roomId);
+        form.append("userId", userId);
+        form.append("userName", userName);
+        form.append("originalName", file.name);
+        const res = await fetch("/api/uploads", { method: "POST", body: form });
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`HTTP ${res.status}: ${body || "Upload failed"}`);
+        }
+        toast.success(`Uploaded ${file.name}`);
+      } catch (e) {
+        console.error("[documents] upload failed", e);
+        toast.error(`Upload failed: ${(e as Error).message}`);
+      } finally {
+        setUploading(false);
+      }
+    };
+    input.click();
   };
 
   if (!open) return null;
@@ -80,13 +124,22 @@ export default function DocumentsDrawer({
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
           <h2 className="text-lg font-semibold">Documents</h2>
-          <button
-            onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
-            aria-label="Close"
-          >
-            ×
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={pickAndUpload}
+              disabled={uploading}
+              className="text-sm rounded-md bg-brand-600 text-white hover:bg-brand-500 px-3 py-1.5 disabled:opacity-50"
+            >
+              {uploading ? "Uploading…" : "Upload"}
+            </button>
+            <button
+              onClick={onClose}
+              className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto">
@@ -95,10 +148,17 @@ export default function DocumentsDrawer({
               <div className="text-4xl mb-2">📄</div>
               <p className="text-sm font-medium">No documents yet</p>
               <p className="text-xs text-[var(--text-dim)] mt-1">
-                Drag a PDF or image onto the canvas, or use the
-                <span className="text-brand-500"> Upload document</span> button.
-                Files appear here for everyone in the room.
+                Click the <span className="text-brand-700">Upload</span> button
+                above, or drag a PDF/image onto the canvas. Files appear here
+                for everyone in the room.
               </p>
+              <button
+                onClick={pickAndUpload}
+                disabled={uploading}
+                className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand-600 text-white hover:bg-brand-500 px-4 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                {uploading ? "Uploading…" : "Upload a document"}
+              </button>
             </div>
           ) : (
             <ul className="divide-y divide-[color:var(--border-subtle)]">
@@ -112,7 +172,7 @@ export default function DocumentsDrawer({
                       href={d.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm font-medium truncate block hover:text-brand-500"
+                      className="text-sm font-medium truncate block hover:text-brand-700"
                       title={d.name}
                     >
                       {d.name}
@@ -125,7 +185,7 @@ export default function DocumentsDrawer({
                   {isHost && (
                     <button
                       onClick={() => remove(d.id)}
-                      className="text-xs text-[var(--text-dim)] hover:text-red-400"
+                      className="text-xs text-[var(--text-dim)] hover:text-red-600"
                       title="Remove from list (file stays in storage)"
                     >
                       Remove

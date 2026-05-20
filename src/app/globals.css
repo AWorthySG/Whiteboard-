@@ -51,11 +51,32 @@ html[data-theme="light"] .tl-canvas {
 .tldraw-shell {
   position: absolute;
   inset: 0;
-  /* Block browser gestures inside the canvas only — palm rejection on iPad,
-     no inertia scrolling fighting the toolbar. The rest of the page can
-     still scroll normally. */
+  /* Block ALL browser-native touch gestures inside the canvas so
+     tldraw's own pointer pipeline handles pan/zoom/draw. This is what
+     lets two-finger scroll work consistently across Safari (iOS +
+     desktop), Chrome (desktop + Android), and Firefox.
+     - `touch-action: none` hands every touch to JS instead of the OS.
+     - `overscroll-behavior: contain` stops Safari pull-to-refresh +
+       Chrome back-swipe from firing on horizontal pan.
+     - `-webkit-user-select: none` stops Safari from selecting text
+       during a drag.
+     - `-webkit-touch-callout: none` blocks the iOS long-press menu. */
   touch-action: none;
   overscroll-behavior: contain;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* tldraw renders its <canvas> + interaction layer inside .tl-container.
+   Some browsers (especially Firefox) inherit touch-action from the
+   parent only if the child doesn't override it. Force it on every layer
+   so two-finger pan + pinch-zoom are routed to tldraw's gesture code. */
+.tldraw-shell .tl-container,
+.tldraw-shell .tl-canvas,
+.tldraw-shell canvas {
+  touch-action: none;
 }
 
 html,

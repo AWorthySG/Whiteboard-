@@ -155,7 +155,7 @@ export default function Home() {
             />
             <button
               onClick={onCreateOrJoin}
-              className="rounded-lg bg-brand-600 hover:bg-brand-500 px-4 py-2.5 font-medium"
+              className="rounded-lg bg-brand-600 hover:bg-brand-500 text-white px-4 py-2.5 font-medium"
             >
               {room.trim() ? "Join" : "Create"}
             </button>
@@ -198,7 +198,7 @@ export default function Home() {
                     <span
                       className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
                         r.role === "host"
-                          ? "bg-brand-600/30 text-brand-100"
+                          ? "bg-brand-100 text-brand-800"
                           : "bg-[var(--hover)] text-[var(--text-dim)]"
                       }`}
                     >
@@ -220,7 +220,7 @@ export default function Home() {
                   </span>
                   <button
                     onClick={() => removeRoomFromRecents(r.roomId)}
-                    className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-red-400 text-xs px-1"
+                    className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-red-600 text-xs px-1"
                     aria-label="Remove from recent rooms"
                     title="Remove from recent"
                   >

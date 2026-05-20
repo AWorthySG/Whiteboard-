@@ -45,7 +45,16 @@ export async function POST(req: Request) {
     });
 
   if (upErr) {
-    return NextResponse.json({ error: upErr.message }, { status: 500 });
+    console.error("[uploads] storage upload failed", upErr);
+    // upErr is StorageError; common messages tell us if the bucket is
+    // missing or RLS rejected the insert. Surface them verbatim so the
+    // client toast is actionable.
+    return NextResponse.json(
+      {
+        error: `Storage upload failed: ${upErr.message}. Check that the '${BUCKET}' bucket exists and allows anon inserts.`,
+      },
+      { status: 500 },
+    );
   }
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
@@ -53,7 +62,7 @@ export async function POST(req: Request) {
   // Track the upload in room_documents so it appears in the Documents drawer.
   // Only record originals, not the per-page PNGs we generate from PDFs.
   if (roomId && !originalName.match(/-page-\d+\.png$/i)) {
-    await supabase.from("room_documents").insert({
+    const { error: dbErr } = await supabase.from("room_documents").insert({
       room_id: roomId,
       name: originalName,
       url: data.publicUrl,
@@ -61,6 +70,15 @@ export async function POST(req: Request) {
       uploaded_by_user_id: uploadedByUserId,
       uploaded_by_name: uploadedByName,
     });
+    if (dbErr) {
+      console.error("[uploads] room_documents insert failed", dbErr);
+      // File is already uploaded; we still return success but flag the issue.
+      return NextResponse.json({
+        url: data.publicUrl,
+        path,
+        warning: `File uploaded but didn't appear in the list: ${dbErr.message}`,
+      });
+    }
   }
 
   return NextResponse.json({ url: data.publicUrl, path });

@@ -33,7 +33,7 @@ export default function ErrorBoundary({
         <div className="mt-4 flex gap-2 justify-center">
           <button
             onClick={() => reset()}
-            className="rounded-md bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium"
+            className="rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
           >
             Try again
           </button>

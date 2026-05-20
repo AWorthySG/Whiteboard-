@@ -108,17 +108,25 @@ export default function RecordButton({
           (roomTitle?.trim() || roomId) +
           " · " +
           date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-        await supabase.from("room_recordings").insert({
-          room_id: roomId,
-          title,
-          file_url: publicUrl,
-          file_path: path,
-          mime_type: mimeType,
-          size_bytes: blob.size,
-          duration_sec: durationSec,
-          host_user_id: hostUserId,
-          host_name: hostName,
-        });
+        const { error: dbErr } = await supabase
+          .from("room_recordings")
+          .insert({
+            room_id: roomId,
+            title,
+            file_url: publicUrl,
+            file_path: path,
+            mime_type: mimeType,
+            size_bytes: blob.size,
+            duration_sec: durationSec,
+            host_user_id: hostUserId,
+            host_name: hostName,
+          });
+        if (dbErr) {
+          console.error("[record] metadata insert failed", dbErr);
+          toast.error(
+            `Recording uploaded but couldn't save its listing: ${dbErr.message}`,
+          );
+        }
       }
 
       toast.success("Recording uploaded — open Recordings to view");
@@ -250,10 +258,10 @@ export default function RecordButton({
     return (
       <button
         onClick={start}
-        className="touch-target text-sm rounded-md border border-red-500/40 text-red-300 hover:bg-red-500/10 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+        className="touch-target text-sm rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
         title="Record this lesson — saves to cloud and downloads a backup MP4"
       >
-        <span className="w-2 h-2 rounded-full bg-red-500" />
+        <span className="w-2 h-2 rounded-full bg-red-600" />
         <span className="hidden lg:inline">Record</span>
       </button>
     );

@@ -97,7 +97,7 @@ export default function InvitePanel({
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             ) : (
-              <div className="w-[240px] h-[240px] flex items-center justify-center text-sm text-black/40">
+              <div className="w-[240px] h-[240px] flex items-center justify-center text-sm text-[var(--text-muted)]">
                 Generating…
               </div>
             )}
@@ -120,7 +120,7 @@ export default function InvitePanel({
           {sharedAt && (
             <button
               onClick={share}
-              className="w-full rounded-md bg-brand-600 hover:bg-brand-500 px-3 py-2 text-sm font-medium"
+              className="w-full rounded-md bg-brand-600 hover:bg-brand-500 text-white px-3 py-2 text-sm font-medium"
             >
               Share…
             </button>

@@ -72,7 +72,7 @@ export default function SignInModal({
             </p>
             <button
               onClick={() => setSentTo(null)}
-              className="text-xs text-brand-300 hover:underline"
+              className="text-xs text-brand-700 hover:underline"
             >
               Use a different email
             </button>
@@ -101,7 +101,7 @@ export default function SignInModal({
             <button
               onClick={send}
               disabled={!email.trim() || sending}
-              className="w-full rounded-md bg-brand-600 hover:bg-brand-500 disabled:opacity-50 px-4 py-2.5 text-sm font-medium"
+              className="w-full rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-4 py-2.5 text-sm font-medium"
             >
               {sending ? "Sending…" : "Send sign-in link"}
             </button>

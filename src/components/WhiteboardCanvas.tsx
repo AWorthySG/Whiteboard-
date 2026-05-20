@@ -403,10 +403,10 @@ function CanvasFloatingPanel({
     >
       {beingFollowed && (
         <div
-          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-amber-500/15 text-amber-300 border-amber-400/40 shadow-lg flex items-center gap-1.5"
+          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-amber-100 text-amber-800 border-amber-600 shadow-lg flex items-center gap-1.5"
           title="The host is leading the view — your pan/zoom is locked"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
           Following host
         </div>
       )}

@@ -56,16 +56,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[20000] flex flex-col items-center gap-2 pointer-events-none">
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[20000] flex flex-col items-center gap-2 pointer-events-none"
+      >
         {toasts.map((t) => (
           <button
             key={t.id}
             onClick={() => dismiss(t.id)}
             className={`pointer-events-auto max-w-[min(420px,92vw)] rounded-md px-3 py-2 text-sm shadow-2xl border ${
               t.kind === "error"
-                ? "bg-red-600/90 border-red-400/40 text-[var(--text)]"
+                ? "bg-red-600 border-red-700 text-white"
                 : t.kind === "success"
-                  ? "bg-emerald-600/90 border-emerald-400/40 text-[var(--text)]"
+                  ? "bg-emerald-600 border-emerald-700 text-white"
                   : "bg-[var(--bg-elev)] border-[color:var(--border)] text-[var(--text)]"
             }`}
           >
