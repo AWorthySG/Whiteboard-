@@ -193,6 +193,12 @@ export default function SettingsModal({
               checked={settings.defaultMicrophone}
               onChange={(v) => setSettings({ defaultMicrophone: v })}
             />
+            <Toggle
+              label="Audio-only by default"
+              checked={settings.audioOnly}
+              onChange={(v) => setSettings({ audioOnly: v })}
+              hint="Skip the camera entirely. Saves bandwidth and battery — useful on phone data. You can still toggle video on once you've joined."
+            />
           </Section>
 
           <Section title="Room">
