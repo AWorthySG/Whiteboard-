@@ -34,9 +34,9 @@ NEXT_PUBLIC_TLDRAW_SYNC_URL=wss://whiteboard-sync.jeremylimguanfong.workers.dev
 NEXT_PUBLIC_TLDRAW_LICENSE_KEY=<commercial license, removes the "Made with tldraw" watermark>
 ```
 
-The Supabase **anon** key is what the client uses. Uploads bypass `service_role`
-entirely — they go through `/api/uploads` with the anon key + an RLS insert
-policy on the `whiteboard-assets` bucket. The `service_role` key is **not**
+The Supabase **anon** key is what the client uses for everything: auth
+sign-in/sign-up, file uploads (browser POSTs directly to the Storage REST
+endpoint, no Vercel hop), and DB inserts. The `service_role` key is **not**
 needed anywhere in this codebase.
 
 ## Routes
@@ -45,9 +45,9 @@ needed anywhere in this codebase.
 | --- | --- |
 | `/` | Landing — sign-in chip, name/room form, recent rooms list |
 | `/r/[roomId]` | Room shell — canvas, video panel, all the drawers |
-| `/auth/callback` | Supabase magic-link return URL (wrapped in `<Suspense>`) |
+| `/auth/callback` | Legacy Supabase auth return URL. Currently unused (username/password sign-in doesn't redirect) but kept as a no-op stub in case OAuth or password reset gets added later. |
 | `/api/livekit/token` | Mints LiveKit room JWT. Identity = `u-<userId>` for stable cross-tab dedup |
-| `/api/uploads` | POST FormData → Supabase Storage `whiteboard-assets` bucket + insert into `room_documents` |
+| `/api/uploads` | **No longer in the hot path.** All upload paths (canvas, Documents drawer, Homework submissions) POST directly to Supabase Storage from the browser using the anon key, saving a Vercel function hop. The route file still exists as a fallback / for future server-side upload needs but isn't called by any current client code. |
 | `/api/math` | POST `{ latex, displayMode }` → server-side KaTeX → SVG data URL (KaTeX never enters the client bundle) |
 
 ## Database schema (Supabase Postgres)
@@ -76,6 +76,23 @@ Two Supabase Storage buckets:
 - `whiteboard-assets` — public read, anon insert (uploaded docs/images)
 - `whiteboard-recordings` — public read, anon insert, 5 GB per-file cap (lesson recordings)
 
+## Auth (username + password)
+
+Sign-in uses Supabase Auth's email+password provider, but the UI presents
+a **Username** field instead. The username is mapped to a synthetic email
+of the form `<username>@a-worthy.local` before being sent to Supabase, so:
+
+- Users pick and remember a plain username — never see an email field.
+- Supabase still hashes/salts the password properly (Argon2 / bcrypt).
+- The `@a-worthy.local` domain is a placeholder — it doesn't need to resolve.
+  **Do not change the domain after accounts exist**, or every existing password
+  will appear to "stop working" (the mapped email won't match).
+- `displayUsername(user)` strips the suffix for display everywhere
+  (home page chip, settings, `rooms.host_name`).
+- For password sign-up to work, Supabase Auth's **"Confirm email"** must be
+  toggled OFF (Authentication → Providers → Email → Confirm email → OFF).
+  We can't deliver confirmation links to `@a-worthy.local`.
+
 ## Host detection (two-tier)
 
 A user is host of a room if either:
@@ -92,31 +109,42 @@ promotes a legacy localStorage room into a proper `rooms` row.
 ```
 RoomShell.tsx          Top-level room layout — header, canvas wrapper, side video panel (or
                        mobile bottom sheet), drawers, modals, chat bubble.
+                       The room header has a host-only "+ New page" pill in the top-left
+                       plus a "Pages (n) ▾" dropdown that lists every page in the room
+                       (click to switch). Both call into WhiteboardCanvas via
+                       addPageRef / switchPageRef, mirroring the exportRef pattern.
+                       The page list itself is mirrored up via the onPagesChange callback
+                       (subscribed to editor.store) so the dropdown stays live across
+                       renames + remote edits.
 
-WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Wires assetStore → /api/uploads,
-                       drop handler for PDFs (pdfjs-dist), exportRef for PNG export,
-                       custom CanvasTopRightActions (Upload/Pointer/Equation/Lead view
-                       /color picker), CanvasWatermark background, SlimToolbar (replaces
-                       tldraw's default 20-shape grid with just select/draw/highlight
-                       /eraser/note/asset), and leader-mode follow logic via
-                       editor.startFollowingUser.
+WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Uploads go BROWSER → SUPABASE STORAGE
+                       directly (uploadAsset() POSTs to /storage/v1/object/whiteboard-assets/
+                       with the anon key; room_documents row is inserted client-side after).
+                       Sets default stroke size to "s" on mount so Apple Pencil pressure
+                       reads as pen-on-paper, not marker. Clears keyboard shortcuts for
+                       geometric shape tools (arrow/line/geo/text/frame) so R/O/A/L/T
+                       can't accidentally switch tools mid-lesson. Exposes exportRef and
+                       addPageRef MutableRefObjects to the parent shell.
 
 VideoPanel.tsx         LiveKit room — token fetch, Tiles grid, CameraReleaseGuard (calls
                        track.stop() on disable so the macOS green light turns off),
                        RoomCoordinator (raise hand / mute-all via data channel),
                        ControlBar with leave enabled.
 
-PagesTabBar.tsx        Bottom-center pill listing tldraw pages — switch / rename / delete
-                       / + menu with lesson templates (blank, grid, dotted, lined,
-                       coordinate plane, music staves). Templates are SVG generated
-                       client-side and stored as locked image shapes.
+PagesTabBar.tsx        Bottom-center pill listing tldraw pages — switch / rename / delete.
+                       Primary action is a labeled "+ New page" button (one-click blank
+                       page); a small ▾ caret next to it opens the template picker for
+                       grid / dotted / lined / coords / music staves. Templates are SVG
+                       generated client-side and stored as locked image shapes.
 
 KnockGate.tsx          Wraps the room for non-hosts; renders the "waiting to be admitted"
                        screen until their join_requests row flips to admitted.
 
 AdmissionPanel.tsx     Host-only floating panel showing pending join_requests.
 
-Toast.tsx              Stacked toast notifications (ToastProvider in root layout).
+Toast.tsx              Stacked toast notifications (ToastProvider in root layout). Solid
+                       red / green variants have explicit text-white (the bg is saturated
+                       so var(--text) reads as dark-on-dark in light mode).
 
 ChatBubble.tsx         Floating chat button + 320×440 popover. Persists to room_messages.
 
@@ -125,8 +153,17 @@ EquationModal.tsx      LaTeX input + live debounced preview. POSTs /api/math and
 
 InvitePanel.tsx        QR code (lazy-loaded qrcode-svg) + copy link + native Web Share.
 
-Documents/Homework
-/Recordings Drawer     Right-side drawers backed by their respective Supabase tables.
+DocumentsDrawer.tsx    Right-side drawer listing uploaded files. Has its own "Upload"
+                       button in the header AND a big "Upload a document" CTA in the
+                       empty state. Uploads go browser → Supabase Storage directly,
+                       then a client-side insert into room_documents.
+
+HomeworkDrawer.tsx
+RecordingsDrawer.tsx   Right-side drawers backed by their respective Supabase tables.
+
+SignInModal.tsx        Username + Password form with Sign in / Create account toggle.
+                       Username is mapped to <username>@a-worthy.local before hitting
+                       Supabase Auth (see "Auth" section above).
 
 ColorPickerRow.tsx     Compact 8-color row that replaces tldraw's full StylePanel.
 
@@ -142,7 +179,9 @@ OnboardingHint.tsx     One-time tutorial modal (settings.hasSeenOnboarding flag)
 
 BrandLogo.tsx          next/image wrapper for /icon.png.
 
-ThemeApplier.tsx       Toggles html.theme-light based on useSettings().theme.
+ThemeApplier.tsx       Toggles html.theme-light based on useSettings().theme. Default
+                       theme is "light" — dark mode still exists but isn't the default,
+                       and active UI tuning targets light contrast.
 
 PwaRegister.tsx        Registers /sw.js client-side.
 
@@ -155,8 +194,8 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 
 ## Hooks (`src/hooks/`)
 
-- `useSettings()` — localStorage-backed app preferences (theme, PDF layout, pen-only, defaults, hasSeenOnboarding)
-- `useAuth()` — Supabase user + `signOut()`
+- `useSettings()` — localStorage-backed app preferences (theme, PDF layout, pen-only, defaults, hasSeenOnboarding). Default theme is "light".
+- `useAuth()` — Supabase user + `signOut()` + `displayUsername(user)` helper that strips the `@a-worthy.local` suffix for display.
 - `useIsHost(roomId)` — combined server + localStorage host check
 - `useRoomMeta(roomId)` — room title + leader-mode state, with `setTitle` / `setLeaderMode`
 - `useRecentRooms()` + `trackRoomVisit()` — localStorage list shown on home page
@@ -175,13 +214,17 @@ CSS variables in `globals.css`:
 html.theme-light { /* same vars, light values */ }
 ```
 
-`ThemeApplier` flips `html.theme-light` based on settings. tldraw's own colors
-follow via `editor.user.updateUserPreferences({ colorScheme })`.
+`ThemeApplier` flips `html.theme-light` based on settings. Default theme
+is `"light"` (set in `useSettings.ts`). tldraw's own colors follow via
+`editor.user.updateUserPreferences({ colorScheme: "light" })` in `WhiteboardCanvas.onMount`.
 
 **Convention**: never hardcode `bg-[#11141b]`, `text-white/70`, `border-white/10`,
 etc. Use `bg-[var(--bg-elev)]`, `text-[var(--text-muted)]`, `border-[color:var(--border)]`.
-A previous sweep (commit `d4e5c7d`) replaced 158 instances. If you add a new
-component, follow the same pattern or light mode will be unreadable.
+
+**Brand-button rule**: any `bg-brand-600` button MUST also set `text-white`
+explicitly. The brand fill is dark saturated indigo, so inheriting `text-[var(--text)]`
+in light mode gives dark-on-dark. The full contrast sweep covering this lives in
+commit `45a340e` (15+ classes swept).
 
 ## Operational gotchas
 
@@ -191,8 +234,12 @@ component, follow the same pattern or light mode will be unreadable.
 - **LiveKit identity must be stable**. The token endpoint uses `u-<userId>` so opening the room in a second tab on the same browser kicks the first tab instead of creating a ghost participant.
 - **Camera release**: LiveKit by default just mutes when you disable camera/mic. `CameraReleaseGuard` explicitly calls `track.stop()` 150 ms after disable so the OS hardware indicator goes off. Mic uses `publishDefaults.stopMicTrackOnMute: true`.
 - **Pen mode / palm rejection**: tldraw auto-enables `isPenMode` on first pointerType==='pen' event. We also expose an explicit `penOnly` setting that forces it on at mount.
-- **Magic-link redirect**: Supabase project's Authentication → URL Configuration must list `https://whiteboard.a-worthy.com/auth/callback` (and any Vercel preview hosts).
-- **Free tiers**: Supabase Storage 1 GB, Supabase Auth ~4 emails/hour, LiveKit 10k participant-min/month. Watch the Recordings drawer for big files eating Supabase Storage.
+- **Stroke thickness**: default size is `"s"` (small) — set via `editor.setStyleForNextShapes(DefaultSizeStyle, "s")` in `WhiteboardCanvas.onMount`. tldraw's `"m"` was too thick under Apple Pencil pressure. Users can still pick any size from the size picker.
+- **Geometric shape lockout**: the `tools()` override in `WhiteboardCanvas` clears the keyboard `kbd` field for `arrow`, `line`, `geo`, `text`, and `frame` so they're unreachable. They were already hidden from the SlimToolbar; this also kills the R/O/A/L/T/F shortcuts.
+- **Two-finger scroll & touch**: `.tldraw-shell` sets `touch-action: none` + `overscroll-behavior: contain` + `-webkit-user-select: none` + `-webkit-touch-callout: none` + a fallback `touch-action: none` on every nested `.tl-container` / `.tl-canvas` / `canvas` (Firefox sometimes ignores the parent value). `userScalable: false` in the viewport meta lets two-finger gestures reach tldraw's pan/zoom code instead of zooming the whole page.
+- **Supabase "Confirm email" must be OFF** for password sign-up to work — we use synthetic `@a-worthy.local` emails that can't receive mail. Set in Supabase Dashboard → Authentication → Providers → Email → Confirm email → toggle OFF.
+- **`/auth/callback` is a no-op stub** now that magic-link auth is gone. Don't remove it — it's wrapped in `<Suspense>` and harmless if hit, and password reset / OAuth could re-use it later.
+- **Free tiers**: Supabase Storage 1 GB, LiveKit 10k participant-min/month. Watch the Recordings drawer for big files eating Supabase Storage.
 
 ## Common commands
 
@@ -211,10 +258,21 @@ adds significantly to that should be lazy-loaded via `dynamic(() => import(...))
 
 1. **Don't reintroduce hardcoded `white/x` Tailwind classes.** Theme sweep is enforced
    by the CSS-variable convention; one stray class breaks light mode contrast.
-2. **Don't add LiveKit tokens to client-side env.** Token minting must stay server-side.
-3. **Bundle budget**: keep heavy libraries (KaTeX, pdfjs, exportToBlob) lazy-loaded.
+2. **Always pair `bg-brand-600` with `text-white`** — see Theming section. Easy regression.
+3. **Don't add LiveKit tokens to client-side env.** Token minting must stay server-side.
+4. **Bundle budget**: keep heavy libraries (KaTeX, pdfjs, exportToBlob) lazy-loaded.
    Server-side render where possible (KaTeX already is).
-4. **Schema migrations**: use the Supabase MCP's `apply_migration` tool; don't write to
+5. **Schema migrations**: use the Supabase MCP's `apply_migration` tool; don't write to
    `supabase/migrations` directly.
-5. **GitHub repo is public**. Treat anything committed as world-readable. License key,
+6. **Don't change the `@a-worthy.local` synthetic-email domain** in `SignInModal` —
+   it's part of every existing user's stored email, and changing it locks everyone out.
+7. **Don't re-enable Supabase "Confirm email"** — accounts can't be confirmed because
+   the synthetic domain doesn't receive mail.
+8. **Don't re-add the geometric shape tools to the toolbar** without also restoring
+   their `kbd` shortcuts in the `tools()` override.
+9. **GitHub repo is public**. Treat anything committed as world-readable. License key,
    tokens, and secrets go in Vercel env vars only.
+10. **Upload path is now direct browser → Supabase** — if you add a new upload entry
+    point, mirror the existing pattern (`uploadAsset()` in WhiteboardCanvas, or the
+    inline POSTs in DocumentsDrawer / HomeworkDrawer). Don't reintroduce the
+    `/api/uploads` proxy hop.
