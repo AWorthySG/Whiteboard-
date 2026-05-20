@@ -90,7 +90,7 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
 
   return (
     <div
-      className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl px-1.5 py-1 max-w-[92vw]"
+      className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl px-1.5 py-1 max-w-[92vw]"
       style={{ pointerEvents: "auto" }}
     >
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
