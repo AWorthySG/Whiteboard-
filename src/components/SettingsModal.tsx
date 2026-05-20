@@ -143,6 +143,15 @@ export default function SettingsModal({
             </Field>
           </Section>
 
+          <Section title="Whiteboard">
+            <Toggle
+              label="Pen-only mode (palm rejection)"
+              hint="Ignore finger and palm touches on the canvas — only an Apple Pencil or stylus draws. Two-finger pan and pinch-zoom still work."
+              checked={settings.penOnly}
+              onChange={(v) => setSettings({ penOnly: v })}
+            />
+          </Section>
+
           <Section title="Documents">
             <Field
               label="PDF page layout"

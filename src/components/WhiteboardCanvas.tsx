@@ -165,6 +165,15 @@ export default function WhiteboardCanvas({
     editor.user.updateUserPreferences({ colorScheme: appSettings.theme });
   }, [appSettings.theme]);
 
+  // Apply the user's palm-rejection preference. tldraw stores pen mode on
+  // the per-instance state; once it's on, only pointerType==='pen' events
+  // produce drawing strokes (finger / palm touches are ignored).
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.updateInstanceState({ isPenMode: appSettings.penOnly });
+  }, [appSettings.penOnly]);
+
   useEffect(() => {
     if (!exportRef) return;
     exportRef.current = async () => {
@@ -238,6 +247,9 @@ export default function WhiteboardCanvas({
           editor.user.updateUserPreferences({
             colorScheme: appSettings.theme,
           });
+          if (appSettings.penOnly) {
+            editor.updateInstanceState({ isPenMode: true });
+          }
         }}
       />
       <CanvasTopRightActions

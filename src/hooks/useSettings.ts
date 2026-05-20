@@ -13,6 +13,7 @@ export type Settings = {
   defaultMicrophone: boolean;
   theme: Theme;
   hasSeenOnboarding: boolean;
+  penOnly: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -24,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultMicrophone: true,
   theme: "dark",
   hasSeenOnboarding: false,
+  penOnly: false,
 };
 
 const KEY = "wb_settings_v1";
