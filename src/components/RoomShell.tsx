@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
+import { trackRoomVisit } from "@/hooks/useRecentRooms";
 import { useToast } from "./Toast";
 import BrandLogo from "./BrandLogo";
 
@@ -22,6 +23,7 @@ const OnboardingHint = dynamic(() => import("./OnboardingHint"), { ssr: false })
 const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
 const VideoPanelResizer = dynamic(() => import("./VideoPanelResizer"), { ssr: false });
 const RecordingsDrawer = dynamic(() => import("./RecordingsDrawer"), { ssr: false });
+const ChatBubble = dynamic(() => import("./ChatBubble"), { ssr: false });
 
 const VIDEO_WIDTH_MIN = 240;
 const VIDEO_WIDTH_MAX = 600;
@@ -97,6 +99,13 @@ export default function RoomShell({
       window.localStorage.setItem("wb_user_name", name);
     }
   }, [name]);
+
+  // Record this room in the recent rooms list whenever the title or role
+  // changes (so a freshly renamed room re-bubbles to the top with its new title).
+  useEffect(() => {
+    if (!roomId) return;
+    trackRoomVisit(roomId, meta.title || roomId, isHost ? "host" : "guest");
+  }, [roomId, meta.title, isHost]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -334,7 +343,7 @@ export default function RoomShell({
         )}
 
         {videoOpen && (
-          <div className="md:hidden absolute inset-x-0 bottom-0 h-[42dvh] border-t border-white/10 bg-[var(--bg-elev-2)] shadow-2xl z-20 flex flex-col safe-pb">
+          <div className="md:hidden h-[42dvh] shrink-0 border-t border-white/10 bg-[var(--bg-elev-2)] shadow-2xl flex flex-col safe-pb">
             <div className="flex items-center justify-between px-3 py-1 border-b border-white/5">
               <span className="text-xs uppercase tracking-wider text-white/40">
                 Call
@@ -388,6 +397,7 @@ export default function RoomShell({
         isHost={isHost}
       />
       <OnboardingHint isHost={isHost} />
+      <ChatBubble roomId={roomId} userId={userId} userName={name || "Guest"} />
     </div>
   );
 

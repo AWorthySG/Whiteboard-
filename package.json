@@ -18,6 +18,7 @@
     "@supabase/supabase-js": "^2.49.4",
     "@tldraw/sync": "^3.13.1",
     "@tldraw/sync-core": "^3.13.1",
+    "katex": "^0.16.47",
     "livekit-client": "^2.13.0",
     "livekit-server-sdk": "^2.13.1",
     "next": "15.3.8",
@@ -29,6 +30,7 @@
     "ws": "^8.18.1"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
     "@types/node": "^22.14.0",
     "@types/qrcode-svg": "^1.1.5",
     "@types/react": "^19.0.12",

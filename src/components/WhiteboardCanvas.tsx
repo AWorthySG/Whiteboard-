@@ -11,10 +11,13 @@ import {
   getHashForString,
   uniqueId,
 } from "tldraw";
+import dynamic from "next/dynamic";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
+
+const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
 
 const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
@@ -110,6 +113,7 @@ export default function WhiteboardCanvas({
   const editorRef = useRef<Editor | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState<Progress>(null);
+  const [equationOpen, setEquationOpen] = useState(false);
   const reportProgress = useCallback<ProgressFn>((p) => setProgress(p), []);
 
   const assetStore = useMemo(
@@ -245,6 +249,14 @@ export default function WhiteboardCanvas({
           if (!editor) return;
           editor.setCurrentTool("laser");
         }}
+        onEquation={() => setEquationOpen(true)}
+      />
+      <EquationModal
+        open={equationOpen}
+        onClose={() => setEquationOpen(false)}
+        onInsert={async (dataUrl, w, h) => {
+          await insertEquationOntoCanvas(editorRef.current, dataUrl, w, h);
+        }}
       />
       <PagesTabBar editor={editorRef.current} />
       <ReconnectBanner
@@ -263,9 +275,11 @@ export default function WhiteboardCanvas({
 function CanvasTopRightActions({
   onUpload,
   onPointer,
+  onEquation,
 }: {
   onUpload: (file: File) => Promise<void> | void;
   onPointer: () => void;
+  onEquation: () => void;
 }) {
   return (
     <div
@@ -280,6 +294,14 @@ function CanvasTopRightActions({
       >
         <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
         Pointer
+      </button>
+      <button
+        onClick={onEquation}
+        className="rounded-md px-3 py-1.5 text-xs font-medium bg-[var(--bg-elev)] border border-white/10 hover:bg-white/5 text-white/80 shadow-lg flex items-center gap-1.5"
+        title="Insert math equation (LaTeX)"
+      >
+        <span className="font-serif italic">fx</span>
+        Equation
       </button>
     </div>
   );
@@ -485,6 +507,42 @@ async function insertPdfAsImages(
   } finally {
     onProgress(null);
   }
+}
+
+async function insertEquationOntoCanvas(
+  editor: Editor | null,
+  dataUrl: string,
+  width: number,
+  height: number,
+) {
+  if (!editor) return;
+  const assetId = AssetRecordType.createId(getHashForString(dataUrl));
+  if (!editor.getAsset(assetId)) {
+    editor.createAssets([
+      {
+        id: assetId,
+        type: "image",
+        typeName: "asset",
+        props: {
+          name: "equation.svg",
+          src: dataUrl,
+          w: width,
+          h: height,
+          mimeType: "image/svg+xml",
+          isAnimated: false,
+        },
+        meta: {},
+      },
+    ]);
+  }
+  const center = editor.getViewportPageBounds().center;
+  editor.createShape({
+    id: `shape:${uniqueId()}` as never,
+    type: "image",
+    x: center.x - width / 2,
+    y: center.y - height / 2,
+    props: { assetId, w: width, h: height },
+  });
 }
 
 async function insertBrandLogo(editor: Editor | null) {

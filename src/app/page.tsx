@@ -2,9 +2,15 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { markAsHost } from "@/hooks/useHostStatus";
 import { useAuth, signOut } from "@/hooks/useAuth";
+import {
+  useRecentRooms,
+  removeRoomFromRecents,
+  type RecentRoom,
+} from "@/hooks/useRecentRooms";
+import { getSupabase } from "@/lib/supabase";
 import BrandLogo from "@/components/BrandLogo";
 
 const SignInModal = dynamic(() => import("@/components/SignInModal"), { ssr: false });
@@ -17,6 +23,12 @@ function generateRoomId() {
   return `${pick(adj)}-${pick(noun)}-${n}`;
 }
 
+type ServerRoom = {
+  id: string;
+  host_name: string | null;
+  updated_at: string | null;
+};
+
 export default function Home() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -24,6 +36,58 @@ export default function Home() {
   const [room, setRoom] = useState("");
   const [signInOpen, setSignInOpen] = useState(false);
   const [pendingSignIn, setPendingSignIn] = useState(false);
+
+  const localRooms = useRecentRooms();
+  const [hostedRooms, setHostedRooms] = useState<ServerRoom[]>([]);
+
+  // Pull rooms this signed-in user is registered as host for, so they
+  // show up even on devices that haven't been into them locally.
+  useEffect(() => {
+    if (!user) {
+      setHostedRooms([]);
+      return;
+    }
+    const supabase = getSupabase();
+    if (!supabase) return;
+    let cancelled = false;
+    supabase
+      .from("rooms")
+      .select("id, host_name, updated_at")
+      .eq("host_user_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(30)
+      .then(({ data }) => {
+        if (!cancelled) setHostedRooms((data as ServerRoom[]) ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Merge local + hosted rooms, dedup by roomId, local entries take
+  // precedence (they have visit timestamps).
+  const recent = useMemo(() => {
+    const map = new Map<string, RecentRoom>();
+    for (const r of localRooms) map.set(r.roomId, r);
+    for (const h of hostedRooms) {
+      if (!map.has(h.id)) {
+        map.set(h.id, {
+          roomId: h.id,
+          title: h.host_name ?? h.id,
+          lastVisitedAt: h.updated_at ? new Date(h.updated_at).getTime() : 0,
+          role: "host",
+        });
+      } else {
+        // Mark hosted rooms as host even if local cache says guest (signed-in
+        // ownership is the source of truth).
+        const r = map.get(h.id)!;
+        map.set(h.id, { ...r, role: "host" });
+      }
+    }
+    return Array.from(map.values())
+      .sort((a, b) => b.lastVisitedAt - a.lastVisitedAt)
+      .slice(0, 12);
+  }, [localRooms, hostedRooms]);
 
   const start = async (id: string, isNew: boolean) => {
     if (isNew) {
@@ -37,12 +101,9 @@ export default function Home() {
   const onCreateOrJoin = async () => {
     const trimmed = room.trim();
     if (trimmed) {
-      // Joining an existing room — sign-in not required.
       await start(trimmed, false);
       return;
     }
-    // Creating a new room. If signed in, host status is portable. If not,
-    // offer sign-in but allow creating locally as a fallback.
     if (!user && !pendingSignIn) {
       setSignInOpen(true);
       return;
@@ -118,11 +179,74 @@ export default function Home() {
             </button>
           )}
         </div>
+
+        {recent.length > 0 && (
+          <section className="mt-8 border-t border-white/5 pt-5">
+            <h2 className="text-xs uppercase tracking-wider text-white/40 mb-2">
+              Recent rooms
+            </h2>
+            <ul className="space-y-1">
+              {recent.map((r) => (
+                <li
+                  key={r.roomId}
+                  className="group flex items-center gap-2 rounded-lg hover:bg-white/5 px-2 py-1.5"
+                >
+                  <button
+                    onClick={() => start(r.roomId, false)}
+                    className="flex-1 min-w-0 text-left flex items-center gap-2"
+                  >
+                    <span
+                      className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+                        r.role === "host"
+                          ? "bg-brand-600/30 text-brand-100"
+                          : "bg-white/5 text-white/50"
+                      }`}
+                    >
+                      {r.role}
+                    </span>
+                    <span className="truncate text-sm" title={r.title ?? r.roomId}>
+                      {r.title || r.roomId}
+                    </span>
+                    {r.title && r.title !== r.roomId && (
+                      <span className="text-xs text-white/30 truncate shrink-0">
+                        {r.roomId}
+                      </span>
+                    )}
+                  </button>
+                  <span className="text-xs text-white/30 shrink-0">
+                    {r.lastVisitedAt
+                      ? formatRelative(r.lastVisitedAt)
+                      : ""}
+                  </span>
+                  <button
+                    onClick={() => removeRoomFromRecents(r.roomId)}
+                    className="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 text-xs px-1"
+                    aria-label="Remove from recent rooms"
+                    title="Remove from recent"
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
       <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
     </main>
   );
+}
+
+function formatRelative(ms: number): string {
+  const diff = Date.now() - ms;
+  const m = Math.round(diff / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.round(h / 24);
+  return `${d}d`;
 }
 
 function AccountChip({
