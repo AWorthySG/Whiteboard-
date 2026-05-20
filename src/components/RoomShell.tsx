@@ -128,6 +128,11 @@ export default function RoomShell({
   // We don't auto-invalidate as the page changes; a refresh triggers
   // when the dropdown is opened again.
   const [pageThumbs, setPageThumbs] = useState<Record<string, string | null>>({});
+  // The empty-room hint is shown until the host has either drawn
+  // something or added a page. Once dismissed we don't reopen it
+  // even if the canvas is later emptied — it's a first-time prompt,
+  // not a persistent indicator.
+  const [emptyRoomHintVisible, setEmptyRoomHintVisible] = useState(true);
   const [captionLines, setCaptionLines] = useState<
     import("./CaptionsManager").CaptionLine[]
   >([]);
@@ -165,6 +170,24 @@ export default function RoomShell({
     window.addEventListener("mousedown", onClick);
     return () => window.removeEventListener("mousedown", onClick);
   }, [pagesMenuOpen]);
+
+  // Dismiss the empty-room hint as soon as the canvas has any shapes
+  // or more than one page. Polls instead of subscribing because the
+  // editor reactivity is owned inside WhiteboardCanvas — and this is
+  // a one-time check, no perf cost.
+  useEffect(() => {
+    if (!emptyRoomHintVisible || !pagesState) return;
+    const id = window.setInterval(() => {
+      const editor = canvasEditorRef.current;
+      if (!editor) return;
+      const shapeCount = editor.getCurrentPageShapeIds().size;
+      const pageCount = editor.getPages().length;
+      if (shapeCount > 0 || pageCount > 1) {
+        setEmptyRoomHintVisible(false);
+      }
+    }, 800);
+    return () => clearInterval(id);
+  }, [emptyRoomHintVisible, pagesState]);
 
   // When the Pages dropdown opens, render thumbnails for every page.
   // tldraw's toImageDataUrl is fast enough on small shape counts that
@@ -586,6 +609,38 @@ export default function RoomShell({
 
       <div className="flex-1 min-h-0 relative flex flex-col md:flex-row">
         <div className="relative flex-1 min-w-0 min-h-0">
+          {/* Loading skeleton: holds the page until tldraw chunks finish
+              loading and the editor mounts. pagesState becomes non-null
+              once the editor publishes its initial page list via
+              onPagesChange. On fast networks this flashes for <100 ms;
+              on 3G it's the difference between a blank screen and a
+              calm 'loading whiteboard' state. */}
+          {!pagesState && (
+            <div className="absolute inset-0 z-[40] flex flex-col items-center justify-center gap-3 bg-[var(--bg)] pointer-events-none">
+              <div className="inline-block w-10 h-10 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
+              <p className="text-sm text-[var(--text-muted)]">
+                Loading whiteboard…
+              </p>
+            </div>
+          )}
+          {/* Empty-room hint: shown when the editor is ready but the
+              host hasn't drawn anything OR uploaded anything yet. Only
+              visible to the host, with pointer-events-none so it never
+              steals taps from the canvas. */}
+          {isHost && pagesState && emptyRoomHintVisible && (
+            <div className="absolute inset-0 z-[35] flex items-center justify-center px-6 pointer-events-none">
+              <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--bg-elev)]/90 backdrop-blur-sm px-6 py-5 max-w-sm text-center shadow-xl">
+                <div className="text-3xl mb-2">✏️</div>
+                <p className="text-sm font-medium">Your whiteboard is empty</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
+                  Draw with the pen, drag a PDF onto the canvas, click
+                  <span className="font-medium"> Documents</span> to
+                  upload, or tap <span className="font-medium">+ New page</span>{" "}
+                  to start a fresh sheet. Then invite a student.
+                </p>
+              </div>
+            </div>
+          )}
           <WhiteboardCanvas
             roomId={roomId}
             userId={userId}

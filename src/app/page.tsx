@@ -195,6 +195,14 @@ export default function Home() {
                     onClick={() => start(r.roomId, false)}
                     className="flex-1 min-w-0 text-left flex items-center gap-2"
                   >
+                    {/* Deterministic colour dot from roomId — helps
+                        the eye scan a long list of recent rooms at
+                        a glance. */}
+                    <span
+                      aria-hidden
+                      className="shrink-0 w-2.5 h-2.5 rounded-full"
+                      style={{ background: hashHue(r.roomId) }}
+                    />
                     <span
                       className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
                         r.role === "host"
@@ -282,4 +290,13 @@ function AccountChip({
       </button>
     </div>
   );
+}
+
+// Stable colour from a string — used to give each recent-room
+// row its own visual marker so a list of similar-named rooms is
+// easier to scan.
+function hashHue(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return `hsl(${h % 360}, 55%, 50%)`;
 }

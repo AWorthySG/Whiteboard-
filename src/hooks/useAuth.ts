@@ -46,12 +46,18 @@ export async function signOut() {
 
 // Auth uses synthetic emails like `<username>@a-worthy.local`. Strip
 // that suffix for display so the UI shows the bare username.
+// Fallback chain handles corrupt records and edge cases:
+//   1. Strip everything after @ if there's a valid local-part.
+//   2. If the email is malformed (no @, empty local-part), use it raw.
+//   3. If there's no email at all, return null so callers can default
+//      to "Host" / "Guest" / whatever fits the context.
 export function displayUsername(
   user: { email?: string | null } | null,
 ): string | null {
-  const e = user?.email;
+  const e = user?.email?.trim();
   if (!e) return null;
   const at = e.lastIndexOf("@");
-  if (at <= 0) return e;
+  if (at < 0) return e;
+  if (at === 0) return e.slice(1) || null; // "@x" → "x"; "@" → null
   return e.slice(0, at);
 }
