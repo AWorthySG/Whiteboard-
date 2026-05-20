@@ -152,6 +152,23 @@ export default function WhiteboardCanvas({
     userInfo: { id: userId, name: userName, color: pickColor(userId) },
   });
 
+  const runUpload = useCallback(
+    (file: File) => {
+      insertFileOntoCanvas(
+        editorRef.current,
+        file,
+        uploadMeta,
+        reportProgress,
+      ).catch((err) => {
+        console.error("[whiteboard] upload failed", err);
+        toast.error(
+          `Upload failed: ${(err as Error)?.message ?? "unknown error"}`,
+        );
+      });
+    },
+    [uploadMeta, reportProgress, toast],
+  );
+
   const overrides: TLUiOverrides = useMemo(
     () => ({
       actions(_editor, actions) {
@@ -160,9 +177,7 @@ export default function WhiteboardCanvas({
           label: "Upload PDF or image",
           kbd: "$u",
           onSelect: () => {
-            openFilePicker((file) =>
-              insertFileOntoCanvas(editorRef.current, file, uploadMeta, reportProgress),
-            );
+            openFilePicker(runUpload);
           },
         };
         actions["insert-brand-logo"] = {
@@ -183,30 +198,23 @@ export default function WhiteboardCanvas({
             ...tools.asset,
             label: "Upload document",
             onSelect: () => {
-              openFilePicker((file) =>
-                insertFileOntoCanvas(
-                  editorRef.current,
-                  file,
-                  uploadMeta,
-                  reportProgress,
-                ),
-              );
+              openFilePicker(runUpload);
             },
           };
         }
         return tools;
       },
     }),
-    [uploadMeta, reportProgress],
+    [runUpload],
   );
 
-  // Expose canvas export to the parent shell.
-  // Keep tldraw's theme in sync with our app-level theme setting.
+  // tldraw is locked to light mode — dark mode caused contrast issues
+  // and was removed app-wide.
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.user.updateUserPreferences({ colorScheme: appSettings.theme });
-  }, [appSettings.theme]);
+    editor.user.updateUserPreferences({ colorScheme: "light" });
+  }, []);
 
   // Apply the user's palm-rejection preference. tldraw stores pen mode on
   // the per-instance state; once it's on, only pointerType==='pen' events
@@ -302,11 +310,12 @@ export default function WhiteboardCanvas({
   const canvasActions = useMemo<CanvasActionsCtx>(
     () => ({
       onEquation: () => setEquationOpen(true),
+      onUpload: () => openFilePicker(runUpload),
       onToggleLeader,
       isHost,
       leaderMode,
     }),
-    [onToggleLeader, isHost, leaderMode],
+    [onToggleLeader, isHost, leaderMode, runUpload],
   );
 
   return (
@@ -336,9 +345,7 @@ export default function WhiteboardCanvas({
           inferDarkMode={false}
           onMount={(editor) => {
             editorRef.current = editor;
-            editor.user.updateUserPreferences({
-              colorScheme: appSettings.theme,
-            });
+            editor.user.updateUserPreferences({ colorScheme: "light" });
             if (appSettings.penOnly) {
               editor.updateInstanceState({ isPenMode: true });
             }
@@ -412,10 +419,17 @@ function openFilePicker(onPick: (file: File) => void) {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = "application/pdf,image/*";
+  // Hidden but in the DOM — some browsers (notably mobile Safari)
+  // silently refuse to open the native picker for a detached <input>.
+  input.style.position = "fixed";
+  input.style.top = "-9999px";
+  input.style.opacity = "0";
   input.onchange = () => {
     const file = input.files?.[0];
+    document.body.removeChild(input);
     if (file) onPick(file);
   };
+  document.body.appendChild(input);
   input.click();
 }
 
@@ -448,22 +462,70 @@ async function insertFileOntoCanvas(
   meta: UploadMeta,
   onProgress: ProgressFn,
 ) {
-  if (!editor) return;
+  if (!editor) throw new Error("Whiteboard isn't ready yet");
   if (file.type === "application/pdf") {
     await insertPdfAsImages(editor, file, meta, onProgress);
     return;
   }
   onProgress({ label: `Uploading ${file.name}…`, percent: 0 });
   try {
-    await editor.putExternalContent({
-      type: "files",
-      files: [file],
-      point: editor.getViewportPageBounds().center,
-      ignoreParent: false,
+    // Upload via our endpoint first so we get a public URL and surface
+    // any server error (RLS, bucket missing, env vars). Then create the
+    // asset + image shape ourselves rather than going through tldraw's
+    // putExternalContent (which swallows failures silently).
+    const { url } = await uploadAsset(file, meta, (frac) => {
+      onProgress({
+        label: `Uploading ${file.name}…`,
+        percent: Math.round(frac * 100),
+      });
+    });
+    const dims = await readImageDims(file).catch(() => ({ w: 600, h: 400 }));
+    const assetId = AssetRecordType.createId(getHashForString(url));
+    if (!editor.getAsset(assetId)) {
+      editor.createAssets([
+        {
+          id: assetId,
+          type: "image",
+          typeName: "asset",
+          props: {
+            name: file.name,
+            src: url,
+            w: dims.w,
+            h: dims.h,
+            mimeType: file.type || "image/png",
+            isAnimated: false,
+          },
+          meta: {},
+        },
+      ]);
+    }
+    const center = editor.getViewportPageBounds().center;
+    editor.createShape({
+      id: `shape:${uniqueId()}` as never,
+      type: "image",
+      x: center.x - dims.w / 2,
+      y: center.y - dims.h / 2,
+      props: { assetId, w: dims.w, h: dims.h },
     });
   } finally {
     onProgress(null);
   }
+}
+
+function readImageDims(file: File): Promise<{ w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Couldn't read image dimensions"));
+    };
+    img.src = url;
+  });
 }
 
 async function insertPdfAsImages(
@@ -642,6 +704,7 @@ async function insertBrandLogo(editor: Editor | null) {
 // own tree so we can't close over WhiteboardCanvas locals directly.
 type CanvasActionsCtx = {
   onEquation: () => void;
+  onUpload: () => void;
   onToggleLeader: () => void | Promise<void>;
   isHost: boolean;
   leaderMode: boolean;
@@ -661,7 +724,6 @@ function SlimToolbar() {
       <TldrawUiMenuItem {...tools["laser"]} />
       <TldrawUiMenuItem {...tools["eraser"]} />
       <TldrawUiMenuItem {...tools["note"]} />
-      <TldrawUiMenuItem {...tools["asset"]} />
       {actions && <CustomToolbarButtons actions={actions} />}
     </DefaultToolbar>
   );
@@ -672,6 +734,15 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
   // surrounding tool icons across themes.
   return (
     <>
+      <button
+        type="button"
+        className="tlui-button tlui-button__icon"
+        onClick={actions.onUpload}
+        title="Upload PDF or image"
+        aria-label="Upload document"
+      >
+        <ToolbarUploadSvg />
+      </button>
       <button
         type="button"
         className="tlui-button tlui-button__icon"
@@ -699,6 +770,16 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
         </button>
       )}
     </>
+  );
+}
+
+function ToolbarUploadSvg() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
   );
 }
 
