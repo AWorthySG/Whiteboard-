@@ -92,6 +92,7 @@ export default function RoomShell({
   const toast = useToast();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
+  const canvasAddPageRef = useRef<(() => void) | null>(null);
 
   const userId = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -172,6 +173,28 @@ export default function RoomShell({
           <BrandLogo size={80} priority className="rounded-xl" />
           <span className="hidden sm:inline text-xl font-semibold">A Worthy</span>
         </Link>
+
+        {/* Top-left 'New page' action — host-only since only the host
+            should be creating pages mid-lesson. One click spawns a
+            blank page; the bottom pages pill still offers the template
+            picker (grid / lined / coords / music). */}
+        {isHost && (
+          <button
+            onClick={() => {
+              try {
+                canvasAddPageRef.current?.();
+              } catch (e) {
+                toast.error(`Couldn't add page: ${(e as Error).message}`);
+              }
+            }}
+            className="touch-target shrink-0 text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+            title="Add a new blank page to this whiteboard"
+          >
+            <span className="text-base leading-none">+</span>
+            <span className="hidden sm:inline">New page</span>
+          </button>
+        )}
+
         <span className="text-[var(--text-dim)] hidden sm:inline">/</span>
 
         {/* Lesson title (editable by host) */}
@@ -347,6 +370,7 @@ export default function RoomShell({
               await setLeaderMode(!meta.leaderMode, userId);
             }}
             exportRef={canvasExportRef}
+            addPageRef={canvasAddPageRef}
           />
         </div>
 
