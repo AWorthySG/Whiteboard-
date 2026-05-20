@@ -70,7 +70,11 @@ export default function ZoomControls({ editor }: { editor: Editor | null }) {
   return (
     <div
       ref={menuRef}
-      className="absolute bottom-3 right-3 z-[60] flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl px-1 py-1"
+      // Bottom-left rather than bottom-right so the video panel on the
+      // right side of the room (especially on phone / tablet portrait)
+      // doesn't cover it. Lifted above the tldraw toolbar so the toolbar
+      // doesn't block the controls.
+      className="absolute bottom-20 left-3 z-[60] flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl px-1 py-1"
       style={{ pointerEvents: "auto" }}
     >
       <button
@@ -103,7 +107,7 @@ export default function ZoomControls({ editor }: { editor: Editor | null }) {
       {menuOpen && (
         <div
           role="menu"
-          className="absolute bottom-full right-0 mb-2 w-44 rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1"
+          className="absolute bottom-full left-0 mb-2 w-44 rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1"
         >
           <ZoomMenuItem label="Fit to content" hint="Shows everything" onClick={fitToContent} />
           <ZoomMenuItem label="Reset to 100%" hint="Default zoom" onClick={resetZoom} />
