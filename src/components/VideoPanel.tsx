@@ -14,6 +14,7 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import { Track, type LocalTrack } from "livekit-client";
+import CaptionsManager from "./CaptionsManager";
 import { useEffect, useMemo, useState } from "react";
 import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
@@ -23,11 +24,15 @@ export default function VideoPanel({
   userId,
   userName,
   isHost,
+  captionsEnabled,
+  onCaption,
 }: {
   roomId: string;
   userId: string;
   userName: string;
   isHost: boolean;
+  captionsEnabled?: boolean;
+  onCaption?: (line: import("./CaptionsManager").CaptionLine) => void;
 }) {
   const [settings] = useSettings();
   const [token, setToken] = useState<string | null>(null);
@@ -146,6 +151,13 @@ export default function VideoPanel({
         <RoomAudioRenderer />
         <CameraReleaseGuard />
         <RoomCoordinator isHost={isHost} userName={userName} />
+        {onCaption && (
+          <CaptionsManager
+            userName={userName}
+            enabled={!!captionsEnabled}
+            onCaption={onCaption}
+          />
+        )}
         <ControlBar
           variation="minimal"
           controls={{

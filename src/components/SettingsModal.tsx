@@ -199,6 +199,12 @@ export default function SettingsModal({
               onChange={(v) => setSettings({ audioOnly: v })}
               hint="Skip the camera entirely. Saves bandwidth and battery — useful on phone data. You can still toggle video on once you've joined."
             />
+            <Toggle
+              label="Live captions"
+              checked={settings.captionsEnabled}
+              onChange={(v) => setSettings({ captionsEnabled: v })}
+              hint="Transcribes everyone's speech and shows the words on screen. Chrome / Edge / Samsung Internet only contribute their own caption text; Safari and Firefox can still read what others say. Toggle the 'CC' button in the header for the same effect."
+            />
           </Section>
 
           <Section title="Room">
