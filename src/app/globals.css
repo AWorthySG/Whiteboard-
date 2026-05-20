@@ -82,6 +82,11 @@ html[data-theme="light"] .tl-canvas {
 html,
 body {
   overscroll-behavior: none;
+  /* Lock the page itself — only the tldraw canvas (which sets its
+     own touch-action) should pan horizontally. Stops the whole room
+     shell from sliding sideways on phones if a child overflows. */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* Respect iPhone notch / Dynamic Island. */

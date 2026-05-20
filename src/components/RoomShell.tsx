@@ -189,7 +189,7 @@ export default function RoomShell({
 
   const room = (
     <div className="h-app w-screen flex flex-col">
-      <header className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[var(--bg-elev)] border-b border-[color:var(--border-subtle)] z-10 safe-pt">
+      <header className="flex items-start md:items-center gap-2 px-3 sm:px-4 py-2 bg-[var(--bg-elev)] border-b border-[color:var(--border-subtle)] z-10 safe-pt">
         <Link
           href="/"
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
@@ -318,63 +318,72 @@ export default function RoomShell({
         <PresenceBadge roomId={roomId} userId={userId} userName={name || "Guest"} />
 
         {/* Desktop / tablet controls.
-            Tablet (md to lg-): icon-only buttons for less-used actions.
-            Desktop (lg+): full text labels.
-            Display-name input only appears at xl (≥1280px) — it's available in
-            the Settings panel on smaller screens. */}
-        <div className="ml-auto hidden md:flex items-center gap-1.5 lg:gap-2">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Display name"
-            className="hidden xl:block rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1 text-sm w-32 outline-none focus:border-brand-500"
-          />
-          <HeaderBtn
-            onClick={() => setDocsOpen(true)}
-            label="Documents"
-            icon={<DocsSvg />}
-          />
-          <HeaderBtn
-            onClick={() => setHwOpen(true)}
-            label="Homework"
-            icon={<HomeworkSvg />}
-          />
-          <HeaderBtn
-            onClick={() => setRecsOpen(true)}
-            label="Recordings"
-            icon={<PlaySvg />}
-          />
-          {isHost && (
-            <RecordButton
-              roomId={roomId}
-              hostUserId={userId}
-              hostName={name || "Host"}
-              roomTitle={meta.title}
+            Split into TWO rows so the header doesn't feel crammed on
+            tablet portrait and the eye gets a clear primary (room
+            content) → secondary (room utilities) grouping:
+              Row 1: Documents | Homework | Recordings | Record
+              Row 2: Export | Invite | Hide/Show video | Settings
+            Display-name input only appears at xl (≥1280px) — it's
+            available in the Settings panel on smaller screens. */}
+        <div className="ml-auto hidden md:flex flex-col items-end gap-1.5">
+          {/* Row 1 — content shelves + Record */}
+          <div className="flex items-center gap-1.5 lg:gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Display name"
+              className="hidden xl:block rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1 text-sm w-32 outline-none focus:border-brand-500"
             />
-          )}
-          <HeaderBtn
-            onClick={exportCanvas}
-            label="Export"
-            title="Export the canvas as a PNG file"
-            icon={<DownloadSvg />}
-          />
-          <HeaderBtn
-            onClick={() => setInviteOpen(true)}
-            label="Invite"
-            icon={<ShareSvg />}
-          />
-          <button
-            onClick={() => setVideoOpen((v) => !v)}
-            className="touch-target text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
-            title={videoOpen ? "Hide video" : "Show video"}
-            aria-label={videoOpen ? "Hide video" : "Show video"}
-          >
-            {videoOpen ? <CamOffSvg /> : <CamSvg />}
-            <span className="hidden lg:inline">{videoOpen ? "Hide video" : "Show video"}</span>
-          </button>
-          <IconBtn onClick={() => setSettingsOpen(true)} label="Settings">
-            <GearSvg />
-          </IconBtn>
+            <HeaderBtn
+              onClick={() => setDocsOpen(true)}
+              label="Documents"
+              icon={<DocsSvg />}
+            />
+            <HeaderBtn
+              onClick={() => setHwOpen(true)}
+              label="Homework"
+              icon={<HomeworkSvg />}
+            />
+            <HeaderBtn
+              onClick={() => setRecsOpen(true)}
+              label="Recordings"
+              icon={<PlaySvg />}
+            />
+            {isHost && (
+              <RecordButton
+                roomId={roomId}
+                hostUserId={userId}
+                hostName={name || "Host"}
+                roomTitle={meta.title}
+              />
+            )}
+          </div>
+          {/* Row 2 — meta actions */}
+          <div className="flex items-center gap-1.5 lg:gap-2">
+            <HeaderBtn
+              onClick={exportCanvas}
+              label="Export"
+              title="Export the canvas as a PNG file"
+              icon={<DownloadSvg />}
+            />
+            <HeaderBtn
+              onClick={() => setInviteOpen(true)}
+              label="Invite"
+              icon={<ShareSvg />}
+            />
+            <button
+              onClick={() => setVideoOpen((v) => !v)}
+              className="touch-target text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+              title={videoOpen ? "Hide video" : "Show video"}
+              aria-label={videoOpen ? "Hide video" : "Show video"}
+            >
+              {videoOpen ? <CamOffSvg /> : <CamSvg />}
+              <span className="hidden lg:inline">{videoOpen ? "Hide video" : "Show video"}</span>
+            </button>
+            <IconBtn onClick={() => setSettingsOpen(true)} label="Settings">
+              <GearSvg />
+            </IconBtn>
+          </div>
         </div>
 
         {/* Mobile controls */}

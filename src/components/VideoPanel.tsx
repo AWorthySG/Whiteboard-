@@ -9,6 +9,7 @@ import {
   RoomAudioRenderer,
   useDataChannel,
   useLocalParticipant,
+  useParticipants,
   useRoomContext,
   useTracks,
 } from "@livekit/components-react";
@@ -137,17 +138,34 @@ export default function VideoPanel({
 }
 
 function Tiles() {
+  const participants = useParticipants();
   const tracks = useTracks(
     [
+      // withPlaceholder ensures every participant gets a tile even if
+      // their camera is off — so the host can always see who's joined.
       { source: Track.Source.Camera, withPlaceholder: true },
       { source: Track.Source.ScreenShare, withPlaceholder: false },
     ],
     { onlySubscribed: false },
   );
   return (
-    <GridLayout tracks={tracks} style={{ height: "100%" }}>
-      <ParticipantTile />
-    </GridLayout>
+    <div className="relative h-full">
+      {/* Participant count badge — gives the host instant feedback
+          that the call has more than one person, even when remote
+          tiles are scrolled out of view. */}
+      <div className="absolute top-2 left-2 z-10 text-[10px] font-medium uppercase tracking-wider bg-black/60 text-white rounded px-1.5 py-0.5 pointer-events-none">
+        {participants.length} in call
+      </div>
+      <GridLayout tracks={tracks} style={{ height: "100%" }}>
+        <ParticipantTile />
+      </GridLayout>
+      {participants.length === 1 && (
+        <div className="absolute bottom-2 left-2 right-2 z-10 text-xs text-white/80 bg-black/60 rounded px-2 py-1 pointer-events-none">
+          You're the only one here. Share the invite link to bring
+          students in.
+        </div>
+      )}
+    </div>
   );
 }
 
