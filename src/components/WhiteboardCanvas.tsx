@@ -16,6 +16,7 @@ import {
 } from "tldraw";
 import dynamic from "next/dynamic";
 import { getSettings, useSettings } from "@/hooks/useSettings";
+import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
@@ -105,11 +106,13 @@ export default function WhiteboardCanvas({
   roomId,
   userId,
   userName,
+  isHost,
   exportRef,
 }: {
   roomId: string;
   userId: string;
   userName: string;
+  isHost: boolean;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
 }) {
   const [appSettings] = useSettings();
@@ -119,6 +122,7 @@ export default function WhiteboardCanvas({
   const [progress, setProgress] = useState<Progress>(null);
   const [equationOpen, setEquationOpen] = useState(false);
   const reportProgress = useCallback<ProgressFn>((p) => setProgress(p), []);
+  const { meta, setLeaderMode } = useRoomMeta(roomId);
 
   const assetStore = useMemo(
     () => makeAssetStore({ roomId, userId, userName }, reportProgress),
@@ -177,6 +181,25 @@ export default function WhiteboardCanvas({
     if (!editor) return;
     editor.updateInstanceState({ isPenMode: appSettings.penOnly });
   }, [appSettings.penOnly]);
+
+  // Leader (follow-me) mode: when the host turns it on, everyone else's
+  // tldraw camera (pan + zoom) is locked to mirror the host's. tldraw
+  // ships native presence-based follow — we just toggle it based on the
+  // shared room_metadata.leader_mode flag.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const leaderId = meta.leaderUserId;
+    if (meta.leaderMode && leaderId && leaderId !== userId) {
+      try {
+        editor.startFollowingUser(leaderId);
+      } catch {
+        // The leader might not have joined yet — try again on next change.
+      }
+    } else {
+      editor.stopFollowingUser();
+    }
+  }, [meta.leaderMode, meta.leaderUserId, userId]);
 
   useEffect(() => {
     if (!exportRef) return;
@@ -287,6 +310,13 @@ export default function WhiteboardCanvas({
           editor.setCurrentTool("laser");
         }}
         onEquation={() => setEquationOpen(true)}
+        isHost={isHost}
+        leaderMode={meta.leaderMode}
+        leaderUserId={meta.leaderUserId}
+        userId={userId}
+        onToggleLeader={async () => {
+          await setLeaderMode(!meta.leaderMode, userId);
+        }}
       />
       <EquationModal
         open={equationOpen}
@@ -314,12 +344,24 @@ function CanvasTopRightActions({
   onUpload,
   onPointer,
   onEquation,
+  isHost,
+  leaderMode,
+  leaderUserId,
+  userId,
+  onToggleLeader,
 }: {
   editor: Editor | null;
   onUpload: (file: File) => Promise<void> | void;
   onPointer: () => void;
   onEquation: () => void;
+  isHost: boolean;
+  leaderMode: boolean;
+  leaderUserId: string | null;
+  userId: string;
+  onToggleLeader: () => void | Promise<void>;
 }) {
+  const beingFollowed = leaderMode && leaderUserId !== userId;
+
   return (
     <div
       className="absolute top-3 right-3 flex flex-col items-end gap-2"
@@ -342,8 +384,44 @@ function CanvasTopRightActions({
         <span className="font-serif italic">fx</span>
         Equation
       </button>
+      {isHost && (
+        <button
+          onClick={() => void onToggleLeader()}
+          className={`rounded-md px-3 py-1.5 text-xs font-medium shadow-lg flex items-center gap-1.5 border ${
+            leaderMode
+              ? "bg-amber-500 text-black border-amber-400 hover:bg-amber-400"
+              : "bg-[var(--bg-elev)] text-[var(--text)] border-[color:var(--border)] hover:bg-[var(--hover)]"
+          }`}
+          title={
+            leaderMode
+              ? "Stop leading — students can pan/zoom freely"
+              : "Lock everyone's view to match yours"
+          }
+        >
+          <EyeSvg />
+          {leaderMode ? "Stop leading" : "Lead view"}
+        </button>
+      )}
+      {beingFollowed && (
+        <div
+          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-amber-500/15 text-amber-300 border-amber-400/40 shadow-lg flex items-center gap-1.5"
+          title="The host is leading the view — your pan/zoom is locked"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          Following host
+        </div>
+      )}
       <ColorPickerRow editor={editor} />
     </div>
+  );
+}
+
+function EyeSvg() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
   );
 }
 

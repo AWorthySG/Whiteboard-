@@ -340,6 +340,7 @@ export default function RoomShell({
             roomId={roomId}
             userId={userId}
             userName={name || "Guest"}
+            isHost={isHost}
             exportRef={canvasExportRef}
           />
         </div>
