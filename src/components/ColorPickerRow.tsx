@@ -48,7 +48,7 @@ export default function ColorPickerRow({ editor }: { editor: Editor | null }) {
 
   return (
     <div
-      className="flex flex-wrap gap-1.5 max-w-[152px] rounded-md bg-[var(--bg-elev)] border border-white/10 p-1.5 shadow-lg"
+      className="flex flex-wrap gap-1.5 max-w-[152px] rounded-md border p-1.5 shadow-lg bg-[var(--bg-elev)] border-[color:var(--border)]"
       role="toolbar"
       aria-label="Color"
     >
@@ -60,7 +60,7 @@ export default function ColorPickerRow({ editor }: { editor: Editor | null }) {
           title={c.label}
           className={`w-5 h-5 rounded-full transition-transform ${
             active === c.name
-              ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-white scale-110"
+              ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
               : "hover:scale-105"
           }`}
           style={{ backgroundColor: c.hex }}

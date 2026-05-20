@@ -325,7 +325,7 @@ function CanvasTopRightActions({
       <UploadButton onPick={onUpload} />
       <button
         onClick={onPointer}
-        className="rounded-md px-3 py-1.5 text-xs font-medium bg-[var(--bg-elev)] border border-white/10 hover:bg-white/5 text-white/80 shadow-lg flex items-center gap-1.5"
+        className="rounded-md px-3 py-1.5 text-xs font-medium shadow-lg flex items-center gap-1.5 border bg-[var(--bg-elev)] text-[var(--text)] border-[color:var(--border)] hover:bg-[var(--hover)]"
         title="Switch to laser pointer (K)"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
@@ -333,7 +333,7 @@ function CanvasTopRightActions({
       </button>
       <button
         onClick={onEquation}
-        className="rounded-md px-3 py-1.5 text-xs font-medium bg-[var(--bg-elev)] border border-white/10 hover:bg-white/5 text-white/80 shadow-lg flex items-center gap-1.5"
+        className="rounded-md px-3 py-1.5 text-xs font-medium shadow-lg flex items-center gap-1.5 border bg-[var(--bg-elev)] text-[var(--text)] border-[color:var(--border)] hover:bg-[var(--hover)]"
         title="Insert math equation (LaTeX)"
       >
         <span className="font-serif italic">fx</span>
