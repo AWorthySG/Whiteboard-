@@ -140,7 +140,23 @@ PagesTabBar.tsx        Bottom-center pill listing tldraw pages — switch / rena
 KnockGate.tsx          Wraps the room for non-hosts; renders the "waiting to be admitted"
                        screen until their join_requests row flips to admitted.
 
-AdmissionPanel.tsx     Host-only floating panel showing pending join_requests.
+GuestNameEntry         Inline in RoomShell.tsx. Shown to guests who land on a room
+                       link without a name (no ?name= URL param, no
+                       wb_user_name in localStorage). One field, no sign-up. Once
+                       submitted, the name is saved to localStorage and KnockGate
+                       takes over. A nameBootstrapped flag prevents a one-frame
+                       flash for guests whose name is already remembered.
+
+AdmissionPanel.tsx     Host-only floating panel showing pending join_requests with
+                       Admit / Deny buttons. Also fires a toast ("X is asking to
+                       join") the first time it sees each new pending request so
+                       the host can't miss it.
+
+ZoomControls.tsx       Bottom-right pill: zoom out / current % (clickable for preset
+                       menu) / zoom in. Preset menu has Fit to content, Reset to
+                       100%, and 50/75/100/150/200%. Subscribes to editor.store
+                       session scope so the % stays live. Works on phone, tablet,
+                       and desktop (touch targets sized for thumb taps).
 
 Toast.tsx              Stacked toast notifications (ToastProvider in root layout). Solid
                        red / green variants have explicit text-white (the bg is saturated
@@ -238,6 +254,8 @@ commit `45a340e` (15+ classes swept).
 - **Geometric shape lockout**: the `tools()` override in `WhiteboardCanvas` clears the keyboard `kbd` field for `arrow`, `line`, `geo`, `text`, and `frame` so they're unreachable. They were already hidden from the SlimToolbar; this also kills the R/O/A/L/T/F shortcuts.
 - **Two-finger scroll & touch**: `.tldraw-shell` sets `touch-action: none` + `overscroll-behavior: contain` + `-webkit-user-select: none` + `-webkit-touch-callout: none` + a fallback `touch-action: none` on every nested `.tl-container` / `.tl-canvas` / `canvas` (Firefox sometimes ignores the parent value). `userScalable: false` in the viewport meta lets two-finger gestures reach tldraw's pan/zoom code instead of zooming the whole page.
 - **Supabase "Confirm email" must be OFF** for password sign-up to work — we use synthetic `@a-worthy.local` emails that can't receive mail. Set in Supabase Dashboard → Authentication → Providers → Email → Confirm email → toggle OFF.
+- **Guests don't sign up**. Anyone with a room link can join: they land on `/r/<roomId>`, see the `GuestNameEntry` form (or skip it if they have a remembered name), then KnockGate creates a `join_requests` row and waits for the host to Admit. The host sees an `AdmissionPanel` floating top-right + a toast for every new knocker.
+- **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) is disabled in our `components` override, so we render our own `ZoomControls` bottom-right. If you ever re-enable MenuPanel, also remove our component to avoid two zoom UIs.
 - **`/auth/callback` is a no-op stub** now that magic-link auth is gone. Don't remove it — it's wrapped in `<Suspense>` and harmless if hit, and password reset / OAuth could re-use it later.
 - **Free tiers**: Supabase Storage 1 GB, LiveKit 10k participant-min/month. Watch the Recordings drawer for big files eating Supabase Storage.
 

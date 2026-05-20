@@ -41,6 +41,11 @@ export default function RoomShell({
 }) {
   const [settings] = useSettings();
   const [name, setName] = useState(userName);
+  // `nameBootstrapped` flips true after the first effect run that
+  // pulls the remembered name out of localStorage. Without this, the
+  // GuestNameEntry would flash for one frame on guests who already
+  // have a name saved on this device.
+  const [nameBootstrapped, setNameBootstrapped] = useState(false);
   const [videoOpen, setVideoOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
@@ -135,6 +140,7 @@ export default function RoomShell({
     } else {
       window.localStorage.setItem("wb_user_name", name);
     }
+    setNameBootstrapped(true);
   }, [name]);
 
   // Record this room in the recent rooms list whenever the title or role
@@ -550,10 +556,87 @@ export default function RoomShell({
   );
 
   if (isHost) return room;
+  // Guest flow — no sign-up required. If they didn't bring a name in
+  // (via ?name= or remembered from a previous visit on this device),
+  // ask for one in a quick inline form before knocking. The host sees
+  // the name they enter in the admission panel.
+  // Wait for localStorage to be checked so we don't flash the name
+  // prompt to someone whose name is already remembered.
+  if (!nameBootstrapped) {
+    return (
+      <main className="h-app w-screen flex items-center justify-center">
+        <div className="inline-block w-8 h-8 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
+      </main>
+    );
+  }
+  if (!name.trim()) {
+    return (
+      <GuestNameEntry
+        roomTitle={meta.title || roomId}
+        onSubmit={(n) => {
+          setName(n);
+          try {
+            window.localStorage.setItem("wb_user_name", n);
+          } catch {}
+        }}
+      />
+    );
+  }
   return (
-    <KnockGate roomId={roomId} userId={userId} userName={name || "Guest"}>
+    <KnockGate roomId={roomId} userId={userId} userName={name}>
       {room}
     </KnockGate>
+  );
+}
+
+function GuestNameEntry({
+  roomTitle,
+  onSubmit,
+}: {
+  roomTitle: string;
+  onSubmit: (name: string) => void;
+}) {
+  const [draft, setDraft] = useState("");
+  const submit = () => {
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed);
+  };
+  return (
+    <main className="h-app w-screen flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border-subtle)] shadow-xl p-6 sm:p-8">
+        <h1 className="text-xl font-semibold tracking-tight">
+          Joining {roomTitle}
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] mt-1">
+          No account needed — just tell us what to call you and we'll
+          ask the host to let you in.
+        </p>
+        <label className="block mt-5">
+          <span className="text-xs text-[var(--text-muted)]">Your name</span>
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submit();
+            }}
+            placeholder="e.g. Alex"
+            className="mt-1 w-full rounded-lg bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-base outline-none focus:border-brand-500"
+          />
+        </label>
+        <button
+          onClick={submit}
+          disabled={!draft.trim()}
+          className="mt-4 w-full rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-4 py-2.5 text-sm font-medium"
+        >
+          Join room
+        </button>
+        <p className="text-xs text-[var(--text-dim)] text-center mt-3">
+          Students never need to sign up. The host will admit you.
+        </p>
+      </div>
+    </main>
   );
 }
 
