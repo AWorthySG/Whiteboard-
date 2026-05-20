@@ -158,6 +158,21 @@ ZoomControls.tsx       Bottom-right pill: zoom out / current % (clickable for pr
                        session scope so the % stays live. Works on phone, tablet,
                        and desktop (touch targets sized for thumb taps).
 
+CaptionsManager.tsx    Lives inside the LiveKitRoom context. Runs the browser-native
+                       SpeechRecognition API (webkitSpeechRecognition) on the local
+                       mic when captions are enabled + the mic is on. Each finalised
+                       or interim utterance is broadcast over the LiveKit data
+                       channel as {type: "caption", text, isFinal, name}. Also
+                       listens for incoming caption messages from peers and calls
+                       onCaption to push them up to RoomShell.
+
+CaptionsOverlay.tsx    Bottom-center floating panel that renders the last ~3 caption
+                       lines with the speaker's name. Final lines render solid;
+                       interim lines render italic + lighter. Lines fade after 8s
+                       and disappear after 10s. On Safari/Firefox it shows a single
+                       'your browser can't transcribe locally' notice when the user
+                       turns captions on themselves.
+
 Toast.tsx              Stacked toast notifications (ToastProvider in root layout). Solid
                        red / green variants have explicit text-white (the bg is saturated
                        so var(--text) reads as dark-on-dark in light mode).

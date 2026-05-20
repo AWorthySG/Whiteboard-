@@ -15,6 +15,12 @@ export type Settings = {
    *  off and the camera button starts muted. Users can still toggle the
    *  camera on later. Saves bandwidth + battery for guests on phone. */
   audioOnly: boolean;
+  /** Live captions overlay. When on, browsers that support
+   *  SpeechRecognition (Chrome/Edge/Samsung Internet) transcribe their
+   *  own mic locally and broadcast the text over the LiveKit data
+   *  channel. Everyone in the room sees the captions, even on Safari
+   *  / Firefox (they just can't contribute their own speech). */
+  captionsEnabled: boolean;
   theme: Theme;
   hasSeenOnboarding: boolean;
   penOnly: boolean;
@@ -28,6 +34,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultCamera: true,
   defaultMicrophone: true,
   audioOnly: false,
+  captionsEnabled: true,
   theme: "light",
   hasSeenOnboarding: false,
   penOnly: false,

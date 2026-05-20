@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSettings } from "@/hooks/useSettings";
@@ -24,6 +24,21 @@ const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
 const VideoPanelResizer = dynamic(() => import("./VideoPanelResizer"), { ssr: false });
 const RecordingsDrawer = dynamic(() => import("./RecordingsDrawer"), { ssr: false });
 const ChatBubble = dynamic(() => import("./ChatBubble"), { ssr: false });
+const CaptionsOverlay = dynamic(() => import("./CaptionsOverlay"), {
+  ssr: false,
+});
+// Evaluated lazily on the client. Used by the overlay to show a single
+// notice if the local browser can't transcribe (Safari / Firefox).
+let localCaptionsSupportedSync = false;
+if (typeof window !== "undefined") {
+  const w = window as unknown as {
+    SpeechRecognition?: unknown;
+    webkitSpeechRecognition?: unknown;
+  };
+  localCaptionsSupportedSync = !!(
+    w.SpeechRecognition || w.webkitSpeechRecognition
+  );
+}
 
 const VIDEO_WIDTH_MIN = 200;
 const VIDEO_WIDTH_MAX = 600;
@@ -39,7 +54,7 @@ export default function RoomShell({
   roomId: string;
   userName: string;
 }) {
-  const [settings] = useSettings();
+  const [settings, setSettings] = useSettings();
   const [name, setName] = useState(userName);
   // `nameBootstrapped` flips true after the first effect run that
   // pulls the remembered name out of localStorage. Without this, the
@@ -106,6 +121,25 @@ export default function RoomShell({
   // We don't auto-invalidate as the page changes; a refresh triggers
   // when the dropdown is opened again.
   const [pageThumbs, setPageThumbs] = useState<Record<string, string | null>>({});
+  const [captionLines, setCaptionLines] = useState<
+    import("./CaptionsManager").CaptionLine[]
+  >([]);
+  const pushCaption = useCallback(
+    (line: import("./CaptionsManager").CaptionLine) => {
+      setCaptionLines((prev) => {
+        // Replace the speaker's previous still-interim line, otherwise
+        // append. Cap the buffer at 30 lines so it doesn't grow forever.
+        const idx = prev.findIndex(
+          (l) => l.identity === line.identity && !l.isFinal,
+        );
+        const next = [...prev];
+        if (idx >= 0) next[idx] = line;
+        else next.push(line);
+        return next.slice(-30);
+      });
+    },
+    [],
+  );
   const [pagesState, setPagesState] = useState<{
     pages: { id: string; name: string }[];
     currentId: string;
@@ -425,6 +459,25 @@ export default function RoomShell({
               icon={<ShareSvg />}
             />
             <button
+              onClick={() =>
+                setSettings({ captionsEnabled: !settings.captionsEnabled })
+              }
+              className={`touch-target text-sm rounded-md border px-2.5 lg:px-3 py-1 flex items-center gap-1.5 ${
+                settings.captionsEnabled
+                  ? "bg-brand-100 border-brand-500 text-brand-800"
+                  : "border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
+              }`}
+              title={
+                settings.captionsEnabled
+                  ? "Turn off live captions"
+                  : "Turn on live captions"
+              }
+              aria-pressed={settings.captionsEnabled}
+            >
+              <CaptionsSvg />
+              <span className="hidden lg:inline">CC</span>
+            </button>
+            <button
               onClick={() => setVideoOpen((v) => !v)}
               className="touch-target text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
               title={videoOpen ? "Hide video" : "Show video"}
@@ -541,7 +594,14 @@ export default function RoomShell({
             >
               {videoCompact ? "⤢" : "⤡"}
             </button>
-            <VideoPanel roomId={roomId} userId={userId} userName={name || "Guest"} isHost={isHost} />
+            <VideoPanel
+              roomId={roomId}
+              userId={userId}
+              userName={name || "Guest"}
+              isHost={isHost}
+              captionsEnabled={settings.captionsEnabled}
+              onCaption={pushCaption}
+            />
           </aside>
         )}
 
@@ -571,12 +631,24 @@ export default function RoomShell({
               </div>
             </div>
             <div className="flex-1 min-h-0">
-              <VideoPanel roomId={roomId} userId={userId} userName={name || "Guest"} isHost={isHost} />
+              <VideoPanel
+              roomId={roomId}
+              userId={userId}
+              userName={name || "Guest"}
+              isHost={isHost}
+              captionsEnabled={settings.captionsEnabled}
+              onCaption={pushCaption}
+            />
             </div>
           </div>
         )}
 
         {isHost && <AdmissionPanel roomId={roomId} hostUserId={userId} />}
+        <CaptionsOverlay
+          enabled={settings.captionsEnabled}
+          lines={captionLines}
+          supported={localCaptionsSupportedSync}
+        />
       </div>
 
       <SettingsModal
@@ -837,6 +909,16 @@ function PlaySvg() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polygon points="6 4 20 12 6 20 6 4" />
+    </svg>
+  );
+}
+
+function CaptionsSvg() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <path d="M7 13c0 1.1 .9 2 2 2 .5 0 1-.2 1.4-.5" />
+      <path d="M14 13c0 1.1 .9 2 2 2 .5 0 1-.2 1.4-.5" />
     </svg>
   );
 }
