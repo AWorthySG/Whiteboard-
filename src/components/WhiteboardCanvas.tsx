@@ -476,6 +476,15 @@ export default function WhiteboardCanvas({
             // "s" (small) so pressure modulation produces a natural
             // hairline-to-medium range instead of medium-to-marker.
             editor.setStyleForNextShapes(DefaultSizeStyle, "s");
+            // Default non-host guests to the hand tool so a single-
+            // finger swipe pans the canvas. With the draw tool default
+            // and our touch-action: none on the shell, students who
+            // didn't know to switch tools had no way to scroll on
+            // phone — they'd just leave squiggles. Host stays on the
+            // draw tool since they're the one writing.
+            if (!isHost) {
+              editor.setCurrentTool("hand");
+            }
             if (appSettings.penOnly) {
               editor.updateInstanceState({ isPenMode: true });
             }
@@ -527,6 +536,7 @@ function CanvasFloatingPanel({
   userId: string;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
+  const isLeading = leaderMode && leaderUserId === userId;
   return (
     <div
       className="absolute top-3 right-3 flex flex-col items-end gap-2"
@@ -539,6 +549,15 @@ function CanvasFloatingPanel({
         >
           <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
           Following host
+        </div>
+      )}
+      {isLeading && (
+        <div
+          className="rounded-md px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider bg-amber-500 text-white border border-amber-600 shadow-lg flex items-center gap-1.5"
+          title="You're leading — every guest's canvas mirrors your view. Click the eye icon in the toolbar to stop."
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          Leading view
         </div>
       )}
       <ColorPickerRow editor={editor} />
@@ -887,7 +906,9 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
         <button
           type="button"
           className={`tlui-button tlui-button__icon ${
-            actions.leaderMode ? "text-amber-500" : ""
+            actions.leaderMode
+              ? "!bg-amber-500 !text-white"
+              : ""
           }`}
           onClick={() => void actions.onToggleLeader()}
           title={
@@ -896,6 +917,7 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
               : "Lock everyone's view to yours"
           }
           aria-label={actions.leaderMode ? "Stop leading view" : "Lead view"}
+          aria-pressed={actions.leaderMode}
         >
           <ToolbarEyeSvg />
         </button>
