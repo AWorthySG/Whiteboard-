@@ -25,9 +25,11 @@ const VideoPanelResizer = dynamic(() => import("./VideoPanelResizer"), { ssr: fa
 const RecordingsDrawer = dynamic(() => import("./RecordingsDrawer"), { ssr: false });
 const ChatBubble = dynamic(() => import("./ChatBubble"), { ssr: false });
 
-const VIDEO_WIDTH_MIN = 240;
+const VIDEO_WIDTH_MIN = 200;
 const VIDEO_WIDTH_MAX = 600;
 const VIDEO_WIDTH_DEFAULT = 360;
+const VIDEO_WIDTH_COMPACT = 220;
+const VIDEO_COMPACT_KEY = "wb_video_compact";
 const VIDEO_WIDTH_KEY = "wb_video_panel_width";
 
 export default function RoomShell({
@@ -49,7 +51,22 @@ export default function RoomShell({
   const [titleDraft, setTitleDraft] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [videoPanelWidth, setVideoPanelWidthState] = useState(VIDEO_WIDTH_DEFAULT);
+  const [videoCompact, setVideoCompactState] = useState(false);
   const isHost = useIsHost(roomId);
+
+  // Persist the compact toggle.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(VIDEO_COMPACT_KEY);
+      if (raw === "1") setVideoCompactState(true);
+    } catch {}
+  }, []);
+  const setVideoCompact = (v: boolean) => {
+    setVideoCompactState(v);
+    try {
+      window.localStorage.setItem(VIDEO_COMPACT_KEY, v ? "1" : "0");
+    } catch {}
+  };
 
   // Persist video panel width.
   useEffect(() => {
@@ -152,8 +169,8 @@ export default function RoomShell({
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
           title="Back to home"
         >
-          <BrandLogo size={56} priority className="rounded-lg" />
-          <span className="hidden sm:inline text-lg">A Worthy</span>
+          <BrandLogo size={80} priority className="rounded-xl" />
+          <span className="hidden sm:inline text-xl font-semibold">A Worthy</span>
         </Link>
         <span className="text-[var(--text-dim)] hidden sm:inline">/</span>
 
@@ -330,30 +347,52 @@ export default function RoomShell({
         {videoOpen && (
           <aside
             className="hidden md:flex shrink-0 border-l border-[color:var(--border-subtle)] bg-[var(--bg-elev-2)] flex-col relative"
-            style={{ width: videoPanelWidth }}
+            style={{ width: videoCompact ? VIDEO_WIDTH_COMPACT : videoPanelWidth }}
           >
-            <VideoPanelResizer
-              width={videoPanelWidth}
-              setWidth={setVideoPanelWidth}
-              min={VIDEO_WIDTH_MIN}
-              max={VIDEO_WIDTH_MAX}
-            />
+            {!videoCompact && (
+              <VideoPanelResizer
+                width={videoPanelWidth}
+                setWidth={setVideoPanelWidth}
+                min={VIDEO_WIDTH_MIN}
+                max={VIDEO_WIDTH_MAX}
+              />
+            )}
+            <button
+              onClick={() => setVideoCompact(!videoCompact)}
+              className="absolute top-1.5 right-1.5 z-20 w-7 h-7 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs shadow"
+              aria-label={videoCompact ? "Expand video panel" : "Shrink video panel"}
+              title={videoCompact ? "Expand video panel" : "Shrink video panel"}
+            >
+              {videoCompact ? "⤢" : "⤡"}
+            </button>
             <VideoPanel roomId={roomId} userId={userId} userName={name || "Guest"} isHost={isHost} />
           </aside>
         )}
 
         {videoOpen && (
-          <div className="md:hidden h-[42dvh] shrink-0 border-t border-[color:var(--border)] bg-[var(--bg-elev-2)] shadow-2xl flex flex-col safe-pb">
+          <div
+            className="md:hidden shrink-0 border-t border-[color:var(--border)] bg-[var(--bg-elev-2)] shadow-2xl flex flex-col safe-pb"
+            style={{ height: videoCompact ? "24dvh" : "42dvh" }}
+          >
             <div className="flex items-center justify-between px-3 py-1 border-b border-[color:var(--border-subtle)]">
               <span className="text-xs uppercase tracking-wider text-[var(--text-dim)]">
                 Call
               </span>
-              <button
-                onClick={() => setVideoOpen(false)}
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-0.5"
-              >
-                Hide
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setVideoCompact(!videoCompact)}
+                  className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-0.5"
+                  title={videoCompact ? "Larger" : "Smaller"}
+                >
+                  {videoCompact ? "Larger" : "Smaller"}
+                </button>
+                <button
+                  onClick={() => setVideoOpen(false)}
+                  className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-0.5"
+                >
+                  Hide
+                </button>
+              </div>
             </div>
             <div className="flex-1 min-h-0">
               <VideoPanel roomId={roomId} userId={userId} userName={name || "Guest"} isHost={isHost} />

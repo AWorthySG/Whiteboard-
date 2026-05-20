@@ -262,6 +262,8 @@ export default function WhiteboardCanvas({
           // and laser are hidden (palette + keyboard shortcuts still
           // work for power users).
           Toolbar: SlimToolbar,
+          // Faded A Worthy logo as a fixed canvas background watermark.
+          Background: CanvasWatermark,
         }}
         inferDarkMode={false}
         onMount={(editor) => {
@@ -629,6 +631,31 @@ function SlimToolbar() {
       <TldrawUiMenuItem {...tools["note"]} />
       <TldrawUiMenuItem {...tools["asset"]} />
     </DefaultToolbar>
+  );
+}
+
+// Faded A Worthy logo as the canvas background. tldraw renders this
+// behind everything; the logo sits dead-centre, fixed to the screen
+// (not the canvas), so panning/zooming the drawing doesn't move it.
+function CanvasWatermark() {
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      style={{ zIndex: 0 }}
+    >
+      <img
+        src="/icon.png"
+        alt=""
+        className="select-none"
+        style={{
+          width: "min(40vw, 480px)",
+          height: "min(40vw, 480px)",
+          opacity: 0.06,
+          objectFit: "contain",
+        }}
+      />
+    </div>
   );
 }
 

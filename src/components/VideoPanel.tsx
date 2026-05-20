@@ -12,7 +12,7 @@ import {
   useRoomContext,
   useTracks,
 } from "@livekit/components-react";
-import { Track } from "livekit-client";
+import { Track, type LocalTrack } from "livekit-client";
 import { useEffect, useMemo, useState } from "react";
 import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
@@ -105,12 +105,18 @@ export default function VideoPanel({
       data-lk-theme="default"
       style={{ height: "100%" }}
       onDisconnected={() => setInCall(false)}
+      options={{
+        // Release the local microphone hardware when the user mutes,
+        // so the system mic indicator turns off.
+        publishDefaults: { stopMicTrackOnMute: true },
+      }}
     >
       <div className="flex flex-col h-full">
         <div className="flex-1 min-h-0">
           <Tiles />
         </div>
         <RoomAudioRenderer />
+        <CameraReleaseGuard />
         <RoomCoordinator isHost={isHost} userName={userName} />
         <ControlBar
           variation="minimal"
@@ -226,7 +232,7 @@ function RoomCoordinator({
   void room; // keep ref so the hook is bound to the right room
 
   return (
-    <div className="border-t border-[color:var(--border)] bg-[var(--bg-elev)]">
+    <div className="border-t border-[color:var(--border)] bg-[var(--bg-elev)] text-[var(--text)]">
       {raisedHands.size > 0 && (
         <ul className="max-h-32 overflow-y-auto px-3 py-2 space-y-1 text-sm">
           {[...raisedHands.entries()].map(([id, info]) => (
@@ -236,7 +242,7 @@ function RoomCoordinator({
               {isHost && (
                 <button
                   onClick={() => lowerHand(id)}
-                  className="text-xs text-[var(--text-dim)] hover:text-[var(--text)]"
+                  className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
                 >
                   Lower
                 </button>
@@ -251,7 +257,7 @@ function RoomCoordinator({
           className={`flex-1 text-sm rounded-md px-3 py-1.5 border ${
             handUp
               ? "bg-amber-500 text-black border-amber-400"
-              : "border-[color:var(--border)] hover:bg-[var(--hover)]"
+              : "border-[color:var(--border)] text-[var(--text)] hover:bg-[var(--hover)]"
           }`}
         >
           {handUp ? "Lower hand" : "✋ Raise hand"}
@@ -259,7 +265,7 @@ function RoomCoordinator({
         {isHost && (
           <button
             onClick={muteAll}
-            className="text-sm rounded-md px-3 py-1.5 border border-[color:var(--border)] hover:bg-[var(--hover)]"
+            className="text-sm rounded-md px-3 py-1.5 border border-[color:var(--border)] text-[var(--text)] hover:bg-[var(--hover)]"
             title="Send everyone a request to mute"
           >
             Mute all
@@ -268,4 +274,32 @@ function RoomCoordinator({
       </div>
     </div>
   );
+}
+
+// When the user disables their camera via the LiveKit ControlBar,
+// LiveKit's default behaviour only mutes the track — the underlying
+// MediaStreamTrack stays alive, so the OS camera indicator (the
+// little green light on macOS) keeps glowing. This guard watches the
+// camera-enabled state and explicitly stop()s the local camera track
+// after disable, releasing the hardware. Re-enabling re-creates the
+// track automatically.
+function CameraReleaseGuard() {
+  const { localParticipant, isCameraEnabled } = useLocalParticipant();
+  useEffect(() => {
+    if (isCameraEnabled || !localParticipant) return;
+    const pub = localParticipant.getTrackPublication(Track.Source.Camera);
+    const track = pub?.track as LocalTrack | undefined;
+    if (track && track.mediaStreamTrack?.readyState === "live") {
+      // Defer slightly so LiveKit finishes its mute handshake first.
+      const id = setTimeout(() => {
+        try {
+          track.stop();
+        } catch {
+          // ignore — track may already be released
+        }
+      }, 150);
+      return () => clearTimeout(id);
+    }
+  }, [isCameraEnabled, localParticipant]);
+  return null;
 }
