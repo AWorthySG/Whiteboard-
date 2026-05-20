@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
+import ConfirmButton from "./ConfirmButton";
 
 // Group docs by local date string (yyyy-mm-dd). Returns the groups in
 // reverse-chronological order, with a human-friendly label for each
@@ -95,6 +96,7 @@ export default function DocumentsDrawer({
         .from("room_documents")
         .select("*")
         .eq("room_id", roomId)
+        .is("deleted_at", null)
         .order("uploaded_at", { ascending: false });
       const rows = (data as Document[]) ?? [];
       // Collapse legacy duplicates from rooms uploaded before the
@@ -136,8 +138,21 @@ export default function DocumentsDrawer({
   const remove = async (id: string) => {
     const supabase = getSupabase();
     if (!supabase) return;
-    const { error } = await supabase.from("room_documents").delete().eq("id", id);
-    if (error) toast.error(`Couldn't remove: ${error.message}`);
+    // Soft-delete: keeps the Storage URL + row intact (so an
+    // accidental removal can be undone by un-setting deleted_at) and
+    // just hides it from the drawer query.
+    const { error } = await supabase
+      .from("room_documents")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) {
+      toast.error(`Couldn't remove: ${error.message}`);
+    } else {
+      // Optimistic: drop from local state immediately so the realtime
+      // event isn't strictly necessary.
+      setDocs((prev) => prev.filter((d) => d.id !== id));
+      toast.success("Document removed");
+    }
   };
 
   const pickAndUpload = () => {
@@ -237,8 +252,8 @@ export default function DocumentsDrawer({
         <div className="flex-1 overflow-y-auto">
           {docs.length === 0 ? (
             <div className="p-8 text-center">
-              <div className="text-4xl mb-2">📄</div>
-              <p className="text-sm font-medium">No documents yet</p>
+              <EmptyDocsIllustration />
+              <p className="text-sm font-medium mt-3">No documents yet</p>
               <p className="text-xs text-[var(--text-dim)] mt-1">
                 Click the <span className="text-brand-700">Upload</span> button
                 above, or drag a PDF/image onto the canvas. Files appear here
@@ -317,13 +332,11 @@ export default function DocumentsDrawer({
                               </div>
                             </div>
                             {isHost && (
-                              <button
-                                onClick={() => remove(d.id)}
-                                className="text-xs text-[var(--text-dim)] hover:text-red-600"
+                              <ConfirmButton
+                                onConfirm={() => remove(d.id)}
+                                label="Remove"
                                 title="Remove from list (file stays in storage)"
-                              >
-                                Remove
-                              </button>
+                              />
                             )}
                           </li>
                         ))}
@@ -337,5 +350,67 @@ export default function DocumentsDrawer({
         </div>
       </div>
     </div>
+  );
+}
+
+// Small inline illustration for the empty Documents drawer state.
+// Hand-crafted SVG so there's no extra asset to ship — three offset
+// document outlines suggesting "a place where things accumulate".
+function EmptyDocsIllustration() {
+  return (
+    <svg
+      width="88"
+      height="72"
+      viewBox="0 0 88 72"
+      fill="none"
+      aria-hidden="true"
+      className="mx-auto"
+    >
+      {/* Back paper */}
+      <rect
+        x="22"
+        y="18"
+        width="40"
+        height="50"
+        rx="4"
+        fill="var(--bg-elev-2, #eef2ff)"
+        stroke="var(--border, #c7d2fe)"
+        strokeWidth="1.5"
+      />
+      {/* Middle paper, slightly rotated */}
+      <g transform="rotate(-6 30 38)">
+        <rect
+          x="14"
+          y="14"
+          width="40"
+          height="50"
+          rx="4"
+          fill="#ffffff"
+          stroke="var(--border, #c7d2fe)"
+          strokeWidth="1.5"
+        />
+        <line x1="20" y1="26" x2="46" y2="26" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="20" y1="34" x2="46" y2="34" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="20" y1="42" x2="38" y2="42" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
+      {/* Front paper with corner fold */}
+      <g transform="rotate(5 60 42)">
+        <path
+          d="M44 26 L62 26 L70 34 L70 64 L44 64 Z"
+          fill="#ffffff"
+          stroke="rgb(37 99 235)"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M62 26 L62 34 L70 34"
+          fill="rgb(219 234 254)"
+          stroke="rgb(37 99 235)"
+          strokeWidth="1.6"
+        />
+        <line x1="50" y1="44" x2="64" y2="44" stroke="rgb(37 99 235)" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="50" y1="50" x2="64" y2="50" stroke="rgb(37 99 235)" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="50" y1="56" x2="58" y2="56" stroke="rgb(37 99 235)" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
+    </svg>
   );
 }
