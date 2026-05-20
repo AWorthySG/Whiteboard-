@@ -185,19 +185,21 @@ export default function WhiteboardCanvas({
   // Leader (follow-me) mode: when the host turns it on, everyone else's
   // tldraw camera (pan + zoom) is locked to mirror the host's. tldraw
   // ships native presence-based follow — we just toggle it based on the
-  // shared room_metadata.leader_mode flag.
+  // shared room_metadata.leader_mode flag. Both calls are wrapped in
+  // try/catch because they can throw on iOS Safari before tldraw's
+  // presence layer is fully initialised.
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
     const leaderId = meta.leaderUserId;
-    if (meta.leaderMode && leaderId && leaderId !== userId) {
-      try {
+    try {
+      if (meta.leaderMode && leaderId && leaderId !== userId) {
         editor.startFollowingUser(leaderId);
-      } catch {
-        // The leader might not have joined yet — try again on next change.
+      } else {
+        editor.stopFollowingUser();
       }
-    } else {
-      editor.stopFollowingUser();
+    } catch (err) {
+      console.warn("[whiteboard] follow toggle failed", err);
     }
   }, [meta.leaderMode, meta.leaderUserId, userId]);
 
