@@ -4,12 +4,15 @@ import { useSync } from "@tldraw/sync";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   AssetRecordType,
+  DefaultToolbar,
   Editor,
   TLAssetStore,
   Tldraw,
+  TldrawUiMenuItem,
   TLUiOverrides,
   getHashForString,
   uniqueId,
+  useTools,
 } from "tldraw";
 import dynamic from "next/dynamic";
 import { getSettings, useSettings } from "@/hooks/useSettings";
@@ -252,6 +255,12 @@ export default function WhiteboardCanvas({
           // Hide tldraw's full style panel (color + opacity + fill +
           // dash + size). The color picker lives in our own toolbar.
           StylePanel: null,
+          // Replace the bottom toolbar with a minimal set: select,
+          // pen, highlighter, eraser, post-it, image upload. All the
+          // geometric shape tools, arrow tool, text tool, line, frame,
+          // and laser are hidden (palette + keyboard shortcuts still
+          // work for power users).
+          Toolbar: SlimToolbar,
         }}
         inferDarkMode={false}
         onMount={(editor) => {
@@ -606,6 +615,20 @@ async function insertBrandLogo(editor: Editor | null) {
     y: center.y - h / 2,
     props: { assetId, w, h },
   });
+}
+
+function SlimToolbar() {
+  const tools = useTools();
+  return (
+    <DefaultToolbar>
+      <TldrawUiMenuItem {...tools["select"]} />
+      <TldrawUiMenuItem {...tools["draw"]} />
+      <TldrawUiMenuItem {...tools["highlight"]} />
+      <TldrawUiMenuItem {...tools["eraser"]} />
+      <TldrawUiMenuItem {...tools["note"]} />
+      <TldrawUiMenuItem {...tools["asset"]} />
+    </DefaultToolbar>
+  );
 }
 
 function pickColor(seed: string) {
