@@ -99,6 +99,13 @@ export default function RoomShell({
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
   const canvasAddPageRef = useRef<(() => void) | null>(null);
   const canvasSwitchPageRef = useRef<((pageId: string) => void) | null>(null);
+  const canvasPageThumbnailRef = useRef<
+    ((pageId: string) => Promise<string | null>) | null
+  >(null);
+  // Cache of pageId -> data URL for the Pages dropdown thumbnails.
+  // We don't auto-invalidate as the page changes; a refresh triggers
+  // when the dropdown is opened again.
+  const [pageThumbs, setPageThumbs] = useState<Record<string, string | null>>({});
   const [pagesState, setPagesState] = useState<{
     pages: { id: string; name: string }[];
     currentId: string;
@@ -117,6 +124,26 @@ export default function RoomShell({
     window.addEventListener("mousedown", onClick);
     return () => window.removeEventListener("mousedown", onClick);
   }, [pagesMenuOpen]);
+
+  // When the Pages dropdown opens, render thumbnails for every page.
+  // tldraw's toImageDataUrl is fast enough on small shape counts that
+  // we do this on every open, so renames + edits show up live.
+  useEffect(() => {
+    if (!pagesMenuOpen || !pagesState) return;
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string | null> = {};
+      for (const p of pagesState.pages) {
+        if (cancelled) return;
+        const url = await canvasPageThumbnailRef.current?.(p.id);
+        next[p.id] = url ?? null;
+      }
+      if (!cancelled) setPageThumbs(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pagesMenuOpen, pagesState]);
 
   const userId = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -245,10 +272,11 @@ export default function RoomShell({
             {pagesMenuOpen && (
               <div
                 role="listbox"
-                className="absolute top-full left-0 mt-1 min-w-[14rem] max-h-72 overflow-y-auto rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1 z-50"
+                className="absolute top-full left-0 mt-1 w-72 max-h-96 overflow-y-auto rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1 z-50"
               >
                 {pagesState.pages.map((p, i) => {
                   const active = p.id === pagesState.currentId;
+                  const thumb = pageThumbs[p.id];
                   return (
                     <button
                       key={p.id}
@@ -258,12 +286,32 @@ export default function RoomShell({
                         canvasSwitchPageRef.current?.(p.id);
                         setPagesMenuOpen(false);
                       }}
-                      className={`w-full text-left text-sm rounded-md px-2.5 py-1.5 flex items-center gap-2 ${
+                      className={`w-full text-left text-sm rounded-md px-2 py-2 flex items-center gap-3 ${
                         active
                           ? "bg-brand-100 text-brand-800 font-medium"
                           : "hover:bg-[var(--hover)] text-[var(--text)]"
                       }`}
                     >
+                      {/* Thumbnail (or placeholder if empty/loading). */}
+                      <div
+                        className={`shrink-0 w-16 h-12 rounded overflow-hidden border ${
+                          active
+                            ? "border-brand-500"
+                            : "border-[color:var(--border-subtle)]"
+                        } bg-white flex items-center justify-center`}
+                      >
+                        {thumb ? (
+                          <img
+                            src={thumb}
+                            alt=""
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-[var(--text-dim)] text-[10px]">
+                            empty
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs text-[var(--text-dim)] w-5 shrink-0">
                         {i + 1}.
                       </span>
@@ -315,7 +363,12 @@ export default function RoomShell({
             Host
           </span>
         )}
-        <PresenceBadge roomId={roomId} userId={userId} userName={name || "Guest"} />
+        <PresenceBadge
+          roomId={roomId}
+          userId={userId}
+          userName={name || "Guest"}
+          currentPageId={pagesState?.currentId ?? null}
+        />
 
         {/* Desktop / tablet controls.
             Split into TWO rows so the header doesn't feel crammed on
@@ -462,6 +515,7 @@ export default function RoomShell({
             exportRef={canvasExportRef}
             addPageRef={canvasAddPageRef}
             switchPageRef={canvasSwitchPageRef}
+            pageThumbnailRef={canvasPageThumbnailRef}
             onPagesChange={setPagesState}
           />
         </div>

@@ -34,10 +34,18 @@ export default function VideoPanel({
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const initialAutoJoin = useMemo(() => settings.autoJoinCall, []);
-  const initialCamera = useMemo(() => settings.defaultCamera, []);
+  // Camera respects the audio-only setting on first join — if the user
+  // has audio-only enabled, never even ask for camera permission.
+  const initialCamera = useMemo(
+    () => settings.defaultCamera && !settings.audioOnly,
+    [],
+  );
   const initialMic = useMemo(() => settings.defaultMicrophone, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const [inCall, setInCall] = useState(initialAutoJoin);
+  // Track whether the user chose to join audio-only — separate from
+  // the setting so we can flip it per-call without persisting.
+  const [audioOnlyMode, setAudioOnlyMode] = useState(settings.audioOnly);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,16 +94,31 @@ export default function VideoPanel({
 
   if (!inCall) {
     return (
-      <div className="flex flex-col h-full items-center justify-center gap-3 p-6 text-center">
+      <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
         <p className="text-sm text-[var(--text-muted)]">
           You've left the call. You're still in the whiteboard.
         </p>
         <button
-          onClick={() => setInCall(true)}
-          className="rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
+          onClick={() => {
+            setAudioOnlyMode(false);
+            setInCall(true);
+          }}
+          className="w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
         >
-          Rejoin call
+          Rejoin with video
         </button>
+        <button
+          onClick={() => {
+            setAudioOnlyMode(true);
+            setInCall(true);
+          }}
+          className="w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
+        >
+          Rejoin audio only
+        </button>
+        <p className="text-xs text-[var(--text-dim)] mt-1">
+          Audio-only saves bandwidth on phone data.
+        </p>
       </div>
     );
   }
@@ -105,7 +128,7 @@ export default function VideoPanel({
       token={token}
       serverUrl={serverUrl}
       connect={inCall}
-      video={initialCamera}
+      video={audioOnlyMode ? false : initialCamera}
       audio={initialMic}
       data-lk-theme="default"
       style={{ height: "100%" }}

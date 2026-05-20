@@ -11,6 +11,10 @@ export type Settings = {
   autoJoinCall: boolean;
   defaultCamera: boolean;
   defaultMicrophone: boolean;
+  /** Audio-only mode. When true, the LiveKit room joins with the camera
+   *  off and the camera button starts muted. Users can still toggle the
+   *  camera on later. Saves bandwidth + battery for guests on phone. */
+  audioOnly: boolean;
   theme: Theme;
   hasSeenOnboarding: boolean;
   penOnly: boolean;
@@ -23,6 +27,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoJoinCall: true,
   defaultCamera: true,
   defaultMicrophone: true,
+  audioOnly: false,
   theme: "light",
   hasSeenOnboarding: false,
   penOnly: false,

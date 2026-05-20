@@ -171,6 +171,7 @@ export default function WhiteboardCanvas({
   addPageRef,
   onPagesChange,
   switchPageRef,
+  pageThumbnailRef,
 }: {
   roomId: string;
   userId: string;
@@ -186,6 +187,9 @@ export default function WhiteboardCanvas({
     currentId: string;
   }) => void;
   switchPageRef?: MutableRefObject<((pageId: string) => void) | null>;
+  pageThumbnailRef?: MutableRefObject<
+    ((pageId: string) => Promise<string | null>) | null
+  >;
 }) {
   const [appSettings] = useSettings();
   const toast = useToast();
@@ -360,6 +364,42 @@ export default function WhiteboardCanvas({
       if (addPageRef.current) addPageRef.current = null;
     };
   }, [addPageRef]);
+
+  // Expose a page-thumbnail renderer. Generates a low-res PNG data URL
+  // of every shape on the requested page using tldraw's exportToImage,
+  // letting the header Pages dropdown show real previews. The caller is
+  // responsible for caching — we don't cache here because tldraw shapes
+  // can change at any moment.
+  useEffect(() => {
+    if (!pageThumbnailRef) return;
+    pageThumbnailRef.current = async (pageId: string) => {
+      const editor = editorRef.current;
+      if (!editor) return null;
+      const ids = Array.from(editor.getPageShapeIds(pageId as never));
+      if (ids.length === 0) return null;
+      try {
+        // getSvgString stays vector and renders crisp at any thumbnail
+        // size with negligible cost (the heavy thing would be a PNG
+        // rasterization per page).
+        const result = await editor.getSvgString(ids, {
+          background: true,
+          padding: 32,
+          scale: 0.5,
+        });
+        if (!result) return null;
+        // Encode the SVG as a data URL safely. Using encodeURIComponent
+        // (rather than btoa) keeps it Unicode-safe — tldraw shapes can
+        // include non-ASCII characters in their text content.
+        return `data:image/svg+xml;utf8,${encodeURIComponent(result.svg)}`;
+      } catch (e) {
+        console.warn("[whiteboard] thumbnail failed for", pageId, e);
+        return null;
+      }
+    };
+    return () => {
+      if (pageThumbnailRef.current) pageThumbnailRef.current = null;
+    };
+  }, [pageThumbnailRef]);
 
   // Mirror tldraw's page list up to the room header so the header can
   // render a Pages dropdown. Use a store listener so renames + remote
