@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
+import ConfirmButton from "./ConfirmButton";
 
 type Recording = {
   id: string;
@@ -64,7 +65,7 @@ export default function RecordingsDrawer({
   }, [open, roomId]);
 
   const remove = async (r: Recording) => {
-    if (!confirm(`Delete "${r.title ?? "recording"}"? This can't be undone.`)) return;
+    // Confirmation is handled by <ConfirmButton/> in the row UI now.
     const supabase = getSupabase();
     if (!supabase) return;
     // Best-effort delete from storage, then delete the row regardless.
@@ -143,13 +144,11 @@ export default function RecordingsDrawer({
                           Download
                         </a>
                         {isHost && (
-                          <button
-                            onClick={() => remove(r)}
-                            className="text-xs text-[var(--text-dim)] hover:text-red-600"
+                          <ConfirmButton
+                            onConfirm={() => remove(r)}
+                            label="Delete"
                             title="Delete recording"
-                          >
-                            Delete
-                          </button>
+                          />
                         )}
                       </div>
                     </div>

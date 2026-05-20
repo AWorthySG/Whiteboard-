@@ -18,6 +18,12 @@ export default function KnockGate({
 }) {
   const [status, setStatus] = useState<Status>("checking");
   const [error, setError] = useState<string | null>(null);
+  // True once we've been waiting 30s without admission — at that point
+  // we surface a soft '404-ish' warning that the room may not have a
+  // host. Rooms are URL-addressable (created on demand), so we can't
+  // do a hard 404, but the long-wait heuristic catches the common
+  // case of a typo'd or shared-too-early invite link.
+  const [longWait, setLongWait] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -95,8 +101,16 @@ export default function KnockGate({
       };
     })();
 
+    // Long-wait timer — 30s on 'pending' means either the host is
+    // away or the room URL is wrong. We show a softer 'this room
+    // might not exist' message; we don't force-redirect.
+    const longWaitTimer = window.setTimeout(() => {
+      if (!cancelled) setLongWait(true);
+    }, 30_000);
+
     return () => {
       cancelled = true;
+      window.clearTimeout(longWaitTimer);
     };
   }, [roomId, userId, userName]);
 
@@ -121,6 +135,18 @@ export default function KnockGate({
             <p className="mt-4 text-xs text-[var(--text-dim)]">
               Joining as <span className="text-[var(--text-muted)]">{userName}</span>
             </p>
+            {longWait && (
+              <div className="mt-5 rounded-md border border-amber-600/50 bg-amber-50 p-3 text-left">
+                <p className="text-xs font-medium text-amber-900">
+                  Still waiting…
+                </p>
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  If this is taking a while, the host may be away — or
+                  the room link might be wrong. Check that the invite
+                  URL matches what your tutor sent.
+                </p>
+              </div>
+            )}
           </>
         )}
         {status === "denied" && (

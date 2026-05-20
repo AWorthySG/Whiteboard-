@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
+import ConfirmButton from "./ConfirmButton";
 
 type Homework = {
   id: string;
@@ -124,15 +125,11 @@ export default function HomeworkDrawer({
   };
 
   const remove = async (id: string) => {
+    // Two-tap confirmation now lives in <ConfirmButton/> so we don't
+    // need to repeat the prompt here — by the time we get called the
+    // user has already double-tapped.
     const supabase = getSupabase();
     if (!supabase) return;
-    // Two-tap confirm via a toast follow-up would be nicer; for now we
-    // keep window.confirm but only on real desktop. On mobile WebViews
-    // confirm() can be blocked, so we skip it there.
-    const isMobileWebview = /Mobile|Android|iPhone/i.test(navigator.userAgent);
-    if (!isMobileWebview && !confirm("Delete this homework and all submissions?")) {
-      return;
-    }
     const { error } = await supabase.from("room_homework").delete().eq("id", id);
     if (error) {
       toast.error(`Couldn't delete homework: ${error.message}`);
@@ -274,12 +271,11 @@ export default function HomeworkDrawer({
                       )}
                     </div>
                     {isHost && (
-                      <button
-                        onClick={() => remove(h.id)}
-                        className="text-xs text-[var(--text-dim)] hover:text-red-600 shrink-0"
-                      >
-                        Delete
-                      </button>
+                      <ConfirmButton
+                        onConfirm={() => remove(h.id)}
+                        label="Delete"
+                        className="text-xs shrink-0"
+                      />
                     )}
                   </div>
 
