@@ -16,6 +16,7 @@ import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
+import ColorPickerRow from "./ColorPickerRow";
 
 const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
 
@@ -248,6 +249,9 @@ export default function WhiteboardCanvas({
           // still work; page navigation lives in our own PagesTabBar
           // at the bottom of the canvas.
           MenuPanel: null,
+          // Hide tldraw's full style panel (color + opacity + fill +
+          // dash + size). The color picker lives in our own toolbar.
+          StylePanel: null,
         }}
         inferDarkMode={false}
         onMount={(editor) => {
@@ -261,6 +265,7 @@ export default function WhiteboardCanvas({
         }}
       />
       <CanvasTopRightActions
+        editor={editorRef.current}
         onUpload={(f) =>
           insertFileOntoCanvas(editorRef.current, f, uploadMeta, reportProgress)
         }
@@ -293,10 +298,12 @@ export default function WhiteboardCanvas({
 }
 
 function CanvasTopRightActions({
+  editor,
   onUpload,
   onPointer,
   onEquation,
 }: {
+  editor: Editor | null;
   onUpload: (file: File) => Promise<void> | void;
   onPointer: () => void;
   onEquation: () => void;
@@ -323,6 +330,7 @@ function CanvasTopRightActions({
         <span className="font-serif italic">fx</span>
         Equation
       </button>
+      <ColorPickerRow editor={editor} />
     </div>
   );
 }
