@@ -172,6 +172,7 @@ export default function WhiteboardCanvas({
   onPagesChange,
   switchPageRef,
   pageThumbnailRef,
+  editorOutRef,
 }: {
   roomId: string;
   userId: string;
@@ -182,6 +183,10 @@ export default function WhiteboardCanvas({
   onToggleLeader: () => void | Promise<void>;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
   addPageRef?: MutableRefObject<(() => void) | null>;
+  /** Lets the parent shell reach the live Editor instance — used by
+   *  the End Lesson modal to render every page into a PDF. Set on
+   *  mount, cleared on unmount. */
+  editorOutRef?: MutableRefObject<Editor | null>;
   onPagesChange?: (state: {
     pages: { id: string; name: string }[];
     currentId: string;
@@ -510,6 +515,7 @@ export default function WhiteboardCanvas({
           inferDarkMode={false}
           onMount={(editor) => {
             editorRef.current = editor;
+            if (editorOutRef) editorOutRef.current = editor;
             editor.user.updateUserPreferences({ colorScheme: "light" });
             // Default stroke thickness — tldraw's "m" (medium) felt too
             // thick under stylus pressure on iPad/Apple Pencil. Drop to

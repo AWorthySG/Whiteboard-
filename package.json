@@ -22,6 +22,7 @@
     "livekit-client": "^2.13.0",
     "livekit-server-sdk": "^2.13.1",
     "next": "15.3.8",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.10.38",
     "qrcode-svg": "^1.1.0",
     "react": "19.0.0",
