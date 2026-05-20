@@ -27,6 +27,9 @@ const ChatBubble = dynamic(() => import("./ChatBubble"), { ssr: false });
 const CaptionsOverlay = dynamic(() => import("./CaptionsOverlay"), {
   ssr: false,
 });
+const EndLessonModal = dynamic(() => import("./EndLessonModal"), {
+  ssr: false,
+});
 // Evaluated lazily on the client. Used by the overlay to show a single
 // notice if the local browser can't transcribe (Safari / Firefox).
 let localCaptionsSupportedSync = false;
@@ -117,6 +120,10 @@ export default function RoomShell({
   const canvasPageThumbnailRef = useRef<
     ((pageId: string) => Promise<string | null>) | null
   >(null);
+  const canvasEditorRef = useRef<
+    import("tldraw").Editor | null
+  >(null);
+  const [endLessonOpen, setEndLessonOpen] = useState(false);
   // Cache of pageId -> data URL for the Pages dropdown thumbnails.
   // We don't auto-invalidate as the page changes; a refresh triggers
   // when the dropdown is opened again.
@@ -503,6 +510,16 @@ export default function RoomShell({
             <IconBtn onClick={() => setSettingsOpen(true)} label="Settings">
               <GearSvg />
             </IconBtn>
+            {isHost && (
+              <button
+                onClick={() => setEndLessonOpen(true)}
+                className="touch-target text-sm rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+                title="End the lesson — exports the whiteboard as a PDF, shares it in the room chat, and leaves the room"
+              >
+                <span className="w-2 h-2 rounded-full bg-red-600" />
+                <span className="hidden lg:inline">End lesson</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -583,6 +600,7 @@ export default function RoomShell({
             addPageRef={canvasAddPageRef}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
+            editorOutRef={canvasEditorRef}
             onPagesChange={setPagesState}
           />
         </div>
@@ -658,6 +676,17 @@ export default function RoomShell({
         )}
 
         {isHost && <AdmissionPanel roomId={roomId} hostUserId={userId} />}
+        {isHost && (
+          <EndLessonModal
+            open={endLessonOpen}
+            onClose={() => setEndLessonOpen(false)}
+            editor={canvasEditorRef.current}
+            roomId={roomId}
+            roomTitle={meta.title}
+            hostName={name || "Host"}
+            hostUserId={userId}
+          />
+        )}
         <CaptionsOverlay
           enabled={settings.captionsEnabled}
           lines={captionLines}
