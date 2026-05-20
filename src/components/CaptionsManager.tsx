@@ -5,6 +5,7 @@ import {
   useDataChannel,
   useLocalParticipant,
 } from "@livekit/components-react";
+import { useToast } from "./Toast";
 
 // Each line corresponds to one speaker's most-recent utterance, kept
 // short (last sentence or two) and replaced as new text arrives.
@@ -73,8 +74,14 @@ export default function CaptionsManager({
   onCaption: (line: CaptionLine) => void;
 }) {
   const { localParticipant } = useLocalParticipant();
+  const toast = useToast();
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const wantRunningRef = useRef(false);
+  // Stops the auto-restart loop if SpeechRecognition keeps erroring
+  // (offline, network blip, mic device error). Without this guard the
+  // recogniser would re-throw 'network-error' every 250 ms forever.
+  const consecutiveErrorsRef = useRef(0);
+  const errorToastShownRef = useRef(false);
 
   // Receive captions broadcast by other participants.
   const { send } = useDataChannel((msg) => {
@@ -115,6 +122,10 @@ export default function CaptionsManager({
 
     if (!enabled) {
       stopLocal();
+      // Reset error gates so the user can re-enable later without
+      // being blocked by a stale toast flag.
+      consecutiveErrorsRef.current = 0;
+      errorToastShownRef.current = false;
       return;
     }
     const Ctor = getSpeechRecognitionCtor();
@@ -166,11 +177,34 @@ export default function CaptionsManager({
         }
       };
       rec.onerror = (e) => {
-        // 'no-speech' and 'aborted' are normal — we'll get an onend and
-        // restart in the polling tick. 'not-allowed' means mic perm
-        // denied; stop trying.
+        // 'no-speech' and 'aborted' are normal — the recogniser
+        // re-emits these constantly and the auto-restart in onend
+        // handles them. Anything else is unusual.
+        const benign = e.error === "no-speech" || e.error === "aborted";
         if (e.error === "not-allowed" || e.error === "service-not-allowed") {
           wantRunningRef.current = false;
+          if (!errorToastShownRef.current) {
+            toast.error(
+              "Microphone permission denied — captions are off for this session.",
+            );
+            errorToastShownRef.current = true;
+          }
+          return;
+        }
+        if (!benign) {
+          consecutiveErrorsRef.current += 1;
+          // Three real errors in a row (e.g. 'network-error' while
+          // offline) — stop the auto-restart loop and let the user
+          // know once.
+          if (consecutiveErrorsRef.current >= 3) {
+            wantRunningRef.current = false;
+            if (!errorToastShownRef.current) {
+              toast.error(
+                `Live captions paused after repeated errors (${e.error ?? "unknown"}). Click CC to retry.`,
+              );
+              errorToastShownRef.current = true;
+            }
+          }
         }
       };
       rec.onend = () => {
@@ -185,6 +219,9 @@ export default function CaptionsManager({
         rec.start();
         recognitionRef.current = rec;
         wantRunningRef.current = true;
+        // A clean start means whatever recent burst of errors was
+        // probably transient — reset the counter.
+        consecutiveErrorsRef.current = 0;
       } catch {
         recognitionRef.current = null;
       }
@@ -192,10 +229,11 @@ export default function CaptionsManager({
 
     startIfPossible();
 
-    // Watch for mic on/off — the LocalParticipant emits events. We
-    // poll the boolean every 750ms which is dead simple and avoids
-    // wiring LiveKit's event API for what's effectively a UX feature.
-    const interval = window.setInterval(() => {
+    // Watch for mic mute/unmute via LiveKit's participant events
+    // instead of polling. This drops CPU + battery use on long
+    // lessons. A slow safety-net poll (5s) still catches any event
+    // we might miss from edge-case LiveKit reconnect flows.
+    const onMicChanged = () => {
       if (localParticipant?.isMicrophoneEnabled) startIfPossible();
       else if (recognitionRef.current) {
         try {
@@ -205,10 +243,29 @@ export default function CaptionsManager({
         }
         recognitionRef.current = null;
       }
-    }, 750);
+    };
+    type EmitterLike = {
+      on(event: string, listener: (...args: unknown[]) => void): unknown;
+      off(event: string, listener: (...args: unknown[]) => void): unknown;
+    };
+    const lp = localParticipant as unknown as EmitterLike | null;
+    const subscribed = !!lp && typeof lp.on === "function";
+    if (subscribed) {
+      lp!.on("trackMuted", onMicChanged);
+      lp!.on("trackUnmuted", onMicChanged);
+      lp!.on("localTrackPublished", onMicChanged);
+      lp!.on("localTrackUnpublished", onMicChanged);
+    }
+    const safetyPoll = window.setInterval(onMicChanged, 5000);
 
     return () => {
-      window.clearInterval(interval);
+      window.clearInterval(safetyPoll);
+      if (subscribed) {
+        lp!.off("trackMuted", onMicChanged);
+        lp!.off("trackUnmuted", onMicChanged);
+        lp!.off("localTrackPublished", onMicChanged);
+        lp!.off("localTrackUnpublished", onMicChanged);
+      }
       stopLocal();
     };
   }, [enabled, localParticipant, userName, onCaption, send]);

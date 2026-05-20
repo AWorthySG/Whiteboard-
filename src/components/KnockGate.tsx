@@ -73,8 +73,24 @@ export default function KnockGate({
         )
         .subscribe();
 
+      // Heartbeat fallback — if Supabase Realtime drops (poor network,
+      // service blip), we'd otherwise sit on 'pending' forever even
+      // after the host has admitted us. Poll every 8s as a safety net
+      // and reconcile from the row directly.
+      const heartbeat = window.setInterval(async () => {
+        if (cancelled || !requestId) return;
+        const { data: row } = await supabase
+          .from("join_requests")
+          .select("status")
+          .eq("id", requestId)
+          .maybeSingle();
+        const next = (row as { status?: Status } | null)?.status;
+        if (next) setStatus(next);
+      }, 8000);
+
       // Cleanup
       return () => {
+        window.clearInterval(heartbeat);
         supabase.removeChannel(channel);
       };
     })();

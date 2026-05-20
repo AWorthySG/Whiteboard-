@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "./Toast";
 import { getSupabase } from "@/lib/supabase";
 
-type State = "idle" | "recording" | "saving";
+type State = "idle" | "recording" | "paused" | "saving";
+
+// XHR uploads with no timeout can hang forever on flaky networks,
+// stranding the host in 'saving' state with no recovery short of a
+// page refresh. 90s is generous for typical recordings; if it's
+// genuinely a slow upload of a long lesson, the user can re-try.
+const UPLOAD_TIMEOUT_MS = 90_000;
 
 // Browsers without screen capture support: iPhone Safari (no
 // getDisplayMedia at all), some embedded WebViews, and pre-2020
@@ -56,6 +62,26 @@ export default function RecordButton({
     return () => clearInterval(id);
   }, [state]);
 
+  const togglePause = () => {
+    const rec = recorderRef.current;
+    if (!rec) return;
+    if (state === "recording" && rec.state === "recording") {
+      try {
+        rec.pause();
+        setState("paused");
+      } catch (e) {
+        console.warn("[record] pause failed", e);
+      }
+    } else if (state === "paused" && rec.state === "paused") {
+      try {
+        rec.resume();
+        setState("recording");
+      } catch (e) {
+        console.warn("[record] resume failed", e);
+      }
+    }
+  };
+
   const uploadToCloud = async (blob: Blob, mimeType: string, durationSec: number) => {
     setState("saving");
     setUploadPct(0);
@@ -97,6 +123,13 @@ export default function RecordButton({
           }
         };
         xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.timeout = UPLOAD_TIMEOUT_MS;
+        xhr.ontimeout = () =>
+          reject(
+            new Error(
+              `Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s — your connection may be unstable. The recording is saved locally as a backup file.`,
+            ),
+          );
         xhr.send(blob);
       });
 
@@ -267,29 +300,65 @@ export default function RecordButton({
     );
   }
 
-  if (state === "recording") {
+  if (state === "recording" || state === "paused") {
+    const paused = state === "paused";
     return (
-      <button
-        onClick={stop}
-        className="touch-target text-sm rounded-md bg-red-600 hover:bg-red-500 text-[var(--text)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
-        title="Stop and upload"
-      >
-        <span className="w-2 h-2 rounded-sm bg-white animate-pulse" />
-        <span>{formatTime(elapsed)}</span>
-        <span className="hidden lg:inline">Stop</span>
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={stop}
+          className="touch-target text-sm rounded-md bg-red-600 hover:bg-red-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+          title="Stop and upload"
+        >
+          <span
+            className={`w-2 h-2 rounded-sm bg-white ${paused ? "" : "animate-pulse"}`}
+          />
+          <span className="tabular-nums">{formatTime(elapsed)}</span>
+          <span className="hidden lg:inline">Stop</span>
+        </button>
+        <button
+          onClick={togglePause}
+          className={`touch-target text-sm rounded-md border px-2.5 py-1 flex items-center gap-1.5 ${
+            paused
+              ? "border-amber-600 text-amber-700 bg-amber-50"
+              : "border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
+          }`}
+          title={paused ? "Resume recording" : "Pause recording"}
+          aria-pressed={paused}
+        >
+          {paused ? (
+            <>
+              <span aria-hidden>▶</span>
+              <span className="hidden lg:inline">Resume</span>
+            </>
+          ) : (
+            <>
+              <span aria-hidden>❚❚</span>
+              <span className="hidden lg:inline">Pause</span>
+            </>
+          )}
+        </button>
+      </div>
     );
   }
 
-  // saving
+  // saving — show a visual fill across the bottom of the button so
+  // the user can see at a glance whether progress is happening or
+  // the upload has stalled.
   return (
     <button
       disabled
-      className="touch-target text-sm rounded-md border border-[color:var(--border)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-90"
+      className="touch-target relative overflow-hidden text-sm rounded-md border border-[color:var(--border)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-90"
       title="Uploading recording to cloud"
     >
+      <span
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-0.5 bg-red-600 transition-[width] duration-300"
+        style={{ width: `${Math.max(2, uploadPct)}%` }}
+      />
       <span className="inline-block w-3 h-3 rounded-full border-2 border-[color:var(--border)] border-t-[var(--text)] animate-spin" />
-      <span>{uploadPct > 0 ? `${uploadPct}%` : "Saving…"}</span>
+      <span className="tabular-nums">
+        {uploadPct > 0 ? `${uploadPct}%` : "Saving…"}
+      </span>
     </button>
   );
 }

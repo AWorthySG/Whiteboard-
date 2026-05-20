@@ -36,6 +36,9 @@ export default function EndLessonModal({
   if (!open) return null;
 
   const saveAndLeave = async () => {
+    // Re-entrancy guard: a second click while we're working would
+    // launch a parallel export + duplicate the upload.
+    if (stage.kind !== "idle") return;
     if (!editor) {
       toast.error("Canvas not ready");
       return;
@@ -62,16 +65,25 @@ export default function EndLessonModal({
       });
 
       // Post the link to the room chat so guests can grab it before
-      // they leave. Best-effort — if it fails, the PDF still exists
-      // in the Documents drawer.
+      // they leave. Surface failure as a non-blocking warning — the
+      // PDF still exists in the Documents drawer so the lesson
+      // material isn't lost; the host can paste the link manually.
       const supabase = getSupabase();
       if (supabase) {
-        await supabase.from("room_messages").insert({
-          room_id: roomId,
-          user_id: hostUserId,
-          user_name: hostName,
-          text: `📄 Lesson PDF is ready: ${url}`,
-        });
+        const { error: chatErr } = await supabase
+          .from("room_messages")
+          .insert({
+            room_id: roomId,
+            user_id: hostUserId,
+            user_name: hostName,
+            text: `📄 Lesson PDF is ready: ${url}`,
+          });
+        if (chatErr) {
+          console.warn("[end-lesson] chat insert failed", chatErr);
+          toast.error(
+            "PDF saved (in Documents drawer), but the chat link couldn't be posted — share manually.",
+          );
+        }
       }
 
       // Trigger a download for the host so they have a local copy.

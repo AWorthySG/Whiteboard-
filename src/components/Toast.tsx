@@ -30,7 +30,23 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const push = useCallback(
     (message: string, kind: ToastKind = "info") => {
       const id = crypto.randomUUID();
-      setToasts((prev) => [...prev, { id, kind, message }]);
+      setToasts((prev) => {
+        // Cap the visible stack so a burst of errors doesn't bury the
+        // bottom of the screen / overlap the tldraw toolbar on phone.
+        // Oldest in excess get dropped — their auto-dismiss timer is
+        // still running and will tick down to a no-op on the now-removed
+        // entry, which is harmless.
+        const next = [...prev, { id, kind, message }];
+        if (next.length > 3) {
+          const dropped = next.shift();
+          if (dropped) {
+            const t = timersRef.current.get(dropped.id);
+            if (t) clearTimeout(t);
+            timersRef.current.delete(dropped.id);
+          }
+        }
+        return next;
+      });
       const timer = window.setTimeout(() => dismiss(id), 4000);
       timersRef.current.set(id, timer);
     },

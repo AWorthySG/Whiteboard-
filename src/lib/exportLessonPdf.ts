@@ -61,20 +61,36 @@ export async function exportLessonPdf({
       let pngBytes: Uint8Array | null = null;
       let pixelW = 1200;
       let pixelH = 1600;
+      let renderTimedOut = false;
       if (ids.length > 0) {
-        const blob = await exportToBlob({
-          editor,
-          ids,
-          format: "png",
-          opts: { background: true, padding: 32, scale: 1.5 },
-        });
-        const buf = await blob.arrayBuffer();
-        pngBytes = new Uint8Array(buf);
-        // Decode dimensions from the PNG IHDR chunk (bytes 16-23).
-        // Avoids loading the image into a DOM <img>.
-        const dv = new DataView(buf);
-        pixelW = dv.getUint32(16);
-        pixelH = dv.getUint32(20);
+        // 20s per page — a hung shape (e.g. asset that failed to load)
+        // shouldn't block the whole export forever.
+        const PAGE_TIMEOUT_MS = 20_000;
+        const blobResult = await Promise.race([
+          exportToBlob({
+            editor,
+            ids,
+            format: "png",
+            opts: { background: true, padding: 32, scale: 1.5 },
+          }).then((b) => ({ ok: true as const, blob: b })),
+          new Promise<{ ok: false }>((resolve) =>
+            setTimeout(() => resolve({ ok: false }), PAGE_TIMEOUT_MS),
+          ),
+        ]);
+        if (blobResult.ok) {
+          const buf = await blobResult.blob.arrayBuffer();
+          pngBytes = new Uint8Array(buf);
+          const dv = new DataView(buf);
+          pixelW = dv.getUint32(16);
+          pixelH = dv.getUint32(20);
+        } else {
+          renderTimedOut = true;
+          console.warn(
+            `[pdf] page ${i + 1} (${page.id}) rendered slower than ${
+              PAGE_TIMEOUT_MS / 1000
+            }s; embedding a placeholder.`,
+          );
+        }
       }
 
       // A4 portrait at 72dpi-equivalent points. We fit the page image
@@ -99,11 +115,10 @@ export async function exportLessonPdf({
         });
       } else {
         // Blank-page placeholder so the page numbering stays intact.
-        pdfPage.drawText("(empty page)", {
-          x: MARGIN,
-          y: A4_H / 2,
-          size: 12,
-        });
+        pdfPage.drawText(
+          renderTimedOut ? "(page render timed out)" : "(empty page)",
+          { x: MARGIN, y: A4_H / 2, size: 12 },
+        );
       }
 
       pdfPage.drawText(
