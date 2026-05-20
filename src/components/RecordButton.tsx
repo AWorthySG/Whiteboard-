@@ -28,11 +28,21 @@ export default function RecordButton({
   hostUserId,
   hostName,
   roomTitle,
+  onRecordingStarted,
+  onRecordingFinished,
 }: {
   roomId: string;
   hostUserId: string;
   hostName: string;
   roomTitle: string;
+  // Lets the parent capture a synchronised whiteboard timeline
+  // alongside the screen recording. Started fires when the user
+  // grants screen-capture permission and the MediaRecorder is live;
+  // finished fires after the video has uploaded AND the row has
+  // been inserted, so the parent can attach companion data
+  // (frames.jsonl) to the same recording id.
+  onRecordingStarted?: (recordingId: string) => void;
+  onRecordingFinished?: (recordingId: string) => void;
 }) {
   const toast = useToast();
   const [state, setState] = useState<State>("idle");
@@ -42,6 +52,11 @@ export default function RecordButton({
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
+  // Recording id is generated upfront (before any upload) so the
+  // parent's frame capture can label its data with the same id from
+  // the very first second — no waiting for the video upload to
+  // complete before frames know where they belong.
+  const recordingIdRef = useRef<string>("");
 
   // Block accidental tab close mid-recording / mid-upload.
   useEffect(() => {
@@ -133,7 +148,8 @@ export default function RecordButton({
         xhr.send(blob);
       });
 
-      // Save metadata row.
+      // Save metadata row using the pre-generated id so the parent's
+      // frame capture (if any) can attach to the same recording.
       const supabase = getSupabase();
       if (supabase) {
         const date = new Date();
@@ -144,6 +160,7 @@ export default function RecordButton({
         const { error: dbErr } = await supabase
           .from("room_recordings")
           .insert({
+            id: recordingIdRef.current,
             room_id: roomId,
             title,
             file_url: publicUrl,
@@ -159,6 +176,10 @@ export default function RecordButton({
           toast.error(
             `Recording uploaded but couldn't save its listing: ${dbErr.message}`,
           );
+        } else {
+          // Tell the parent the recording row exists — it can now
+          // upload its companion whiteboard timeline.
+          onRecordingFinished?.(recordingIdRef.current);
         }
       }
 
@@ -242,7 +263,11 @@ export default function RecordButton({
       recorder.start(1000);
       recorderRef.current = recorder;
       startedAtRef.current = Date.now();
+      // Generate the id once, here, so the upload path and the
+      // parent-side frame capture both label data with the same id.
+      recordingIdRef.current = crypto.randomUUID();
       setState("recording");
+      onRecordingStarted?.(recordingIdRef.current);
     } catch (err) {
       console.error("[record] start failed", err);
       const e = err as { name?: string; message?: string };
