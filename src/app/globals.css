@@ -69,6 +69,22 @@ html[data-theme="light"] .tl-canvas {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Strengthen the active-tool indicator in the bottom toolbar. tldraw's
+   default light-mode highlight is a subtle gray; we make the selected
+   tool's button explicitly brand-coloured with white text so students
+   and teachers can see at a glance which tool is currently active. */
+.tlui-toolbar__tools .tlui-button[aria-pressed="true"],
+.tlui-toolbar__tools .tlui-button[data-state="selected"],
+.tlui-toolbar__tools .tlui-button[data-isactive="true"] {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+.tlui-toolbar__tools .tlui-button[aria-pressed="true"] svg,
+.tlui-toolbar__tools .tlui-button[data-state="selected"] svg,
+.tlui-toolbar__tools .tlui-button[data-isactive="true"] svg {
+  color: #ffffff !important;
+}
+
 /* tldraw renders its <canvas> + interaction layer inside .tl-container.
    Some browsers (especially Firefox) inherit touch-action from the
    parent only if the child doesn't override it. Force it on every layer
