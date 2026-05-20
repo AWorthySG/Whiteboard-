@@ -1,8 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
+
+// Group docs by local date string (yyyy-mm-dd). Returns the groups in
+// reverse-chronological order, with a human-friendly label for each
+// (Today / Yesterday / Mon, May 18 / full date for older).
+function groupByDate(
+  docs: Document[],
+): Array<{ key: string; label: string; items: Document[] }> {
+  const now = new Date();
+  const todayKey = dayKey(now);
+  const yesterdayKey = dayKey(new Date(now.getTime() - 86400000));
+  const groups = new Map<string, Document[]>();
+  for (const d of docs) {
+    const k = dayKey(new Date(d.uploaded_at));
+    const list = groups.get(k) ?? [];
+    list.push(d);
+    groups.set(k, list);
+  }
+  return Array.from(groups.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([key, items]) => ({
+      key,
+      label:
+        key === todayKey
+          ? "Today"
+          : key === yesterdayKey
+            ? "Yesterday"
+            : new Date(key).toLocaleDateString(undefined, {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                year:
+                  new Date(key).getFullYear() === now.getFullYear()
+                    ? undefined
+                    : "numeric",
+              }),
+      items,
+    }));
+}
+
+function dayKey(d: Date): string {
+  // Local-date key (yyyy-mm-dd). Avoids UTC drift around midnight.
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 type Document = {
   id: string;
@@ -32,6 +78,12 @@ export default function DocumentsDrawer({
   const toast = useToast();
   const [docs, setDocs] = useState<Document[]>([]);
   const [uploading, setUploading] = useState(false);
+  // Track which date sections are collapsed. Default everything *open*
+  // for today and yesterday, *closed* for older — covers the common
+  // case where the host just wants to see what was uploaded recently.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const groups = useMemo(() => groupByDate(docs), [docs]);
 
   useEffect(() => {
     if (!open) return;
@@ -201,39 +253,86 @@ export default function DocumentsDrawer({
               </button>
             </div>
           ) : (
-            <ul className="divide-y divide-[color:var(--border-subtle)]">
-              {docs.map((d) => (
-                <li key={d.id} className="px-4 py-3 flex items-center gap-3">
-                  <div className="text-2xl">
-                    {d.mime_type === "application/pdf" ? "📄" : "🖼️"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <a
-                      href={d.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-medium truncate block hover:text-brand-700"
-                      title={d.name}
-                    >
-                      {d.name}
-                    </a>
-                    <div className="text-xs text-[var(--text-dim)]">
-                      {d.uploaded_by_name || "Someone"} ·{" "}
-                      {new Date(d.uploaded_at).toLocaleString()}
-                    </div>
-                  </div>
-                  {isHost && (
+            <div className="divide-y divide-[color:var(--border-subtle)]">
+              {groups.map((group, gIdx) => {
+                // Open by default for the two most recent groups
+                // (which will usually be Today + Yesterday); older
+                // closed unless the user expands them.
+                const isOpen =
+                  collapsed[group.key] !== undefined
+                    ? !collapsed[group.key]
+                    : gIdx < 2;
+                return (
+                  <section key={group.key}>
                     <button
-                      onClick={() => remove(d.id)}
-                      className="text-xs text-[var(--text-dim)] hover:text-red-600"
-                      title="Remove from list (file stays in storage)"
+                      onClick={() =>
+                        setCollapsed((c) => ({ ...c, [group.key]: isOpen }))
+                      }
+                      className="w-full flex items-center gap-2 px-4 py-2 bg-[var(--bg)] hover:bg-[var(--hover)] text-left"
+                      aria-expanded={isOpen}
                     >
-                      Remove
+                      <span
+                        className={`text-xs text-[var(--text-dim)] transition-transform inline-block w-3 ${
+                          isOpen ? "rotate-90" : ""
+                        }`}
+                        aria-hidden="true"
+                      >
+                        ▶
+                      </span>
+                      <span className="text-xl">📁</span>
+                      <span className="text-sm font-medium flex-1">
+                        {group.label}
+                      </span>
+                      <span className="text-xs text-[var(--text-dim)] tabular-nums">
+                        {group.items.length}{" "}
+                        {group.items.length === 1 ? "file" : "files"}
+                      </span>
                     </button>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    {isOpen && (
+                      <ul className="divide-y divide-[color:var(--border-subtle)]">
+                        {group.items.map((d) => (
+                          <li
+                            key={d.id}
+                            className="pl-10 pr-4 py-3 flex items-center gap-3"
+                          >
+                            <div className="text-xl">
+                              {d.mime_type === "application/pdf" ? "📄" : "🖼️"}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <a
+                                href={d.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-sm font-medium truncate block hover:text-brand-700"
+                                title={d.name}
+                              >
+                                {d.name}
+                              </a>
+                              <div className="text-xs text-[var(--text-dim)]">
+                                {d.uploaded_by_name || "Someone"} ·{" "}
+                                {new Date(d.uploaded_at).toLocaleTimeString([], {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </div>
+                            </div>
+                            {isHost && (
+                              <button
+                                onClick={() => remove(d.id)}
+                                className="text-xs text-[var(--text-dim)] hover:text-red-600"
+                                title="Remove from list (file stays in storage)"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
