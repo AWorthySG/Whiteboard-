@@ -468,14 +468,28 @@ export default function RoomShell({
                   : "border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
               }`}
               title={
-                settings.captionsEnabled
-                  ? "Turn off live captions"
-                  : "Turn on live captions"
+                // Honest tooltip — surface the Safari/Firefox limitation
+                // even when captions are flowing from other speakers.
+                !localCaptionsSupportedSync
+                  ? "Live captions: you'll see captions from Chrome/Edge speakers, but your own speech isn't transcribed on this browser. Open the room in Google Chrome to caption your own voice."
+                  : settings.captionsEnabled
+                    ? "Turn off live captions"
+                    : "Turn on live captions"
               }
               aria-pressed={settings.captionsEnabled}
             >
               <CaptionsSvg />
               <span className="hidden lg:inline">CC</span>
+              {/* Asterisk hints that something's different about CC on
+                  this browser. The tooltip explains. */}
+              {!localCaptionsSupportedSync && (
+                <span
+                  className="hidden lg:inline text-[10px] opacity-60"
+                  aria-hidden="true"
+                >
+                  *
+                </span>
+              )}
             </button>
             <button
               onClick={() => setVideoOpen((v) => !v)}
