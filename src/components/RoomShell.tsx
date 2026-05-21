@@ -335,9 +335,12 @@ export default function RoomShell({
                 {pagesState.pages.find((p) => p.id === pagesState.currentId)
                   ?.name ?? "Pages"}
               </span>
-              <span className="sm:hidden">Pages</span>
-              <span className="text-xs text-[var(--text-dim)]">
-                ({pagesState.pages.length})
+              {/* Phone: just '5 ▾' — saves ~60 px so the header fits. */}
+              <span className="sm:hidden text-xs">📄</span>
+              <span className="text-xs text-[var(--text-dim)] tabular-nums">
+                <span className="hidden sm:inline">(</span>
+                {pagesState.pages.length}
+                <span className="hidden sm:inline">)</span>
               </span>
               <span className="text-xs">▾</span>
             </button>
@@ -431,8 +434,18 @@ export default function RoomShell({
         </div>
 
         {isHost && (
-          <span className="text-[10px] uppercase tracking-wider bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded shrink-0">
-            Host
+          <span
+            className="text-[10px] uppercase tracking-wider bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded shrink-0 inline-flex items-center gap-1"
+            title="You're the host of this room"
+          >
+            <span
+              aria-hidden
+              className="w-1.5 h-1.5 rounded-full bg-brand-700"
+            />
+            {/* Hide the word on phones — the dot + the rest of the
+                host-only UI is plenty of signal, freeing ~32 px in
+                the very tight header row. */}
+            <span className="hidden sm:inline">Host</span>
           </span>
         )}
         <PresenceBadge

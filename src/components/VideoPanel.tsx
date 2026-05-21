@@ -2,7 +2,6 @@
 
 import "@livekit/components-styles";
 import {
-  ControlBar,
   GridLayout,
   LiveKitRoom,
   ParticipantTile,
@@ -15,7 +14,7 @@ import {
 } from "@livekit/components-react";
 import { Track, type LocalTrack } from "livekit-client";
 import CaptionsManager from "./CaptionsManager";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
 
@@ -150,7 +149,6 @@ export default function VideoPanel({
         </div>
         <RoomAudioRenderer />
         <CameraReleaseGuard />
-        <RoomCoordinator isHost={isHost} userName={userName} />
         {onCaption && (
           <CaptionsManager
             userName={userName}
@@ -158,15 +156,7 @@ export default function VideoPanel({
             onCaption={onCaption}
           />
         )}
-        <ControlBar
-          variation="minimal"
-          controls={{
-            microphone: true,
-            camera: true,
-            screenShare: true,
-            leave: true,
-          }}
-        />
+        <RoomCoordinatorBar isHost={isHost} userName={userName} />
       </div>
     </LiveKitRoom>
   );
@@ -195,9 +185,11 @@ function Tiles() {
         <ParticipantTile />
       </GridLayout>
       {participants.length === 1 && (
-        <div className="absolute bottom-2 left-2 right-2 z-10 text-xs text-white/80 bg-black/60 rounded px-2 py-1 pointer-events-none">
-          You're the only one here. Share the invite link to bring
-          students in.
+        // Compact chip, centred low in the tile. Was a full-width
+        // dark banner — the old version overlapped the new unified
+        // toolbar on phone portrait.
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 text-[11px] text-white/90 bg-black/55 rounded-full px-2.5 py-0.5 pointer-events-none whitespace-nowrap">
+          Alone in the call · share the invite link
         </div>
       )}
     </div>
@@ -211,7 +203,17 @@ type DataMsg =
   | { type: "hand"; up: boolean; name: string }
   | { type: "mute-request" };
 
-function RoomCoordinator({
+// Single unified control bar. Replaces the previous two-tier UI
+// (LiveKit ControlBar + RoomCoordinator), so phone/tablet users get
+// one row of thumb-reachable controls instead of stacked bars eating
+// 2× the vertical space.
+//
+// Layout (left → right): mic | camera | screen-share (desktop only) |
+// raise-hand | host-only Mute all | spacer | red Leave.
+// Above the bar, two stacks may appear:
+//  - raised-hands list when non-empty
+//  - 'Sent mute request' / 'mute all' two-tap confirmation chip
+function RoomCoordinatorBar({
   isHost,
   userName,
 }: {
@@ -219,15 +221,16 @@ function RoomCoordinator({
   userName: string;
 }) {
   const room = useRoomContext();
-  const { localParticipant } = useLocalParticipant();
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
+    useLocalParticipant();
   const toast = useToast();
   const [handUp, setHandUp] = useState(false);
-  // identity → { name, up }
-  const [raisedHands, setRaisedHands] = useState<Map<string, { name: string; up: boolean }>>(
-    () => new Map(),
-  );
+  const [muteAllArmed, setMuteAllArmed] = useState(false);
+  const muteAllArmedTimer = useRef<number | null>(null);
+  const [raisedHands, setRaisedHands] = useState<
+    Map<string, { name: string; up: boolean }>
+  >(() => new Map());
 
-  // Use LiveKit React's data channel hook to send/receive messages.
   const { send } = useDataChannel((msg) => {
     try {
       const payload = JSON.parse(new TextDecoder().decode(msg.payload)) as DataMsg;
@@ -264,10 +267,25 @@ function RoomCoordinator({
     if (next) toast.info("Hand raised");
   };
 
-  const muteAll = () => {
-    if (!confirm("Send a mute request to everyone in the call?")) return;
-    sendMsg({ type: "mute-request" });
-    toast.success("Sent mute request to all participants");
+  // Two-tap mute-all (matches the ConfirmButton pattern used in the
+  // drawers — window.confirm() is bypassed on iOS WebViews).
+  const armMuteAll = () => {
+    if (muteAllArmed) {
+      // Confirm tap.
+      sendMsg({ type: "mute-request" });
+      toast.success("Sent mute request to all participants");
+      setMuteAllArmed(false);
+      if (muteAllArmedTimer.current !== null) {
+        window.clearTimeout(muteAllArmedTimer.current);
+        muteAllArmedTimer.current = null;
+      }
+      return;
+    }
+    setMuteAllArmed(true);
+    muteAllArmedTimer.current = window.setTimeout(() => {
+      setMuteAllArmed(false);
+      muteAllArmedTimer.current = null;
+    }, 4000);
   };
 
   const lowerHand = (identity: string) => {
@@ -282,24 +300,32 @@ function RoomCoordinator({
   useEffect(() => {
     return () => {
       if (handUp) sendMsg({ type: "hand", up: false, name: userName });
+      if (muteAllArmedTimer.current !== null) {
+        window.clearTimeout(muteAllArmedTimer.current);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  void room; // keep ref so the hook is bound to the right room
+  const onLeave = () => {
+    void room.disconnect();
+  };
 
   return (
     <div className="border-t border-[color:var(--border)] bg-[var(--bg-elev)] text-[var(--text)]">
       {raisedHands.size > 0 && (
-        <ul className="max-h-32 overflow-y-auto px-3 py-2 space-y-1 text-sm">
+        <ul className="max-h-28 overflow-y-auto px-2 pt-2 pb-1 space-y-1 text-sm">
           {[...raisedHands.entries()].map(([id, info]) => (
-            <li key={id} className="flex items-center gap-2">
-              <span>✋</span>
-              <span className="flex-1 truncate">{info.name}</span>
+            <li
+              key={id}
+              className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-md px-2 py-1"
+            >
+              <span aria-hidden>✋</span>
+              <span className="flex-1 truncate text-amber-900">{info.name}</span>
               {isHost && (
                 <button
                   onClick={() => lowerHand(id)}
-                  className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+                  className="text-xs text-amber-800 hover:text-amber-950 font-medium"
                 >
                   Lower
                 </button>
@@ -308,28 +334,113 @@ function RoomCoordinator({
           ))}
         </ul>
       )}
-      <div className="flex gap-2 px-3 py-2">
-        <button
+
+      <div
+        role="toolbar"
+        aria-label="Call controls"
+        className="flex items-center gap-1 px-1.5 py-1.5 overflow-x-auto"
+      >
+        <BarButton
+          label={isMicrophoneEnabled ? "Mute mic" : "Unmute mic"}
+          icon={isMicrophoneEnabled ? "🎤" : "🔇"}
+          active={isMicrophoneEnabled}
+          onClick={() =>
+            void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled)
+          }
+        />
+        <BarButton
+          label={isCameraEnabled ? "Camera off" : "Camera on"}
+          icon={isCameraEnabled ? "📷" : "🚫"}
+          active={isCameraEnabled}
+          onClick={() =>
+            void localParticipant.setCameraEnabled(!isCameraEnabled)
+          }
+        />
+        {/* Screen-share hidden on small viewports — mobile browsers
+            can't share screen, and the button just errored. */}
+        <BarButton
+          label={isScreenShareEnabled ? "Stop sharing" : "Share screen"}
+          icon="🖥"
+          active={isScreenShareEnabled}
+          onClick={() =>
+            void localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
+          }
+          className="hidden md:inline-flex"
+        />
+        <BarButton
+          label={handUp ? "Lower hand" : "Raise hand"}
+          icon="✋"
+          active={handUp}
+          activeClass="bg-amber-500 text-black border-amber-400"
           onClick={toggleHand}
-          className={`flex-1 text-sm rounded-md px-3 py-1.5 border ${
-            handUp
-              ? "bg-amber-500 text-black border-amber-400"
-              : "border-[color:var(--border)] text-[var(--text)] hover:bg-[var(--hover)]"
-          }`}
-        >
-          {handUp ? "Lower hand" : "✋ Raise hand"}
-        </button>
+        />
         {isHost && (
-          <button
-            onClick={muteAll}
-            className="text-sm rounded-md px-3 py-1.5 border border-[color:var(--border)] text-[var(--text)] hover:bg-[var(--hover)]"
-            title="Send everyone a request to mute"
-          >
-            Mute all
-          </button>
+          <BarButton
+            label={muteAllArmed ? "Tap to confirm" : "Mute all"}
+            icon={muteAllArmed ? "✓" : "🔕"}
+            active={muteAllArmed}
+            activeClass="bg-amber-500 text-black border-amber-400"
+            onClick={armMuteAll}
+            collapseTextBelow="sm"
+          />
         )}
+        <span className="flex-1" />
+        <BarButton
+          label="Leave call"
+          icon="↩"
+          onClick={onLeave}
+          className="bg-red-600 text-white border-red-600 hover:bg-red-500"
+          collapseTextBelow="sm"
+        />
       </div>
     </div>
+  );
+}
+
+// Single icon+label button used in the unified bar so every control
+// has the same touch target and visual rhythm.
+function BarButton({
+  label,
+  icon,
+  active,
+  activeClass,
+  onClick,
+  className,
+  collapseTextBelow,
+}: {
+  label: string;
+  icon: string;
+  active?: boolean;
+  activeClass?: string;
+  onClick: () => void;
+  className?: string;
+  // Hide the text label below this Tailwind breakpoint so very narrow
+  // viewports collapse to icon-only. Default: 'md' — text disappears
+  // on phone-sized screens. Use 'sm' for less-important buttons that
+  // should keep their text longer.
+  collapseTextBelow?: "sm" | "md";
+}) {
+  const hideText =
+    collapseTextBelow === "sm" ? "hidden sm:inline" : "hidden md:inline";
+  const stateClass =
+    active && activeClass
+      ? activeClass
+      : active
+        ? "bg-brand-600 text-white border-brand-600"
+        : "border-[color:var(--border)] text-[var(--text)] hover:bg-[var(--hover)]";
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
+      className={`touch-target shrink-0 inline-flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm min-w-[44px] min-h-[40px] ${stateClass} ${className ?? ""}`}
+    >
+      <span aria-hidden className="text-base leading-none">
+        {icon}
+      </span>
+      <span className={hideText}>{label}</span>
+    </button>
   );
 }
 
