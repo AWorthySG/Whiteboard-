@@ -15,12 +15,23 @@ const UPLOAD_TIMEOUT_MS = 90_000;
 // Browsers without screen capture support: iPhone Safari (no
 // getDisplayMedia at all), some embedded WebViews, and pre-2020
 // browsers. We render a clear 'unsupported' button rather than a
-// dead one that silently does nothing.
+// dead one that silently does nothing. Telegram WebApp is also
+// in this bucket — its WebView blocks getDisplayMedia entirely,
+// so we hide the button rather than offering a control that
+// always errors when tapped.
 function recordingSupported(): boolean {
   if (typeof window === "undefined") return false;
   if (!("MediaRecorder" in window)) return false;
   const md = navigator?.mediaDevices as MediaDevices | undefined;
-  return !!(md && typeof md.getDisplayMedia === "function");
+  if (!md || typeof md.getDisplayMedia !== "function") return false;
+  // Running inside Telegram Mini App → no screen capture available.
+  if (window.Telegram?.WebApp?.initData) return false;
+  return true;
+}
+
+function inTelegramWebApp(): boolean {
+  if (typeof window === "undefined") return false;
+  return !!window.Telegram?.WebApp?.initData;
 }
 
 export default function RecordButton({
@@ -298,6 +309,12 @@ export default function RecordButton({
   if (state === "idle") {
     const supported = recordingSupported();
     if (!supported) {
+      // In Telegram Mini App, hide the button completely — there's no
+      // path forward (no getDisplayMedia, no fallback), so a disabled
+      // tap target just clutters the header. Elsewhere we keep a
+      // greyed-out chip so the user understands recording is an
+      // option, just not on this browser.
+      if (inTelegramWebApp()) return null;
       return (
         <button
           onClick={() =>

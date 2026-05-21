@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import "tldraw/tldraw.css";
 import "@livekit/components-styles";
@@ -68,6 +69,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ))}
       </head>
       <body>
+        {/* Telegram WebApp SDK — only does anything when the page is
+            opened from inside Telegram. Outside Telegram it's a tiny
+            (~3 KB) no-op script. Loaded beforeInteractive so the
+            useTelegramWebApp hook can read window.Telegram on first
+            render without a deferred-load flash. */}
+        <Script
+          src="https://telegram.org/js/telegram-web-app.js"
+          strategy="beforeInteractive"
+        />
         <ToastProvider>
           <ThemeApplier />
           {children}
