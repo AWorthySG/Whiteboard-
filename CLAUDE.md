@@ -301,8 +301,9 @@ adds significantly to that should be lazy-loaded via `dynamic(() => import(...))
 3. **Don't add LiveKit tokens to client-side env.** Token minting must stay server-side.
 4. **Bundle budget**: keep heavy libraries (KaTeX, pdfjs, exportToBlob) lazy-loaded.
    Server-side render where possible (KaTeX already is).
-5. **Schema migrations**: use the Supabase MCP's `apply_migration` tool; don't write to
-   `supabase/migrations` directly.
+5. **Schema migrations**: write the SQL to `supabase/migrations/<timestamp>_<name>.sql` first,
+   then apply via the Supabase MCP `apply_migration` tool with the same name. Update
+   `supabase/setup.sql` (the consolidated fresh-project snapshot) in the same commit.
 6. **Don't change the `@a-worthy.local` synthetic-email domain** in `SignInModal` —
    it's part of every existing user's stored email, and changing it locks everyone out.
 7. **Don't re-enable Supabase "Confirm email"** — accounts can't be confirmed because
