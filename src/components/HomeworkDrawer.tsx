@@ -9,9 +9,11 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
 import AttachmentPicker, { type Attachment } from "./AttachmentPicker";
+import DrawerSkeleton from "./Skeleton";
 
 type Homework = {
   id: string;
@@ -51,8 +53,9 @@ export default function HomeworkDrawer({
   isHost: boolean;
 }) {
   const toast = useToast();
-  const [items, setItems] = useState<Homework[]>([]);
+  const [items, setItems] = useState<Homework[] | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  useEscapeToClose(open, onClose);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -218,7 +221,8 @@ export default function HomeworkDrawer({
         </header>
 
         <div className="flex-1 overflow-y-auto">
-          {items.length === 0 && (
+          {items === null && <DrawerSkeleton />}
+          {items !== null && items.length === 0 && (
             <div className="p-8 text-center">
               <div className="text-4xl mb-2">📝</div>
               <p className="text-sm font-medium">No homework yet</p>
@@ -230,7 +234,7 @@ export default function HomeworkDrawer({
             </div>
           )}
           <ul className="divide-y divide-[color:var(--border-subtle)]">
-            {items.map((h) => {
+            {(items ?? []).map((h) => {
               const subs = submissionsByHomework(h.id);
               const mine = mySubmissionFor(h.id);
               const open = expanded === h.id;

@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { CaretRight, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
+import DrawerSkeleton from "./Skeleton";
 
 // Group docs by local date string (yyyy-mm-dd). Returns the groups in
 // reverse-chronological order, with a human-friendly label for each
@@ -78,14 +80,15 @@ export default function DocumentsDrawer({
   isHost: boolean;
 }) {
   const toast = useToast();
-  const [docs, setDocs] = useState<Document[]>([]);
+  const [docs, setDocs] = useState<Document[] | null>(null);
   const [uploading, setUploading] = useState(false);
+  useEscapeToClose(open, onClose);
   // Track which date sections are collapsed. Default everything *open*
   // for today and yesterday, *closed* for older — covers the common
   // case where the host just wants to see what was uploaded recently.
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
-  const groups = useMemo(() => groupByDate(docs), [docs]);
+  const groups = useMemo(() => groupByDate(docs ?? []), [docs]);
 
   useEffect(() => {
     if (!open) return;
@@ -151,7 +154,7 @@ export default function DocumentsDrawer({
     } else {
       // Optimistic: drop from local state immediately so the realtime
       // event isn't strictly necessary.
-      setDocs((prev) => prev.filter((d) => d.id !== id));
+      setDocs((prev) => (prev ?? []).filter((d) => d.id !== id));
       toast.success("Document removed");
     }
   };
@@ -251,7 +254,9 @@ export default function DocumentsDrawer({
         </header>
 
         <div className="flex-1 overflow-y-auto">
-          {docs.length === 0 ? (
+          {docs === null ? (
+            <DrawerSkeleton />
+          ) : docs.length === 0 ? (
             <div className="p-8 text-center">
               <EmptyDocsIllustration />
               <p className="text-sm font-medium mt-3">No documents yet</p>

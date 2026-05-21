@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { Play, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
+import DrawerSkeleton from "./Skeleton";
 
 type Recording = {
   id: string;
@@ -32,8 +34,9 @@ export default function RecordingsDrawer({
   isHost: boolean;
 }) {
   const toast = useToast();
-  const [items, setItems] = useState<Recording[]>([]);
+  const [items, setItems] = useState<Recording[] | null>(null);
   const [playing, setPlaying] = useState<Recording | null>(null);
+  useEscapeToClose(open, onClose);
 
   useEffect(() => {
     if (!open) return;
@@ -101,7 +104,9 @@ export default function RecordingsDrawer({
           </header>
 
           <div className="flex-1 overflow-y-auto">
-            {items.length === 0 ? (
+            {items === null ? (
+              <DrawerSkeleton />
+            ) : items.length === 0 ? (
               <div className="p-8 text-center">
                 <div className="text-4xl mb-2">🎬</div>
                 <p className="text-sm font-medium">No recordings yet</p>
@@ -113,7 +118,7 @@ export default function RecordingsDrawer({
               </div>
             ) : (
               <ul className="divide-y divide-[color:var(--border-subtle)]">
-                {items.map((r) => (
+                {(items ?? []).map((r) => (
                   <li key={r.id} className="px-4 py-3">
                     <div className="flex items-start gap-3">
                       <button

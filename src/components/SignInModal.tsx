@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 
 // Supabase Auth requires an email. We let users pick a plain username
@@ -32,6 +33,7 @@ export default function SignInModal({
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
+  useEscapeToClose(open, onClose);
 
   if (!open) return null;
 

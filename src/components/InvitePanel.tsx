@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { X } from "@phosphor-icons/react";
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 
 export default function InvitePanel({
@@ -15,6 +16,7 @@ export default function InvitePanel({
 }) {
   const [qrSvg, setQrSvg] = useState<string | null>(null);
   const toast = useToast();
+  useEscapeToClose(open, onClose);
 
   useEffect(() => {
     if (!open) return;
