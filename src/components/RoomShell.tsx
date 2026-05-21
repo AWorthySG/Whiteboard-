@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CaretDown, File as FileIcon, X } from "@phosphor-icons/react";
 import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
-import { trackRoomVisit } from "@/hooks/useRecentRooms";
+import { trackRoomVisit, useRecentRooms } from "@/hooks/useRecentRooms";
 import { useWhiteboardRecorder } from "@/hooks/useWhiteboardRecorder";
 import { useToast } from "./Toast";
 import BrandLogo from "./BrandLogo";
@@ -29,6 +30,11 @@ const ChatBubble = dynamic(() => import("./ChatBubble"), { ssr: false });
 const CaptionsOverlay = dynamic(() => import("./CaptionsOverlay"), {
   ssr: false,
 });
+const CommandPalette = dynamic(() => import("./CommandPalette"), {
+  ssr: false,
+});
+import { useCommandPaletteShortcut } from "./CommandPalette";
+import type { Command } from "./CommandPalette";
 const EndLessonModal = dynamic(() => import("./EndLessonModal"), {
   ssr: false,
 });
@@ -133,6 +139,10 @@ export default function RoomShell({
     () => canvasEditorRef.current,
   );
   const [endLessonOpen, setEndLessonOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useCommandPaletteShortcut(useCallback(() => setPaletteOpen(true), []));
+  const recentRooms = useRecentRooms();
+  const router = useRouter();
   // Cache of pageId -> data URL for the Pages dropdown thumbnails.
   // We don't auto-invalidate as the page changes; a refresh triggers
   // when the dropdown is opened again.
@@ -245,6 +255,90 @@ export default function RoomShell({
     }
     return id;
   }, []);
+
+  const paletteCommands = useMemo<Command[]>(() => {
+    const cmds: Command[] = [
+      {
+        id: "open-documents",
+        label: "Open Documents drawer",
+        group: "Drawers",
+        perform: () => setDocsOpen(true),
+      },
+      {
+        id: "open-homework",
+        label: "Open Homework drawer",
+        group: "Drawers",
+        perform: () => setHwOpen(true),
+      },
+      {
+        id: "open-recordings",
+        label: "Open Recordings drawer",
+        group: "Drawers",
+        perform: () => setRecsOpen(true),
+      },
+      {
+        id: "open-invite",
+        label: "Open Invite panel",
+        group: "Room",
+        perform: () => setInviteOpen(true),
+      },
+      {
+        id: "open-settings",
+        label: "Settings",
+        group: "Room",
+        perform: () => setSettingsOpen(true),
+      },
+      {
+        id: "toggle-video",
+        label: videoOpen ? "Hide video panel" : "Show video panel",
+        group: "Room",
+        perform: () => setVideoOpen((v) => !v),
+      },
+      {
+        id: "add-page",
+        label: "Add a new page",
+        group: "Canvas",
+        perform: () => canvasAddPageRef.current?.(),
+      },
+      {
+        id: "export-pdf",
+        label: "End lesson — export to PDF",
+        group: "Canvas",
+        perform: () => setEndLessonOpen(true),
+      },
+    ];
+    if (isHost) {
+      cmds.push({
+        id: "toggle-leader",
+        label: meta.leaderMode ? "Stop leading the view" : "Lead the view",
+        hint: "Every guest's canvas mirrors yours.",
+        group: "Room",
+        perform: () => {
+          void setLeaderMode(!meta.leaderMode, userId);
+        },
+      });
+    }
+    for (const r of recentRooms.slice(0, 6)) {
+      if (r.roomId === roomId) continue;
+      cmds.push({
+        id: `recent-${r.roomId}`,
+        label: r.title || r.roomId,
+        hint: `Switch to this recent room (${r.role})`,
+        group: "Recent rooms",
+        perform: () => router.push(`/r/${r.roomId}`),
+      });
+    }
+    return cmds;
+  }, [
+    isHost,
+    meta.leaderMode,
+    recentRooms,
+    roomId,
+    router,
+    setLeaderMode,
+    userId,
+    videoOpen,
+  ]);
 
   useEffect(() => {
     setVideoOpen(settings.showVideoOnEntry);
@@ -821,6 +915,11 @@ export default function RoomShell({
         roomId={roomId}
         userName={name}
         onUserNameChange={setName}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={paletteCommands}
       />
       <DocumentsDrawer
         open={docsOpen}
