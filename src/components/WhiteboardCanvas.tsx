@@ -173,6 +173,7 @@ export default function WhiteboardCanvas({
   isHost,
   leaderMode,
   leaderUserId,
+  drawGrantUserId,
   onToggleLeader,
   exportRef,
   addPageRef,
@@ -187,6 +188,7 @@ export default function WhiteboardCanvas({
   isHost: boolean;
   leaderMode: boolean;
   leaderUserId: string | null;
+  drawGrantUserId: string | null;
   onToggleLeader: () => void | Promise<void>;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
   addPageRef?: MutableRefObject<(() => void) | null>;
@@ -320,6 +322,20 @@ export default function WhiteboardCanvas({
   // tldraw camera (pan + zoom) is locked to mirror the host's. tldraw
   // ships native presence-based follow — we just toggle it based on the
   // shared room_metadata.leader_mode flag. Both calls are wrapped in
+  // React to the host promoting/revoking drawing privilege for a
+  // student mid-lesson. When the grant flips to us, switch to draw;
+  // when it flips away (and we're not the host), drop back to hand.
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || isHost) return;
+    const hasDrawGrant = drawGrantUserId === userId;
+    if (hasDrawGrant && editor.getCurrentToolId() === "hand") {
+      editor.setCurrentTool("draw");
+    } else if (!hasDrawGrant && editor.getCurrentToolId() === "draw") {
+      editor.setCurrentTool("hand");
+    }
+  }, [drawGrantUserId, userId, isHost]);
+
   // try/catch because they can throw on iOS Safari before tldraw's
   // presence layer is fully initialised.
   useEffect(() => {
@@ -548,8 +564,12 @@ export default function WhiteboardCanvas({
             // and our touch-action: none on the shell, students who
             // didn't know to switch tools had no way to scroll on
             // phone — they'd just leave squiggles. Host stays on the
-            // draw tool since they're the one writing.
-            if (!isHost) {
+            // draw tool since they're the one writing. EXCEPT: if
+            // this student is the one the host has promoted to draw
+            // (draw_grant_user_id), they default to the draw tool
+            // so they can immediately solve the problem on canvas.
+            const hasDrawGrant = drawGrantUserId === userId;
+            if (!isHost && !hasDrawGrant) {
               editor.setCurrentTool("hand");
             }
             if (appSettings.penOnly) {
@@ -562,6 +582,7 @@ export default function WhiteboardCanvas({
         editor={editorRef.current}
         leaderMode={leaderMode}
         leaderUserId={leaderUserId}
+        drawGrantUserId={drawGrantUserId}
         userId={userId}
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
@@ -597,6 +618,7 @@ function CanvasFloatingPanel({
   editor,
   leaderMode,
   leaderUserId,
+  drawGrantUserId,
   userId,
   toolsCollapsed,
   onToggleTools,
@@ -604,12 +626,14 @@ function CanvasFloatingPanel({
   editor: Editor | null;
   leaderMode: boolean;
   leaderUserId: string | null;
+  drawGrantUserId: string | null;
   userId: string;
   toolsCollapsed: boolean;
   onToggleTools: () => void;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
+  const hasDrawGrant = drawGrantUserId === userId;
   return (
     <div
       className="absolute top-3 right-3 flex flex-col items-end gap-2"
@@ -631,6 +655,15 @@ function CanvasFloatingPanel({
         >
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
           Leading view
+        </div>
+      )}
+      {hasDrawGrant && (
+        <div
+          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-emerald-100 text-emerald-900 border-emerald-600 shadow-lg flex items-center gap-1.5"
+          title="The host has given you drawing privilege — solve the problem on the shared canvas."
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+          You can draw
         </div>
       )}
       <PenModeIndicator editor={editor} />

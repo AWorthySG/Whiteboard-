@@ -113,7 +113,7 @@ export default function RoomShell({
       window.localStorage.setItem(VIDEO_WIDTH_KEY, String(n));
     } catch {}
   };
-  const { meta, setTitle, setLeaderMode } = useRoomMeta(roomId);
+  const { meta, setTitle, setLeaderMode, setDrawGrant } = useRoomMeta(roomId);
   const toast = useToast();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
@@ -472,6 +472,11 @@ export default function RoomShell({
           userId={userId}
           userName={name || "Guest"}
           currentPageId={pagesState?.currentId ?? null}
+          isHost={isHost}
+          drawGrantUserId={meta.drawGrantUserId}
+          onSetDrawGrant={(uid) => {
+            void setDrawGrant(uid);
+          }}
         />
 
         {/* Desktop / tablet controls.
@@ -708,6 +713,7 @@ export default function RoomShell({
             isHost={isHost}
             leaderMode={meta.leaderMode}
             leaderUserId={meta.leaderUserId}
+            drawGrantUserId={meta.drawGrantUserId}
             onToggleLeader={async () => {
               await setLeaderMode(!meta.leaderMode, userId);
             }}

@@ -17,11 +17,22 @@ export default function PresenceBadge({
   userId,
   userName,
   currentPageId,
+  isHost,
+  drawGrantUserId,
+  onSetDrawGrant,
 }: {
   roomId: string;
   userId: string;
   userName: string;
   currentPageId?: string | null;
+  // Host-only: shows a 'Promote to draw' button per non-host
+  // participant in the popover. When set, the named user keeps
+  // the draw tool as default and can solve problems on the shared
+  // canvas instead of being forced to 'hand'. NULL means no one
+  // is currently granted.
+  isHost?: boolean;
+  drawGrantUserId?: string | null;
+  onSetDrawGrant?: (userId: string | null) => void;
 }) {
   const [people, setPeople] = useState<Person[]>([]);
   const [open, setOpen] = useState(false);
@@ -202,6 +213,29 @@ export default function PresenceBadge({
                       elsewhere
                     </span>
                   ) : null}
+                  {/* Host-only 'Promote to draw' control. Shown for
+                      everyone except yourself; the active draw-grant
+                      shows a contrasting 'Drawing' chip with a click
+                      to revoke. */}
+                  {isHost && onSetDrawGrant && !isYou && (
+                    drawGrantUserId === p.userId ? (
+                      <button
+                        onClick={() => onSetDrawGrant(null)}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600"
+                        title="Currently drawing — tap to revoke"
+                      >
+                        Drawing
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onSetDrawGrant(p.userId)}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--hover)] text-[var(--text-muted)] hover:bg-brand-100 hover:text-brand-800"
+                        title="Grant this student drawing privilege (they default to the draw tool)"
+                      >
+                        Let draw
+                      </button>
+                    )
+                  )}
                 </li>
               );
             })}
