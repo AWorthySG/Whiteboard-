@@ -12,6 +12,7 @@ import {
 } from "@/hooks/useRecentRooms";
 import { getSupabase } from "@/lib/supabase";
 import BrandLogo from "@/components/BrandLogo";
+import PwaInstallBanner from "@/components/PwaInstallBanner";
 
 const SignInModal = dynamic(() => import("@/components/SignInModal"), { ssr: false });
 
@@ -242,6 +243,7 @@ export default function Home() {
       </div>
 
       <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
+      <PwaInstallBanner />
     </main>
   );
 }
