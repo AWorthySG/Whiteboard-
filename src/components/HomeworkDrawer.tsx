@@ -35,7 +35,19 @@ type Submission = {
   file_name: string | null;
   note: string | null;
   submitted_at: string;
+  feedback: string | null;
+  feedback_at: string | null;
 };
+
+// Preset feedback chips for the host — quick one-click responses
+// for the common cases. The host can also write a custom comment
+// in the freeform field; either path persists to feedback +
+// feedback_at on homework_submissions.
+const FEEDBACK_PRESETS = [
+  { label: "✓ Good job", value: "✓ Good job" },
+  { label: "⭐ Excellent", value: "⭐ Excellent" },
+  { label: "Try again", value: "Try again — see my notes" },
+];
 
 export default function HomeworkDrawer({
   open,
@@ -185,6 +197,33 @@ export default function HomeworkDrawer({
     setSubmissionDraft(null);
   };
 
+  const setFeedback = async (submissionId: string, feedback: string | null) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    // Optimistic update so the host sees the chip immediately.
+    setSubmissions((prev) =>
+      prev.map((s) =>
+        s.id === submissionId
+          ? {
+              ...s,
+              feedback,
+              feedback_at: feedback ? new Date().toISOString() : null,
+            }
+          : s,
+      ),
+    );
+    const { error } = await supabase
+      .from("homework_submissions")
+      .update({
+        feedback,
+        feedback_at: feedback ? new Date().toISOString() : null,
+      })
+      .eq("id", submissionId);
+    if (error) {
+      toast.error(`Couldn't save feedback: ${error.message}`);
+    }
+  };
+
   const removeSubmission = async (id: string) => {
     const supabase = getSupabase();
     if (!supabase) return;
@@ -332,6 +371,16 @@ export default function HomeworkDrawer({
                       </a>
                     )}
                   </div>
+                  {!isHost && mine?.feedback && (
+                    <div className="mt-2 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1 text-xs">
+                      <span className="text-[10px] uppercase tracking-wider text-emerald-700 mr-1.5">
+                        Feedback
+                      </span>
+                      <span className="text-[var(--text)] whitespace-pre-wrap">
+                        {mine.feedback}
+                      </span>
+                    </div>
+                  )}
 
                   {!isHost && submittingFor === h.id && (
                     <div className="mt-2 space-y-2">
@@ -355,31 +404,43 @@ export default function HomeworkDrawer({
                   )}
 
                   {isHost && open && subs.length > 0 && (
-                    <ul className="mt-2 space-y-1 rounded-md bg-[var(--bg)] border border-[color:var(--border-subtle)] p-2">
+                    <ul className="mt-2 space-y-2 rounded-md bg-[var(--bg)] border border-[color:var(--border-subtle)] p-2">
                       {subs.map((s) => (
-                        <li key={s.id} className="flex items-center gap-2 text-xs">
-                          <span className="flex-1 min-w-0">
-                            <span className="text-[var(--text)]">{s.student_name}</span>
-                            <a
-                              href={s.file_url ?? "#"}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="ml-2 text-brand-700 hover:underline truncate"
+                        <li key={s.id} className="text-xs space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="flex-1 min-w-0">
+                              <span className="text-[var(--text)]">
+                                {s.student_name}
+                              </span>
+                              <a
+                                href={s.file_url ?? "#"}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="ml-2 text-brand-700 hover:underline truncate"
+                              >
+                                {s.file_name}
+                              </a>
+                            </span>
+                            <span className="text-[var(--text-dim)]">
+                              {new Date(s.submitted_at).toLocaleString()}
+                            </span>
+                            <button
+                              onClick={() => removeSubmission(s.id)}
+                              className="text-[var(--text-dim)] hover:text-red-600 inline-flex"
+                              title="Remove submission"
+                              aria-label="Remove submission"
                             >
-                              {s.file_name}
-                            </a>
-                          </span>
-                          <span className="text-[var(--text-dim)]">
-                            {new Date(s.submitted_at).toLocaleString()}
-                          </span>
-                          <button
-                            onClick={() => removeSubmission(s.id)}
-                            className="text-[var(--text-dim)] hover:text-red-600 inline-flex"
-                            title="Remove submission"
-                            aria-label="Remove submission"
-                          >
-                            <X aria-hidden size={14} />
-                          </button>
+                              <X aria-hidden size={14} />
+                            </button>
+                          </div>
+                          {/* Feedback row — preset chips for one-tap
+                              responses + a freeform textarea. The
+                              student sees this on their submission
+                              line below. */}
+                          <SubmissionFeedback
+                            submission={s}
+                            onSet={(v) => void setFeedback(s.id, v)}
+                          />
                         </li>
                       ))}
                     </ul>
@@ -428,6 +489,102 @@ export default function HomeworkDrawer({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SubmissionFeedback({
+  submission,
+  onSet,
+}: {
+  submission: Submission;
+  onSet: (value: string | null) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(submission.feedback ?? "");
+  if (!editing && submission.feedback) {
+    return (
+      <div className="flex items-center gap-2 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1">
+        <span className="text-[11px] uppercase tracking-wider text-emerald-700 shrink-0">
+          Feedback
+        </span>
+        <span className="flex-1 text-[var(--text)] whitespace-pre-wrap">
+          {submission.feedback}
+        </span>
+        <button
+          onClick={() => {
+            setDraft(submission.feedback ?? "");
+            setEditing(true);
+          }}
+          className="text-[var(--text-dim)] hover:text-[var(--text)]"
+          title="Edit feedback"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => onSet(null)}
+          className="text-[var(--text-dim)] hover:text-red-600"
+          title="Clear feedback"
+        >
+          Clear
+        </button>
+      </div>
+    );
+  }
+  if (!editing) {
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        {FEEDBACK_PRESETS.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => onSet(p.value)}
+            className="text-[11px] px-2 py-0.5 rounded-full border border-[color:var(--border)] hover:bg-[var(--hover)]"
+          >
+            {p.label}
+          </button>
+        ))}
+        <button
+          onClick={() => {
+            setDraft("");
+            setEditing(true);
+          }}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-[color:var(--border)] hover:bg-[var(--hover)] text-[var(--text-muted)]"
+        >
+          Write…
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        rows={2}
+        placeholder="Type feedback for the student…"
+        className="w-full text-xs rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1.5 outline-none focus:border-brand-500 resize-none"
+      />
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => {
+            const v = draft.trim();
+            onSet(v || null);
+            setEditing(false);
+          }}
+          className="text-[11px] rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2 py-1"
+        >
+          Save
+        </button>
+        <button
+          onClick={() => {
+            setDraft(submission.feedback ?? "");
+            setEditing(false);
+          }}
+          className="text-[11px] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2 py-1"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
