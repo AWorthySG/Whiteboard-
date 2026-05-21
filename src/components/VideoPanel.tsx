@@ -23,6 +23,7 @@ import {
   SignOut,
   VideoCamera,
   VideoCameraSlash,
+  X,
 } from "@phosphor-icons/react";
 import CaptionsManager from "./CaptionsManager";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -175,6 +176,18 @@ export default function VideoPanel({
 
 function Tiles() {
   const participants = useParticipants();
+  // Local dismissal of the 'alone in call' pill. The pill re-shows
+  // naturally if the host is left alone again later in the same
+  // session (e.g. last student dropped off), since participants.length
+  // returning to 1 doesn't carry the dismissal forward — but a single
+  // click silences it for the current 'alone' streak, which is what
+  // the user actually wanted.
+  const [dismissedAt, setDismissedAt] = useState<number>(0);
+  // Re-arm the pill whenever someone else joins — so the next time
+  // the host is alone, the hint reappears.
+  useEffect(() => {
+    if (participants.length > 1 && dismissedAt > 0) setDismissedAt(0);
+  }, [participants.length, dismissedAt]);
   const tracks = useTracks(
     [
       // withPlaceholder ensures every participant gets a tile even if
@@ -195,13 +208,22 @@ function Tiles() {
       <GridLayout tracks={tracks} style={{ height: "100%" }}>
         <ParticipantTile />
       </GridLayout>
-      {participants.length === 1 && (
+      {participants.length === 1 && dismissedAt === 0 && (
         // Compact chip, centred low in the tile. Was a full-width
         // dark banner — the old version overlapped the new unified
-        // toolbar on phone portrait.
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 text-[11px] text-white/90 bg-black/55 rounded-full px-2.5 py-0.5 pointer-events-none whitespace-nowrap">
+        // toolbar on phone portrait. The whole pill is now clickable
+        // (and has an explicit × hit target) so the user can dismiss
+        // it once they know they're alone.
+        <button
+          type="button"
+          onClick={() => setDismissedAt(Date.now())}
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 text-[11px] text-white/90 bg-black/55 rounded-full pl-2.5 pr-1.5 py-0.5 whitespace-nowrap inline-flex items-center gap-1.5 hover:bg-black/70 transition-colors"
+          aria-label="Dismiss 'alone in call' hint"
+          title="Dismiss"
+        >
           Alone in the call · share the invite link
-        </div>
+          <X size={11} aria-hidden className="opacity-70" />
+        </button>
       )}
     </div>
   );
