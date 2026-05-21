@@ -612,8 +612,49 @@ function CanvasFloatingPanel({
           Leading view
         </div>
       )}
+      <PenModeIndicator editor={editor} />
       <ColorPickerRow editor={editor} />
     </div>
+  );
+}
+
+// Visible signal that pen-mode / palm-rejection is active so the
+// classic 'why doesn't my finger draw any more?' confusion is
+// addressed at the source. Tracks both code paths that can flip it on:
+//   1. tldraw's auto-detect on first pointerType==='pen' event
+//   2. the explicit Settings → Whiteboard → 'Pen-only mode' toggle
+// Clicking the pill turns it off (transient — until the next pen
+// event re-arms it) AND also disables the persistent setting if
+// it was the reason, so 'I want my finger back' is one tap.
+function PenModeIndicator({ editor }: { editor: Editor | null }) {
+  const [appSettings, setAppSettings] = useSettings();
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => setActive(!!editor.getInstanceState().isPenMode);
+    update();
+    const unsub = editor.store.listen(update, { scope: "session" });
+    return () => unsub();
+  }, [editor]);
+  if (!active) return null;
+  const turnOff = () => {
+    if (editor) editor.updateInstanceState({ isPenMode: false });
+    if (appSettings.penOnly) setAppSettings({ penOnly: false });
+  };
+  return (
+    <button
+      onClick={turnOff}
+      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-sky-50 text-sky-900 border-sky-600 shadow-lg flex items-center gap-1.5 hover:bg-sky-100"
+      title={
+        appSettings.penOnly
+          ? "Pen-only mode is on (Settings → Whiteboard). Tap to let your finger draw again."
+          : "Pen mode auto-enabled after a pencil touch — finger taps won't draw. Tap to switch back."
+      }
+    >
+      <span aria-hidden>✎</span>
+      Pen mode
+      <span className="text-[9px] text-sky-700/80 ml-1">tap to undo</span>
+    </button>
   );
 }
 
