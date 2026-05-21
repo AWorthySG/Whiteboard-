@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
+import AttachmentPicker, { type Attachment } from "./AttachmentPicker";
 
 type Homework = {
   id: string;
@@ -12,6 +13,8 @@ type Homework = {
   description: string | null;
   due_date: string | null;
   created_at: string;
+  attachment_url: string | null;
+  attachment_name: string | null;
 };
 
 type Submission = {
@@ -46,8 +49,17 @@ export default function HomeworkDrawer({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [newAttachment, setNewAttachment] = useState<Attachment | null>(null);
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // When a student taps 'Attach my work' on a given homework row,
+  // that row's id goes into submittingFor and an inline
+  // <AttachmentPicker/> is shown. Once they pick or upload, the
+  // submission is persisted and submittingFor clears.
+  const [submittingFor, setSubmittingFor] = useState<string | null>(null);
+  const [submissionDraft, setSubmissionDraft] = useState<Attachment | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -113,6 +125,8 @@ export default function HomeworkDrawer({
       description: description.trim() || null,
       due_date: dueDate || null,
       created_by_user_id: userId,
+      attachment_url: newAttachment?.url ?? null,
+      attachment_name: newAttachment?.name ?? null,
     });
     setSaving(false);
     if (error) {
@@ -122,6 +136,7 @@ export default function HomeworkDrawer({
     setTitle("");
     setDescription("");
     setDueDate("");
+    setNewAttachment(null);
   };
 
   const remove = async (id: string) => {
@@ -136,65 +151,28 @@ export default function HomeworkDrawer({
     }
   };
 
-  const submitWork = async (homeworkId: string) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "application/pdf,image/*";
-    // Mobile Safari refuses to open the picker for a detached input.
-    input.style.position = "fixed";
-    input.style.top = "-9999px";
-    input.style.opacity = "0";
-    document.body.appendChild(input);
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      document.body.removeChild(input);
-      if (!file) return;
-      try {
-        // Direct browser → Supabase Storage upload (no Next.js proxy).
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (!supabaseUrl || !supabaseKey) {
-          throw new Error("Supabase env vars missing");
-        }
-        const ext = file.name.split(".").pop() ?? "bin";
-        const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
-        const upRes = await fetch(
-          `${supabaseUrl}/storage/v1/object/whiteboard-assets/${path}`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${supabaseKey}`,
-              apikey: supabaseKey,
-              "Content-Type": file.type || "application/octet-stream",
-              "x-upsert": "false",
-            },
-            body: file,
-          },
-        );
-        if (!upRes.ok) {
-          throw new Error(`Upload failed (${upRes.status})`);
-        }
-        const url = `${supabaseUrl}/storage/v1/object/public/whiteboard-assets/${path}`;
-
-        const supabase = getSupabase();
-        if (!supabase) return;
-        const { error: dbErr } = await supabase
-          .from("homework_submissions")
-          .insert({
-            homework_id: homeworkId,
-            room_id: roomId,
-            student_user_id: userId,
-            student_name: userName,
-            file_url: url,
-            file_name: file.name,
-          });
-        if (dbErr) throw new Error(dbErr.message);
-        toast.success("Work submitted");
-      } catch (e) {
-        toast.error(`Submission failed: ${(e as Error).message}`);
-      }
-    };
-    input.click();
+  // For students. Inline picker UI is shown when this homework's id
+  // is the active 'submitting' target — see submittingFor below.
+  const persistSubmission = async (homeworkId: string, att: Attachment) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { error: dbErr } = await supabase
+      .from("homework_submissions")
+      .insert({
+        homework_id: homeworkId,
+        room_id: roomId,
+        student_user_id: userId,
+        student_name: userName,
+        file_url: att.url,
+        file_name: att.name,
+      });
+    if (dbErr) {
+      toast.error(`Submission failed: ${dbErr.message}`);
+      return;
+    }
+    toast.success("Work submitted");
+    setSubmittingFor(null);
+    setSubmissionDraft(null);
   };
 
   const removeSubmission = async (id: string) => {
@@ -259,6 +237,20 @@ export default function HomeworkDrawer({
                           {h.description}
                         </div>
                       )}
+                      {h.attachment_url && h.attachment_name && (
+                        <a
+                          href={h.attachment_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-flex items-center gap-1 text-xs text-brand-700 hover:underline"
+                          title={`Worksheet: ${h.attachment_name}`}
+                        >
+                          <span aria-hidden>📎</span>
+                          <span className="truncate max-w-[16rem]">
+                            {h.attachment_name}
+                          </span>
+                        </a>
+                      )}
                       {h.due_date && (
                         <div className="text-xs text-amber-700 mt-1">
                           Due{" "}
@@ -280,14 +272,29 @@ export default function HomeworkDrawer({
                   </div>
 
                   {/* Submissions area */}
-                  <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
                     {!isHost ? (
-                      <button
-                        onClick={() => submitWork(h.id)}
-                        className="text-xs rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2.5 py-1"
-                      >
-                        {mine ? "Replace my submission" : "Attach my work"}
-                      </button>
+                      submittingFor === h.id ? (
+                        <button
+                          onClick={() => {
+                            setSubmittingFor(null);
+                            setSubmissionDraft(null);
+                          }}
+                          className="text-xs text-[var(--text-dim)] hover:text-[var(--text)]"
+                        >
+                          Cancel
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setSubmittingFor(h.id);
+                            setSubmissionDraft(null);
+                          }}
+                          className="text-xs rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2.5 py-1"
+                        >
+                          {mine ? "Replace my submission" : "Attach my work"}
+                        </button>
+                      )
                     ) : (
                       <button
                         onClick={() => setExpanded(open ? null : h.id)}
@@ -309,6 +316,27 @@ export default function HomeworkDrawer({
                       </a>
                     )}
                   </div>
+
+                  {!isHost && submittingFor === h.id && (
+                    <div className="mt-2 space-y-2">
+                      <AttachmentPicker
+                        roomId={roomId}
+                        value={submissionDraft}
+                        onChange={setSubmissionDraft}
+                        label="Pick or upload your work"
+                      />
+                      {submissionDraft && (
+                        <button
+                          onClick={() =>
+                            void persistSubmission(h.id, submissionDraft)
+                          }
+                          className="w-full text-xs rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2.5 py-1.5 font-medium"
+                        >
+                          Submit
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {isHost && open && subs.length > 0 && (
                     <ul className="mt-2 space-y-1 rounded-md bg-[var(--bg)] border border-[color:var(--border-subtle)] p-2">
@@ -359,6 +387,12 @@ export default function HomeworkDrawer({
               placeholder="Description (optional)"
               rows={3}
               className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500 resize-none"
+            />
+            <AttachmentPicker
+              roomId={roomId}
+              value={newAttachment}
+              onChange={setNewAttachment}
+              label="Attach a worksheet (optional)"
             />
             <div className="flex gap-2">
               <input
