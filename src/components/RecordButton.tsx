@@ -189,8 +189,14 @@ export default function RecordButton({
           });
         if (dbErr) {
           console.error("[record] metadata insert failed", dbErr);
+          // File is in Storage but no recordings row references it —
+          // orphan cleanup. Best-effort: if the delete fails the file
+          // will hang around but the user already got the toast.
+          void supabase.storage
+            .from("whiteboard-recordings")
+            .remove([path]);
           toast.error(
-            `Recording uploaded but couldn't save its listing: ${dbErr.message}`,
+            `Recording couldn't be listed: ${dbErr.message}. The file was removed; please re-record.`,
           );
         } else {
           // Tell the parent the recording row exists — it can now

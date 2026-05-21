@@ -156,6 +156,14 @@ export default function HomeworkDrawer({
     });
     setSaving(false);
     if (error) {
+      // Same orphan-cleanup pattern as homework_submissions — only
+      // remove if the host uploaded fresh on this form. A picked
+      // existing document is referenced by its room_documents row.
+      if (newAttachment?.freshUploadPath) {
+        void supabase.storage
+          .from("whiteboard-assets")
+          .remove([newAttachment.freshUploadPath]);
+      }
       toast.error(`Couldn't add homework: ${error.message}`);
       return;
     }
@@ -193,6 +201,14 @@ export default function HomeworkDrawer({
         file_name: att.name,
       });
     if (dbErr) {
+      // The file is in Storage but no submissions row references it.
+      // Delete the orphan if it was a fresh upload — picked existing
+      // documents stay in the bucket because other rows still link to them.
+      if (att.freshUploadPath) {
+        void supabase.storage
+          .from("whiteboard-assets")
+          .remove([att.freshUploadPath]);
+      }
       toast.error(`Submission failed: ${dbErr.message}`);
       return;
     }
