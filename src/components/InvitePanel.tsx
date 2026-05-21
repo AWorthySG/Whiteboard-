@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { X } from "@phosphor-icons/react";
 import { useToast } from "./Toast";
 
 export default function InvitePanel({
@@ -82,10 +83,10 @@ export default function InvitePanel({
           <h2 className="text-lg font-semibold">Invite</h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
             aria-label="Close"
           >
-            ×
+            <X size={22} aria-hidden />
           </button>
         </header>
 

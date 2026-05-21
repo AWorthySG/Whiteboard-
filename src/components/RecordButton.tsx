@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  Pause,
+  Play,
+  Record as RecordIcon,
+} from "@phosphor-icons/react";
 import { useToast } from "./Toast";
 import { getSupabase } from "@/lib/supabase";
 
@@ -336,7 +341,7 @@ export default function RecordButton({
         className="touch-target text-sm rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
         title="Record this lesson — saves to cloud and downloads a backup MP4"
       >
-        <span className="w-2 h-2 rounded-full bg-red-600" />
+        <RecordIcon weight="fill" aria-hidden size={14} className="text-red-600" />
         <span className="hidden lg:inline">Record</span>
       </button>
     );
@@ -369,12 +374,12 @@ export default function RecordButton({
         >
           {paused ? (
             <>
-              <span aria-hidden>▶</span>
+              <Play weight="fill" aria-hidden size={14} />
               <span className="hidden lg:inline">Resume</span>
             </>
           ) : (
             <>
-              <span aria-hidden>❚❚</span>
+              <Pause weight="fill" aria-hidden size={14} />
               <span className="hidden lg:inline">Pause</span>
             </>
           )}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { CaretDown, File as FileIcon } from "@phosphor-icons/react";
 import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
@@ -336,13 +337,13 @@ export default function RoomShell({
                   ?.name ?? "Pages"}
               </span>
               {/* Phone: just '5 ▾' — saves ~60 px so the header fits. */}
-              <span className="sm:hidden text-xs">📄</span>
+              <FileIcon aria-hidden size={14} className="sm:hidden" />
               <span className="text-xs text-[var(--text-dim)] tabular-nums">
                 <span className="hidden sm:inline">(</span>
                 {pagesState.pages.length}
                 <span className="hidden sm:inline">)</span>
               </span>
-              <span className="text-xs">▾</span>
+              <CaretDown aria-hidden size={10} weight="bold" />
             </button>
             {pagesMenuOpen && (
               <div

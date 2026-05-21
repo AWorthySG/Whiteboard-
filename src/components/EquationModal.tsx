@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { X } from "@phosphor-icons/react";
 import { useToast } from "./Toast";
 
 type Props = {
@@ -115,10 +116,10 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
           <h2 className="text-lg font-semibold">Insert equation</h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
             aria-label="Close"
           >
-            ×
+            <X size={22} aria-hidden />
           </button>
         </header>
 

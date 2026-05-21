@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  CaretDown,
+  CaretUp,
+  Check,
+  Paperclip,
+  X,
+} from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
@@ -203,10 +210,10 @@ export default function HomeworkDrawer({
           <h2 className="text-lg font-semibold">Homework</h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
             aria-label="Close"
           >
-            ×
+            <X size={22} aria-hidden />
           </button>
         </header>
 
@@ -245,7 +252,7 @@ export default function HomeworkDrawer({
                           className="mt-1 inline-flex items-center gap-1 text-xs text-brand-700 hover:underline"
                           title={`Worksheet: ${h.attachment_name}`}
                         >
-                          <span aria-hidden>📎</span>
+                          <Paperclip aria-hidden size={12} />
                           <span className="truncate max-w-[16rem]">
                             {h.attachment_name}
                           </span>
@@ -298,10 +305,14 @@ export default function HomeworkDrawer({
                     ) : (
                       <button
                         onClick={() => setExpanded(open ? null : h.id)}
-                        className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+                        className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] inline-flex items-center gap-1"
                       >
-                        {subs.length} submission{subs.length === 1 ? "" : "s"}{" "}
-                        {open ? "▴" : "▾"}
+                        {subs.length} submission{subs.length === 1 ? "" : "s"}
+                        {open ? (
+                          <CaretUp aria-hidden size={12} />
+                        ) : (
+                          <CaretDown aria-hidden size={12} />
+                        )}
                       </button>
                     )}
                     {!isHost && mine && (
@@ -309,10 +320,11 @@ export default function HomeworkDrawer({
                         href={mine.file_url ?? "#"}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-[var(--text-dim)] truncate max-w-[55%]"
+                        className="text-xs text-[var(--text-dim)] truncate max-w-[55%] inline-flex items-center gap-1"
                         title={mine.file_name ?? ""}
                       >
-                        ✓ {mine.file_name}
+                        <Check aria-hidden size={12} weight="bold" />
+                        {mine.file_name}
                       </a>
                     )}
                   </div>
@@ -358,10 +370,11 @@ export default function HomeworkDrawer({
                           </span>
                           <button
                             onClick={() => removeSubmission(s.id)}
-                            className="text-[var(--text-dim)] hover:text-red-600"
+                            className="text-[var(--text-dim)] hover:text-red-600 inline-flex"
                             title="Remove submission"
+                            aria-label="Remove submission"
                           >
-                            ×
+                            <X aria-hidden size={14} />
                           </button>
                         </li>
                       ))}
