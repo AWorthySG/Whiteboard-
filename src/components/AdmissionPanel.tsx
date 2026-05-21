@@ -33,7 +33,7 @@ export default function AdmissionPanel({
     const fetchPending = async () => {
       const { data, error } = await supabase
         .from("join_requests")
-        .select("*")
+        .select("id,room_id,user_id,user_name,status,requested_at")
         .eq("room_id", roomId)
         .eq("status", "pending")
         .order("requested_at", { ascending: true });

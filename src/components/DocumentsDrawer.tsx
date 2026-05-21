@@ -98,7 +98,7 @@ export default function DocumentsDrawer({
     const fetchDocs = async () => {
       const { data } = await supabase
         .from("room_documents")
-        .select("*")
+        .select("id,room_id,name,url,mime_type,uploaded_by_name,uploaded_at")
         .eq("room_id", roomId)
         .is("deleted_at", null)
         .order("uploaded_at", { ascending: false });

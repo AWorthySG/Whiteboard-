@@ -45,7 +45,9 @@ export default function RecordingsDrawer({
     const fetchItems = async () => {
       const { data } = await supabase
         .from("room_recordings")
-        .select("*")
+        .select(
+          "id,room_id,title,file_url,file_path,mime_type,size_bytes,duration_sec,host_name,recorded_at,frames_url",
+        )
         .eq("room_id", roomId)
         .order("recorded_at", { ascending: false });
       setItems((data as Recording[]) ?? []);

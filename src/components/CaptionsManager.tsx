@@ -256,10 +256,8 @@ export default function CaptionsManager({
       lp!.on("localTrackPublished", onMicChanged);
       lp!.on("localTrackUnpublished", onMicChanged);
     }
-    const safetyPoll = window.setInterval(onMicChanged, 5000);
 
     return () => {
-      window.clearInterval(safetyPoll);
       if (subscribed) {
         lp!.off("trackMuted", onMicChanged);
         lp!.off("trackUnmuted", onMicChanged);

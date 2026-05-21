@@ -49,15 +49,17 @@ export default function VideoPanel({
   const [token, setToken] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const initialAutoJoin = useMemo(() => settings.autoJoinCall, []);
   // Camera respects the audio-only setting on first join — if the user
   // has audio-only enabled, never even ask for camera permission.
   const initialCamera = useMemo(
     () => settings.defaultCamera && !settings.audioOnly,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
-  const initialMic = useMemo(() => settings.defaultMicrophone, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  const initialMic = useMemo(() => settings.defaultMicrophone, []);
   const [inCall, setInCall] = useState(initialAutoJoin);
   // Track whether the user chose to join audio-only — separate from
   // the setting so we can flip it per-call without persisting.
