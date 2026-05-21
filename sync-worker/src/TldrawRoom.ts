@@ -1,6 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
 import { TLSocketRoom, type RoomSnapshot } from "@tldraw/sync-core";
-import type { TLRecord } from "tldraw";
 import type { Env } from "./index";
 import {
   CHUNK_COUNT_KEY,
@@ -16,7 +15,7 @@ const SAVE_DEBOUNCE_MS = 5_000;
 // one whiteboard; we wire its message stream onto Cloudflare's native WebSocket
 // API and persist snapshots inside the DO's own SQLite storage. No R2 needed.
 export class TldrawRoom extends DurableObject<Env> {
-  private room: TLSocketRoom<TLRecord, void> | null = null;
+  private room: TLSocketRoom | null = null;
   private saveTimer: number | null = null;
   private roomId = "default";
 
@@ -47,12 +46,12 @@ export class TldrawRoom extends DurableObject<Env> {
     return match ? decodeURIComponent(match[1]) : "default";
   }
 
-  private async getOrCreateRoom(): Promise<TLSocketRoom<TLRecord, void>> {
+  private async getOrCreateRoom(): Promise<TLSocketRoom> {
     if (this.room) return this.room;
 
     const initialSnapshot = await this.loadSnapshot();
 
-    this.room = new TLSocketRoom<TLRecord, void>({
+    this.room = new TLSocketRoom({
       initialSnapshot,
       onSessionRemoved: (_room, args) => {
         if (args.numSessionsRemaining === 0) {
