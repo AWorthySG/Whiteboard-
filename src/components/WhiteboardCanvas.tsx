@@ -25,6 +25,7 @@ import {
   useTools,
 } from "tldraw";
 import dynamic from "next/dynamic";
+import { Pencil } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
@@ -651,7 +652,7 @@ function PenModeIndicator({ editor }: { editor: Editor | null }) {
           : "Pen mode auto-enabled after a pencil touch — finger taps won't draw. Tap to switch back."
       }
     >
-      <span aria-hidden>✎</span>
+      <Pencil weight="fill" aria-hidden size={12} />
       Pen mode
       <span className="text-[9px] text-sky-700/80 ml-1">tap to undo</span>
     </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CaretDown } from "@phosphor-icons/react";
 import {
   Editor,
   AssetRecordType,
@@ -146,11 +147,11 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
           {/* Secondary: open template picker for grid / lined / coords / etc. */}
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="text-xs ml-1 px-2 py-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--text-muted)] shrink-0"
+            className="ml-1 px-2 py-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--text-muted)] shrink-0 inline-flex items-center"
             aria-label="New page from template"
             title="New page from template"
           >
-            ▾
+            <CaretDown size={12} weight="bold" aria-hidden />
           </button>
         </div>
         {menuOpen && (

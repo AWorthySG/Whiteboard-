@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Play, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
@@ -92,10 +93,10 @@ export default function RecordingsDrawer({
             <h2 className="text-lg font-semibold">Recordings</h2>
             <button
               onClick={onClose}
-              className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
               aria-label="Close"
             >
-              ×
+              <X size={22} aria-hidden />
             </button>
           </header>
 
@@ -120,7 +121,7 @@ export default function RecordingsDrawer({
                         className="shrink-0 w-12 h-12 rounded-md bg-brand-600 hover:bg-brand-500 flex items-center justify-center text-white"
                         aria-label={`Play ${r.title ?? "recording"}`}
                       >
-                        ▶
+                        <Play weight="fill" size={22} aria-hidden />
                       </button>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate" title={r.title ?? ""}>
@@ -141,10 +142,11 @@ export default function RecordingsDrawer({
                             href={`/playback/${r.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-brand-700 hover:text-brand-800 font-medium"
+                            className="text-xs text-brand-700 hover:text-brand-800 font-medium inline-flex items-center gap-1"
                             title="Open synchronised whiteboard + video playback in a new tab"
                           >
-                            ▶ Play with whiteboard
+                            <Play weight="fill" size={12} aria-hidden />
+                            Play with whiteboard
                           </a>
                         )}
                         <a

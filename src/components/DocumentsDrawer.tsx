@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CaretRight, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
@@ -241,10 +242,10 @@ export default function DocumentsDrawer({
             </button>
             <button
               onClick={onClose}
-              className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
               aria-label="Close"
             >
-              ×
+              <X size={22} aria-hidden />
             </button>
           </div>
         </header>
@@ -287,12 +288,12 @@ export default function DocumentsDrawer({
                       aria-expanded={isOpen}
                     >
                       <span
-                        className={`text-xs text-[var(--text-dim)] transition-transform inline-block w-3 ${
+                        className={`text-[var(--text-dim)] transition-transform inline-flex w-3 ${
                           isOpen ? "rotate-90" : ""
                         }`}
                         aria-hidden="true"
                       >
-                        ▶
+                        <CaretRight size={12} weight="bold" />
                       </span>
                       <span className="text-xl">📁</span>
                       <span className="text-sm font-medium flex-1">

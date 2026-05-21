@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  Books,
+  File as FileIcon,
+  Paperclip,
+  UploadSimple,
+  X,
+} from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 
@@ -108,7 +115,7 @@ export default function AttachmentPicker({
   if (value) {
     return (
       <div className="flex items-center gap-2 rounded-md border border-[color:var(--border)] bg-[var(--bg)] px-2 py-1.5">
-        <span aria-hidden>📎</span>
+        <Paperclip aria-hidden className="shrink-0 text-[var(--text-muted)]" />
         <span className="flex-1 text-sm truncate" title={value.name}>
           {value.name}
         </span>
@@ -124,11 +131,11 @@ export default function AttachmentPicker({
         <button
           type="button"
           onClick={() => onChange(null)}
-          className="text-xs text-[var(--text-dim)] hover:text-red-600"
+          className="text-[var(--text-dim)] hover:text-red-600"
           aria-label="Remove attachment"
           title="Remove attachment"
         >
-          ×
+          <X aria-hidden />
         </button>
       </div>
     );
@@ -143,7 +150,7 @@ export default function AttachmentPicker({
           disabled={uploading}
           className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 inline-flex items-center gap-1.5"
         >
-          <span aria-hidden>⬆</span>
+          <UploadSimple aria-hidden size={14} />
           {uploading ? "Uploading…" : "Upload a file"}
         </button>
         <button
@@ -152,7 +159,7 @@ export default function AttachmentPicker({
           className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 inline-flex items-center gap-1.5"
           aria-expanded={mode === "picker"}
         >
-          <span aria-hidden>📚</span>
+          <Books aria-hidden size={14} />
           From Documents
         </button>
         <input
@@ -202,7 +209,7 @@ export default function AttachmentPicker({
                       }}
                       className="w-full text-left px-2.5 py-1.5 hover:bg-[var(--hover)] text-xs flex items-center gap-2"
                     >
-                      <span aria-hidden>📄</span>
+                      <FileIcon aria-hidden size={14} className="shrink-0 text-[var(--text-muted)]" />
                       <span className="flex-1 truncate">{d.name}</span>
                       {d.uploaded_by_name && (
                         <span className="text-[var(--text-dim)] truncate max-w-[40%]">

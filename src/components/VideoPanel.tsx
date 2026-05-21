@@ -13,8 +13,19 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import { Track, type LocalTrack } from "livekit-client";
+import {
+  BellSlash,
+  Check,
+  Hand,
+  Microphone,
+  MicrophoneSlash,
+  Monitor,
+  SignOut,
+  VideoCamera,
+  VideoCameraSlash,
+} from "@phosphor-icons/react";
 import CaptionsManager from "./CaptionsManager";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
 
@@ -320,7 +331,7 @@ function RoomCoordinatorBar({
               key={id}
               className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-md px-2 py-1"
             >
-              <span aria-hidden>✋</span>
+              <Hand weight="fill" aria-hidden className="text-amber-700 shrink-0" />
               <span className="flex-1 truncate text-amber-900">{info.name}</span>
               {isHost && (
                 <button
@@ -342,7 +353,13 @@ function RoomCoordinatorBar({
       >
         <BarButton
           label={isMicrophoneEnabled ? "Mute mic" : "Unmute mic"}
-          icon={isMicrophoneEnabled ? "🎤" : "🔇"}
+          icon={
+            isMicrophoneEnabled ? (
+              <Microphone weight="fill" />
+            ) : (
+              <MicrophoneSlash weight="fill" />
+            )
+          }
           active={isMicrophoneEnabled}
           onClick={() =>
             void localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled)
@@ -350,7 +367,13 @@ function RoomCoordinatorBar({
         />
         <BarButton
           label={isCameraEnabled ? "Camera off" : "Camera on"}
-          icon={isCameraEnabled ? "📷" : "🚫"}
+          icon={
+            isCameraEnabled ? (
+              <VideoCamera weight="fill" />
+            ) : (
+              <VideoCameraSlash weight="fill" />
+            )
+          }
           active={isCameraEnabled}
           onClick={() =>
             void localParticipant.setCameraEnabled(!isCameraEnabled)
@@ -360,7 +383,7 @@ function RoomCoordinatorBar({
             can't share screen, and the button just errored. */}
         <BarButton
           label={isScreenShareEnabled ? "Stop sharing" : "Share screen"}
-          icon="🖥"
+          icon={<Monitor weight="fill" />}
           active={isScreenShareEnabled}
           onClick={() =>
             void localParticipant.setScreenShareEnabled(!isScreenShareEnabled)
@@ -369,7 +392,7 @@ function RoomCoordinatorBar({
         />
         <BarButton
           label={handUp ? "Lower hand" : "Raise hand"}
-          icon="✋"
+          icon={<Hand weight="fill" />}
           active={handUp}
           activeClass="bg-amber-500 text-black border-amber-400"
           onClick={toggleHand}
@@ -377,7 +400,13 @@ function RoomCoordinatorBar({
         {isHost && (
           <BarButton
             label={muteAllArmed ? "Tap to confirm" : "Mute all"}
-            icon={muteAllArmed ? "✓" : "🔕"}
+            icon={
+              muteAllArmed ? (
+                <Check weight="bold" />
+              ) : (
+                <BellSlash weight="fill" />
+              )
+            }
             active={muteAllArmed}
             activeClass="bg-amber-500 text-black border-amber-400"
             onClick={armMuteAll}
@@ -387,7 +416,7 @@ function RoomCoordinatorBar({
         <span className="flex-1" />
         <BarButton
           label="Leave call"
-          icon="↩"
+          icon={<SignOut weight="fill" />}
           onClick={onLeave}
           className="bg-red-600 text-white border-red-600 hover:bg-red-500"
           collapseTextBelow="sm"
@@ -398,7 +427,9 @@ function RoomCoordinatorBar({
 }
 
 // Single icon+label button used in the unified bar so every control
-// has the same touch target and visual rhythm.
+// has the same touch target and visual rhythm. The icon is a React
+// node (Phosphor component) — sized via the wrapper so we don't
+// re-style every call site.
 function BarButton({
   label,
   icon,
@@ -409,7 +440,7 @@ function BarButton({
   collapseTextBelow,
 }: {
   label: string;
-  icon: string;
+  icon: ReactNode;
   active?: boolean;
   activeClass?: string;
   onClick: () => void;
@@ -436,7 +467,7 @@ function BarButton({
       title={label}
       className={`touch-target shrink-0 inline-flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm min-w-[44px] min-h-[40px] ${stateClass} ${className ?? ""}`}
     >
-      <span aria-hidden className="text-base leading-none">
+      <span aria-hidden className="text-[18px] leading-none inline-flex">
         {icon}
       </span>
       <span className={hideText}>{label}</span>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { ArrowLeft } from "@phosphor-icons/react";
 import type { Editor } from "tldraw";
 import "tldraw/tldraw.css";
 
@@ -134,9 +135,10 @@ export default function PlaybackViewer({ recording }: { recording: Recording }) 
       <header className="border-b border-[color:var(--border-subtle)] px-4 py-3 flex items-center gap-3">
         <Link
           href={`/r/${encodeURIComponent(recording.room_id)}`}
-          className="text-sm text-[var(--text-muted)] hover:text-[var(--text)]"
+          className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] inline-flex items-center gap-1"
         >
-          ← Back to room
+          <ArrowLeft size={14} aria-hidden />
+          Back to room
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-sm font-medium truncate">

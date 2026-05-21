@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 
@@ -93,10 +94,10 @@ export default function SignInModal({
           </h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
             aria-label="Close"
           >
-            ×
+            <X size={22} aria-hidden />
           </button>
         </header>
 
