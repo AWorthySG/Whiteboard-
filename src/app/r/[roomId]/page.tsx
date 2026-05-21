@@ -1,5 +1,7 @@
 import RoomShell from "@/components/RoomShell";
 
+export const runtime = "edge";
+
 export default async function RoomPage({
   params,
   searchParams,
