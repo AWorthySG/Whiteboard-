@@ -145,6 +145,68 @@ html[data-theme="light"] .tl-canvas {
   color: var(--text);
 }
 
+/* Larger eraser preview on coarse pointers (phone, tablet). tldraw
+   keeps its hit-radius identical regardless of pointer kind, which
+   makes finger erase frustratingly precise — the user sees a tiny
+   eraser circle that's hard to centre. Scaling the visible scribble
+   indicator gives them a clearer target; the underlying hit math
+   stays the same but the perception of 'where will this erase?'
+   is much better. Disabled on fine pointers (mouse / pencil) where
+   precision is already easy. */
+@media (pointer: coarse) {
+  .tl-eraser-bounds,
+  .tl-eraser-stroke {
+    stroke-width: 6 !important;
+    filter: drop-shadow(0 0 4px rgba(255, 80, 80, 0.6));
+  }
+}
+
+/* Camera-off placeholder: tldraw's default LiveKit tile shows a stock
+   silhouette which reads as generic and impersonal. Replace it with
+   a brand-tinted gradient so a tile-with-camera-off looks like part
+   of our UI rather than 'video failed to load'. The participant name
+   that LiveKit renders in the metadata strip below still identifies
+   who's behind the placeholder. */
+.lk-participant-placeholder {
+  background: linear-gradient(135deg, rgb(37 99 235) 0%, rgb(99 102 241) 100%);
+  color: rgba(255, 255, 255, 0.95);
+}
+.lk-participant-placeholder svg {
+  opacity: 0.85;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+}
+/* Participant name in the metadata strip is more readable on the
+   gradient + LiveKit's dark overlay than the default mid-grey. */
+.lk-participant-name {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 500;
+}
+
+/* Quick-reaction float used by the call bar — pills appear above the
+   toolbar, drift up ~40 px, then fade out. */
+@keyframes reactionRise {
+  0%   { opacity: 0; transform: translateY(8px); }
+  10%  { opacity: 1; transform: translateY(0); }
+  85%  { opacity: 1; transform: translateY(-40px); }
+  100% { opacity: 0; transform: translateY(-48px); }
+}
+
+/* Respect the OS-level reduced-motion setting. Disables the pulse
+   dots, spinners, presence animation, etc. for users who've opted
+   out. Doesn't fully nuke transitions — colour changes etc. still
+   feel responsive — but caps the duration so anything that would
+   have been a long-running animation is effectively static. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Keyboard-only focus indicator. :focus-visible fires for keyboard
    navigation but not for mouse clicks, so it doesn't add visual noise
    for the common case. */

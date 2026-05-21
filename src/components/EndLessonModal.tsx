@@ -12,6 +12,8 @@ type Stage =
   | { kind: "working"; label: string }
   | { kind: "done"; url: string; name: string };
 
+import { useEscapeToClose } from "@/hooks/useEscapeToClose";
+
 export default function EndLessonModal({
   open,
   onClose,
@@ -32,6 +34,9 @@ export default function EndLessonModal({
   const router = useRouter();
   const toast = useToast();
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
+  // Esc only closes the modal when we're idle — don't yank it
+  // mid-export.
+  useEscapeToClose(open && stage.kind === "idle", onClose);
 
   if (!open) return null;
 

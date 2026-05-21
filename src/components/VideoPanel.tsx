@@ -234,7 +234,12 @@ function Tiles() {
 // the latest known state of everyone else.
 type DataMsg =
   | { type: "hand"; up: boolean; name: string }
-  | { type: "mute-request" };
+  | { type: "mute-request" }
+  | { type: "reaction"; emoji: string; name: string };
+
+// Pool of quick reactions surfaced in the bar. Order chosen so the
+// most common (got it, question, fun) sit left → right.
+const REACTIONS = ["👍", "❓", "🎉"] as const;
 
 // Single unified control bar. Replaces the previous two-tier UI
 // (LiveKit ControlBar + RoomCoordinator), so phone/tablet users get
@@ -263,6 +268,10 @@ function RoomCoordinatorBar({
   const [raisedHands, setRaisedHands] = useState<
     Map<string, { name: string; up: boolean }>
   >(() => new Map());
+  // Active floating reactions — each one auto-removes after 2s.
+  const [reactions, setReactions] = useState<
+    { id: number; emoji: string; name: string }[]
+  >([]);
 
   const { send } = useDataChannel((msg) => {
     try {
@@ -277,6 +286,14 @@ function RoomCoordinatorBar({
           return next;
         });
         if (payload.up && isHost) toast.info(`✋ ${payload.name || fromName} raised their hand`);
+      } else if (payload.type === "reaction") {
+        const id = Date.now() + Math.random();
+        const display = { id, emoji: payload.emoji, name: payload.name || fromName };
+        setReactions((prev) => [...prev, display]);
+        window.setTimeout(
+          () => setReactions((prev) => prev.filter((r) => r.id !== id)),
+          2400,
+        );
       } else if (payload.type === "mute-request") {
         if (localParticipant.isMicrophoneEnabled) {
           void localParticipant.setMicrophoneEnabled(false);
@@ -291,6 +308,17 @@ function RoomCoordinatorBar({
   const sendMsg = (msg: DataMsg) => {
     const bytes = new TextEncoder().encode(JSON.stringify(msg));
     void send(bytes, { reliable: true });
+  };
+
+  const sendReaction = (emoji: string) => {
+    sendMsg({ type: "reaction", emoji, name: userName });
+    // Mirror it locally so the sender sees their own bubble too.
+    const id = Date.now() + Math.random();
+    setReactions((prev) => [...prev, { id, emoji, name: userName }]);
+    window.setTimeout(
+      () => setReactions((prev) => prev.filter((r) => r.id !== id)),
+      2400,
+    );
   };
 
   const toggleHand = () => {
@@ -345,7 +373,28 @@ function RoomCoordinatorBar({
   };
 
   return (
-    <div className="border-t border-[color:var(--border)] bg-[var(--bg-elev)] text-[var(--text)]">
+    <div className="relative border-t border-[color:var(--border)] bg-[var(--bg-elev)] text-[var(--text)]">
+      {/* Floating reactions — anchored to the top of the bar and
+          animate up out of frame. pointer-events-none so they
+          don't block toolbar taps. */}
+      {reactions.length > 0 && (
+        <div
+          className="absolute left-0 right-0 bottom-full pointer-events-none flex flex-wrap justify-center gap-x-2 gap-y-1 px-3 pb-2"
+          aria-live="polite"
+        >
+          {reactions.map((r) => (
+            <span
+              key={r.id}
+              className="inline-flex items-center gap-1 bg-black/65 text-white rounded-full px-2 py-0.5 text-xs animate-[reactionRise_2.4s_ease-out_forwards]"
+            >
+              <span aria-hidden className="text-base leading-none">
+                {r.emoji}
+              </span>
+              <span className="truncate max-w-[8rem]">{r.name}</span>
+            </span>
+          ))}
+        </div>
+      )}
       {raisedHands.size > 0 && (
         <ul className="max-h-28 overflow-y-auto px-2 pt-2 pb-1 space-y-1 text-sm">
           {[...raisedHands.entries()].map(([id, info]) => (
@@ -435,6 +484,20 @@ function RoomCoordinatorBar({
             collapseTextBelow="sm"
           />
         )}
+        {/* Quick reactions — small icon-only chips so they don't
+            crowd the main controls. Each click broadcasts via
+            the data channel and mirrors locally. */}
+        {REACTIONS.map((r) => (
+          <button
+            key={r}
+            onClick={() => sendReaction(r)}
+            aria-label={`Send ${r} reaction`}
+            title={`Send ${r}`}
+            className="shrink-0 inline-flex items-center justify-center rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] min-w-[36px] min-h-[40px] text-base"
+          >
+            <span aria-hidden>{r}</span>
+          </button>
+        ))}
         <span className="flex-1" />
         <BarButton
           label="Leave call"

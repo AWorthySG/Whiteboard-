@@ -44,11 +44,14 @@ export default function AdmissionPanel({
       const list = (data as JoinRequest[]) ?? [];
       // Announce any new pending requests we haven't seen before — so
       // the host gets a toast even if they're not looking at the
-      // top-right corner of the canvas.
+      // top-right corner of the canvas. Also fires a browser-level
+      // Notification when the host has another tab focused, since
+      // toasts only show on the active tab.
       for (const req of list) {
         if (!announcedRef.current.has(req.id)) {
           announcedRef.current.add(req.id);
           toast.info(`${req.user_name || "A guest"} is asking to join`);
+          maybeNotify(req.user_name || "A guest");
         }
       }
       setPending(list);
@@ -145,4 +148,38 @@ export default function AdmissionPanel({
       </ul>
     </div>
   );
+}
+
+// Fires a desktop Notification when the host's tab is in the
+// background so they don't miss a knock. Permission is requested
+// lazily the first time a knock arrives — the user gets a
+// browser-native prompt; if they decline we silently skip the
+// notification on future knocks (still get the in-app toast).
+function maybeNotify(name: string) {
+  if (typeof window === "undefined") return;
+  if (typeof Notification === "undefined") return;
+  // Only notify when the page is hidden — if the host is already
+  // looking at the room, the toast is enough.
+  if (document.visibilityState === "visible") return;
+  const fire = () => {
+    try {
+      new Notification("Someone wants to join", {
+        body: `${name} is waiting in the lobby — open the tab to admit.`,
+        tag: "wb-knock",
+        icon: "/icon.png",
+        silent: false,
+      });
+    } catch {
+      // Some browsers (older Safari, embedded WebViews) throw on
+      // direct construction; we don't have a service worker to
+      // delegate to. Falling back to the toast that already fired.
+    }
+  };
+  if (Notification.permission === "granted") {
+    fire();
+  } else if (Notification.permission === "default") {
+    Notification.requestPermission().then((res) => {
+      if (res === "granted") fire();
+    });
+  }
 }
