@@ -2,11 +2,15 @@ import { DurableObject } from "cloudflare:workers";
 import { TLSocketRoom, type RoomSnapshot } from "@tldraw/sync-core";
 import type { TLRecord } from "tldraw";
 import type { Env } from "./index";
+import {
+  CHUNK_COUNT_KEY,
+  chunkCount,
+  chunkKey,
+  joinChunks,
+  splitIntoChunks,
+} from "./chunking";
 
 const SAVE_DEBOUNCE_MS = 5_000;
-const CHUNK_SIZE = 96 * 1024; // 96 KiB, well under the 128 KiB per-value limit
-const CHUNK_COUNT_KEY = "snapshot:chunkCount";
-const CHUNK_PREFIX = "snapshot:chunk:";
 
 // Per-room Durable Object. tldraw's TLSocketRoom keeps the canonical state for
 // one whiteboard; we wire its message stream onto Cloudflare's native WebSocket
@@ -86,14 +90,10 @@ export class TldrawRoom extends DurableObject<Env> {
       const count =
         (await this.ctx.storage.get<number>(CHUNK_COUNT_KEY)) ?? 0;
       if (count === 0) return undefined;
-      const keys = Array.from({ length: count }, (_, i) => `${CHUNK_PREFIX}${i}`);
+      const keys = Array.from({ length: count }, (_, i) => chunkKey(i));
       const chunks = await this.ctx.storage.get<string>(keys);
-      let json = "";
-      for (let i = 0; i < count; i++) {
-        const part = chunks.get(`${CHUNK_PREFIX}${i}`);
-        if (typeof part !== "string") return undefined;
-        json += part;
-      }
+      const json = joinChunks(count, (k) => chunks.get(k));
+      if (json === undefined) return undefined;
       return JSON.parse(json) as RoomSnapshot;
     } catch (err) {
       console.error("[sync] load failed", err);
@@ -104,14 +104,8 @@ export class TldrawRoom extends DurableObject<Env> {
   private async saveSnapshot(snapshot: RoomSnapshot): Promise<void> {
     try {
       const json = JSON.stringify(snapshot);
-      const chunks: Record<string, string> = {};
-      const count = Math.max(1, Math.ceil(json.length / CHUNK_SIZE));
-      for (let i = 0; i < count; i++) {
-        chunks[`${CHUNK_PREFIX}${i}`] = json.slice(
-          i * CHUNK_SIZE,
-          (i + 1) * CHUNK_SIZE,
-        );
-      }
+      const chunks = splitIntoChunks(json);
+      const count = chunkCount(json);
       // Storage operations within a single tick are coalesced into one
       // transaction, so this is atomic.
       const previousCount =
@@ -124,7 +118,7 @@ export class TldrawRoom extends DurableObject<Env> {
       if (previousCount > count) {
         const stale = Array.from(
           { length: previousCount - count },
-          (_, i) => `${CHUNK_PREFIX}${count + i}`,
+          (_, i) => chunkKey(count + i),
         );
         await this.ctx.storage.delete(stale);
       }
