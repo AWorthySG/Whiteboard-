@@ -21,6 +21,7 @@
     "@supabase/supabase-js": "^2.49.4",
     "@tldraw/sync": "^3.13.1",
     "@tldraw/sync-core": "^3.13.1",
+    "jose": "^6.2.3",
     "katex": "^0.16.47",
     "livekit-client": "^2.13.0",
     "livekit-server-sdk": "^2.13.1",

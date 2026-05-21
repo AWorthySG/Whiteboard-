@@ -32,7 +32,14 @@ LIVEKIT_API_KEY=<secret>
 LIVEKIT_API_SECRET=<secret>
 NEXT_PUBLIC_TLDRAW_SYNC_URL=wss://whiteboard-sync.jeremylimguanfong.workers.dev
 NEXT_PUBLIC_TLDRAW_LICENSE_KEY=<commercial license, removes the "Made with tldraw" watermark>
+WORKER_SHARED_SECRET=<random 256-bit secret shared with the worker>
 ```
+
+`WORKER_SHARED_SECRET` lives in two places: Vercel (for `/api/sync-token`
+to sign HS256 tokens) and the Cloudflare Worker secret store (for the
+worker to verify them). Set it on the worker with `npx wrangler secret
+put WORKER_SHARED_SECRET` from inside `sync-worker/`. Tokens are
+15-minute TTL and auto-refreshed by `useSyncToken` on the client.
 
 The Supabase **anon** key is what the client uses for everything: auth
 sign-in/sign-up, file uploads (browser POSTs directly to the Storage REST
