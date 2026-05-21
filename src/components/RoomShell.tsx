@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { CaretDown, File as FileIcon } from "@phosphor-icons/react";
+import { CaretDown, File as FileIcon, X } from "@phosphor-icons/react";
 import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
@@ -138,10 +138,24 @@ export default function RoomShell({
   // when the dropdown is opened again.
   const [pageThumbs, setPageThumbs] = useState<Record<string, string | null>>({});
   // The empty-room hint is shown until the host has either drawn
-  // something or added a page. Once dismissed we don't reopen it
-  // even if the canvas is later emptied — it's a first-time prompt,
-  // not a persistent indicator.
-  const [emptyRoomHintVisible, setEmptyRoomHintVisible] = useState(true);
+  // something, added a page, or manually dismissed it. Once dismissed
+  // we don't reopen it for this room — the flag is persisted to
+  // localStorage so a refresh doesn't bring it back if the user has
+  // already read it.
+  const HINT_DISMISS_KEY = `wb_room_hint_dismissed_${roomId}`;
+  const [emptyRoomHintVisible, setEmptyRoomHintVisible] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(HINT_DISMISS_KEY) !== "1";
+  });
+  const dismissEmptyRoomHint = useCallback(() => {
+    setEmptyRoomHintVisible(false);
+    try {
+      window.localStorage.setItem(HINT_DISMISS_KEY, "1");
+    } catch {
+      // localStorage may be unavailable (private mode); the in-memory
+      // state still keeps it dismissed for this session.
+    }
+  }, [HINT_DISMISS_KEY]);
   const [captionLines, setCaptionLines] = useState<
     import("./CaptionsManager").CaptionLine[]
   >([]);
@@ -181,22 +195,26 @@ export default function RoomShell({
   }, [pagesMenuOpen]);
 
   // Dismiss the empty-room hint as soon as the canvas has any shapes
-  // or more than one page. Polls instead of subscribing because the
-  // editor reactivity is owned inside WhiteboardCanvas — and this is
-  // a one-time check, no perf cost.
+  // or more than one page. Runs an immediate check (so a refresh on a
+  // populated room doesn't flash the hint for ~800 ms before it goes)
+  // plus a polling tick that picks up freshly drawn strokes / new
+  // pages. Persists dismissal via dismissEmptyRoomHint so the
+  // localStorage flag is set the moment the canvas becomes non-empty.
   useEffect(() => {
     if (!emptyRoomHintVisible || !pagesState) return;
-    const id = window.setInterval(() => {
+    const checkAndMaybeDismiss = () => {
       const editor = canvasEditorRef.current;
       if (!editor) return;
       const shapeCount = editor.getCurrentPageShapeIds().size;
       const pageCount = editor.getPages().length;
       if (shapeCount > 0 || pageCount > 1) {
-        setEmptyRoomHintVisible(false);
+        dismissEmptyRoomHint();
       }
-    }, 800);
+    };
+    checkAndMaybeDismiss();
+    const id = window.setInterval(checkAndMaybeDismiss, 800);
     return () => clearInterval(id);
-  }, [emptyRoomHintVisible, pagesState]);
+  }, [emptyRoomHintVisible, pagesState, dismissEmptyRoomHint]);
 
   // When the Pages dropdown opens, render thumbnails for every page.
   // tldraw's toImageDataUrl is fast enough on small shape counts that
@@ -651,11 +669,21 @@ export default function RoomShell({
           )}
           {/* Empty-room hint: shown when the editor is ready but the
               host hasn't drawn anything OR uploaded anything yet. Only
-              visible to the host, with pointer-events-none so it never
-              steals taps from the canvas. */}
+              visible to the host. The outer container is
+              pointer-events-none so the canvas under it stays
+              interactive; the card itself re-enables pointer events so
+              the × dismiss button is tappable. */}
           {isHost && pagesState && emptyRoomHintVisible && (
             <div className="absolute inset-0 z-[35] flex items-center justify-center px-6 pointer-events-none">
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--bg-elev)]/90 backdrop-blur-sm px-6 py-5 max-w-sm text-center shadow-xl">
+              <div className="relative rounded-2xl border border-[color:var(--border)] bg-[var(--bg-elev)]/95 backdrop-blur-sm px-6 py-5 max-w-sm text-center shadow-xl pointer-events-auto">
+                <button
+                  onClick={dismissEmptyRoomHint}
+                  aria-label="Dismiss this hint"
+                  title="Dismiss"
+                  className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center justify-center"
+                >
+                  <X size={14} aria-hidden />
+                </button>
                 <div className="text-3xl mb-2">✏️</div>
                 <p className="text-sm font-medium">Your whiteboard is empty</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
@@ -664,6 +692,12 @@ export default function RoomShell({
                   upload, or tap <span className="font-medium">+ New page</span>{" "}
                   to start a fresh sheet. Then invite a student.
                 </p>
+                <button
+                  onClick={dismissEmptyRoomHint}
+                  className="mt-3 text-xs text-[var(--text-muted)] hover:text-[var(--text)] underline underline-offset-2"
+                >
+                  Got it, hide this
+                </button>
               </div>
             </div>
           )}
