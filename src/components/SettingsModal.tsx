@@ -131,8 +131,8 @@ export default function SettingsModal({
 
           <Section title="Whiteboard">
             <Toggle
-              label="Pen-only mode (palm rejection)"
-              hint="Ignore finger and palm touches on the canvas — only an Apple Pencil or stylus draws. Two-finger pan and pinch-zoom still work."
+              label="Force pen-only mode (your finger won't draw)"
+              hint="When ON, only an Apple Pencil or stylus draws — finger and palm touches are ignored from the moment the canvas opens. Leave this OFF if you sometimes use a finger: pencil-only mode still auto-enables the first time tldraw sees a real pencil touch, so you get palm rejection without losing finger drawing. Two-finger pan and pinch-zoom always work regardless."
               checked={settings.penOnly}
               onChange={(v) => setSettings({ penOnly: v })}
             />
