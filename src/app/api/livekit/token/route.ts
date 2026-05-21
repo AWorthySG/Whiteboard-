@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
-import { AccessToken } from "livekit-server-sdk";
+import { SignJWT } from "jose";
 
-export const runtime = "nodejs";
+export const runtime = "edge";
+
+// LiveKit JWT format — handcrafted via `jose` so we don't pull in
+// `livekit-server-sdk`, whose WebhookReceiver references node:crypto
+// and breaks the edge bundle. AccessToken from the SDK ultimately
+// uses jose under the hood with the same claim shape.
+const TTL_SECONDS = 2 * 60 * 60;
 
 export async function POST(req: Request) {
   const apiKey = process.env.LIVEKIT_API_KEY;
@@ -24,27 +30,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing room" }, { status: 400 });
   }
 
-  // Use the caller's stable per-browser userId as the LiveKit identity.
-  // That way, opening a second tab in the same browser doesn't produce a
-  // ghost participant — LiveKit will close the older session and only the
-  // most recent tab stays in the call.
   const identity = userId
     ? `u-${userId}`
     : `${name || "guest"}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const at = new AccessToken(apiKey, apiSecret, {
-    identity,
+  const secret = new TextEncoder().encode(apiSecret);
+  const token = await new SignJWT({
     name: name || "Guest",
-    ttl: "2h",
-  });
-  at.addGrant({
-    room,
-    roomJoin: true,
-    canPublish: true,
-    canSubscribe: true,
-    canPublishData: true,
-  });
+    video: {
+      room,
+      roomJoin: true,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    },
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuer(apiKey)
+    .setSubject(identity)
+    .setNotBefore(Math.floor(Date.now() / 1000))
+    .setExpirationTime(Math.floor(Date.now() / 1000) + TTL_SECONDS)
+    .sign(secret);
 
-  const token = await at.toJwt();
   return NextResponse.json({ token, url });
 }

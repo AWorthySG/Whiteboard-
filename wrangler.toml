@@ -1,0 +1,13 @@
+# Cloudflare Pages config for next-on-pages output.
+#
+# Build command:   npx @cloudflare/next-on-pages
+# Output dir:      .vercel/output/static
+#
+# In the CF dashboard, set the same values in the project build settings.
+# `compatibility_date` and `nodejs_compat` are needed for the LiveKit
+# JWT path (Web Crypto on the edge) and the Supabase JS client.
+
+name = "whiteboard-pages"
+compatibility_date = "2025-05-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"

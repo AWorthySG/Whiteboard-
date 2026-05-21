@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import PlaybackViewer from "@/components/PlaybackViewer";
 import { createClient } from "@supabase/supabase-js";
 
+export const runtime = "edge";
+
 // Server-side fetch — we don't need realtime here, and going via
 // fetch on the server avoids shipping the recording row through
 // the client just so the viewer can re-fetch it.
