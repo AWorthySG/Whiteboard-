@@ -101,28 +101,50 @@ export class TldrawRoom extends DurableObject<Env> {
   }
 
   private async saveSnapshot(snapshot: RoomSnapshot): Promise<void> {
-    try {
-      const json = JSON.stringify(snapshot);
-      const chunks = splitIntoChunks(json);
-      const count = chunkCount(json);
-      // Storage operations within a single tick are coalesced into one
-      // transaction, so this is atomic.
-      const previousCount =
-        (await this.ctx.storage.get<number>(CHUNK_COUNT_KEY)) ?? 0;
-      await this.ctx.storage.put({
-        [CHUNK_COUNT_KEY]: count,
-        ...chunks,
-      });
-      // Delete any leftover chunks from a previous, larger snapshot.
-      if (previousCount > count) {
-        const stale = Array.from(
-          { length: previousCount - count },
-          (_, i) => chunkKey(count + i),
-        );
-        await this.ctx.storage.delete(stale);
+    const json = JSON.stringify(snapshot);
+    const chunks = splitIntoChunks(json);
+    const count = chunkCount(json);
+    // 3 attempts with 0ms, 500ms, 2000ms back-off — covers a transient
+    // storage blip without amplifying a persistent failure.
+    const delays = [0, 500, 2000];
+    for (let attempt = 0; attempt < delays.length; attempt++) {
+      if (delays[attempt] > 0) {
+        await new Promise((r) => setTimeout(r, delays[attempt]));
       }
-    } catch (err) {
-      console.error("[sync] save failed", this.roomId, err);
+      try {
+        // Storage operations within a single tick are coalesced into one
+        // transaction, so the put below is atomic.
+        const previousCount =
+          (await this.ctx.storage.get<number>(CHUNK_COUNT_KEY)) ?? 0;
+        await this.ctx.storage.put({
+          [CHUNK_COUNT_KEY]: count,
+          ...chunks,
+        });
+        // Delete any leftover chunks from a previous, larger snapshot.
+        if (previousCount > count) {
+          const stale = Array.from(
+            { length: previousCount - count },
+            (_, i) => chunkKey(count + i),
+          );
+          await this.ctx.storage.delete(stale);
+        }
+        return;
+      } catch (err) {
+        const isLast = attempt === delays.length - 1;
+        console.error(
+          "[sync] save attempt failed",
+          this.roomId,
+          `(attempt ${attempt + 1}/${delays.length})`,
+          isLast ? "— giving up" : "— retrying",
+          err,
+        );
+        if (isLast) {
+          // Give up; on the next change, we'll try again from scratch.
+          // The active room state stays in memory, so connected clients
+          // keep working — only durability is at risk.
+          return;
+        }
+      }
     }
   }
 }
