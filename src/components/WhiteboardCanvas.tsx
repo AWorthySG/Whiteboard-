@@ -25,7 +25,7 @@ import {
   useTools,
 } from "tldraw";
 import dynamic from "next/dynamic";
-import { Pencil } from "@phosphor-icons/react";
+import { Pencil, Toolbox } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
@@ -204,6 +204,14 @@ export default function WhiteboardCanvas({
   >;
 }) {
   const [appSettings] = useSettings();
+  // Tldraw's bottom toolbar (tool icons + actions row) covers a lot
+  // of canvas on phone portrait. Collapsed-by-default below md so the
+  // tutor sees the whole page first; tap the floating Tools pill to
+  // reveal. Desktop keeps tools always visible.
+  const [toolsCollapsed, setToolsCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(max-width: 767px)").matches;
+  });
   const toast = useToast();
   const editorRef = useRef<Editor | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -512,10 +520,16 @@ export default function WhiteboardCanvas({
             // Hide tldraw's full style panel (color + opacity + fill +
             // dash + size). The color picker lives in our own toolbar.
             StylePanel: null,
-            // Slimmed toolbar: select / hand (scroll) / draw / highlight
-            // / laser (pointer) / eraser / note / asset (upload, our PDF
-            // pipeline) plus custom Equation and Lead-view buttons.
-            Toolbar: SlimToolbar,
+            // Toolbar nulled when collapsed so its DOM disappears
+            // entirely (vs. just hidden via display:none) — saves
+            // ~80 px of canvas on phone portrait.
+            Toolbar: toolsCollapsed ? null : SlimToolbar,
+            // QuickActions + ActionsMenu sit above the toolbar (the
+            // undo / redo / delete / duplicate / kebab row in the
+            // screenshot). They follow the toolbar's visibility.
+            QuickActions: toolsCollapsed ? null : undefined,
+            ActionsMenu: toolsCollapsed ? null : undefined,
+            HelperButtons: toolsCollapsed ? null : undefined,
             // Faded A Worthy logo as a fixed canvas background watermark.
             Background: CanvasWatermark,
           }}
@@ -549,6 +563,8 @@ export default function WhiteboardCanvas({
         leaderMode={leaderMode}
         leaderUserId={leaderUserId}
         userId={userId}
+        toolsCollapsed={toolsCollapsed}
+        onToggleTools={() => setToolsCollapsed((v) => !v)}
       />
       <EquationModal
         open={equationOpen}
@@ -582,11 +598,15 @@ function CanvasFloatingPanel({
   leaderMode,
   leaderUserId,
   userId,
+  toolsCollapsed,
+  onToggleTools,
 }: {
   editor: Editor | null;
   leaderMode: boolean;
   leaderUserId: string | null;
   userId: string;
+  toolsCollapsed: boolean;
+  onToggleTools: () => void;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
@@ -615,6 +635,16 @@ function CanvasFloatingPanel({
       )}
       <PenModeIndicator editor={editor} />
       <ColorPickerRow editor={editor} />
+      <button
+        onClick={onToggleTools}
+        className="rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
+        title={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
+        aria-label={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
+        aria-pressed={!toolsCollapsed}
+      >
+        <Toolbox size={14} aria-hidden weight={toolsCollapsed ? "regular" : "fill"} />
+        <span>{toolsCollapsed ? "Tools" : "Hide tools"}</span>
+      </button>
     </div>
   );
 }
