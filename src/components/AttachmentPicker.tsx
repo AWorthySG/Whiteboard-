@@ -11,7 +11,14 @@ import {
 import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 
-export type Attachment = { url: string; name: string };
+export type Attachment = {
+  url: string;
+  name: string;
+  // Set only for fresh uploads — callers can use this to roll back
+  // the storage object if a downstream DB insert fails. Picking an
+  // existing document leaves this undefined.
+  freshUploadPath?: string;
+};
 
 type RoomDocument = {
   id: string;
@@ -102,7 +109,7 @@ export default function AttachmentPicker({
       );
       if (!res.ok) throw new Error(`Upload failed (${res.status})`);
       const url = `${supabaseUrl}/storage/v1/object/public/whiteboard-assets/${path}`;
-      onChange({ url, name: file.name });
+      onChange({ url, name: file.name, freshUploadPath: path });
     } catch (err) {
       toast.error(`Upload failed: ${(err as Error).message}`);
     } finally {

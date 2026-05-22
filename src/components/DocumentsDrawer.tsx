@@ -98,7 +98,7 @@ export default function DocumentsDrawer({
     const fetchDocs = async () => {
       const { data } = await supabase
         .from("room_documents")
-        .select("*")
+        .select("id,room_id,name,url,mime_type,uploaded_by_name,uploaded_at")
         .eq("room_id", roomId)
         .is("deleted_at", null)
         .order("uploaded_at", { ascending: false });
@@ -209,7 +209,16 @@ export default function DocumentsDrawer({
             uploaded_by_user_id: userId,
             uploaded_by_name: userName,
           });
-          if (error) throw new Error(`DB insert failed: ${error.message}`);
+          if (error) {
+            // The file is in Storage but the DB row that would surface
+            // it in the Documents drawer didn't land — delete the file
+            // so it doesn't sit forever in the bucket, then surface
+            // the error to the user.
+            void supabase.storage
+              .from("whiteboard-assets")
+              .remove([path]);
+            throw new Error(`DB insert failed: ${error.message}`);
+          }
         }
         toast.success(`Uploaded ${file.name}`);
       } catch (e) {

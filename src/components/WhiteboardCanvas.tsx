@@ -27,6 +27,7 @@ import {
 import dynamic from "next/dynamic";
 import { Pencil, Toolbox } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
+import { useSyncToken } from "@/hooks/useSyncToken";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
@@ -230,8 +231,20 @@ export default function WhiteboardCanvas({
     [roomId, userId, userName],
   );
 
+  // Sync token gates the WebSocket connection to the Cloudflare Worker.
+  // We fetch one on mount (and on room/user change) and refresh ~2
+  // minutes before its 15-min TTL expires so the connection never
+  // drops mid-lesson. The hook returns null until the first fetch
+  // resolves; useSync uses a placeholder URI in that window which
+  // never connects, then swaps to the real URI when the token lands.
+  const syncToken = useSyncToken(roomId, userId);
+  const syncUri = useMemo(() => {
+    if (!syncToken) return null;
+    return `${SYNC_URL}/connect/${encodeURIComponent(roomId)}?token=${syncToken}`;
+  }, [roomId, syncToken]);
+
   const store = useSync({
-    uri: `${SYNC_URL}/connect/${encodeURIComponent(roomId)}`,
+    uri: syncUri ?? `${SYNC_URL}/connect/__pending__`,
     assets: assetStore,
     userInfo: { id: userId, name: userName, color: pickColor(userId) },
   });

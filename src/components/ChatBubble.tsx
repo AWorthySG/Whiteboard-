@@ -49,7 +49,7 @@ export default function ChatBubble({
     (async () => {
       const { data } = await supabase
         .from("room_messages")
-        .select("*")
+        .select("id,room_id,user_id,user_name,text,created_at")
         .eq("room_id", roomId)
         .order("created_at", { ascending: true })
         .limit(200);
@@ -128,13 +128,22 @@ export default function ChatBubble({
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        aria-label={open ? "Hide chat" : "Open chat"}
+        aria-label={
+          open
+            ? "Hide chat"
+            : unread > 0
+              ? `Open chat — ${unread} unread message${unread === 1 ? "" : "s"}`
+              : "Open chat"
+        }
         className="touch-target fixed bottom-4 right-4 z-[8000] rounded-full bg-brand-600 hover:bg-brand-500 text-white w-12 h-12 shadow-2xl flex items-center justify-center"
         title="Chat"
       >
         <ChatSvg />
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-[10px] font-semibold px-1 flex items-center justify-center text-[var(--text)] border border-[var(--bg)]">
+          <span
+            aria-hidden="true"
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-[10px] font-semibold px-1 flex items-center justify-center text-[var(--text)] border border-[var(--bg)]"
+          >
             {unread > 99 ? "99+" : unread}
           </span>
         )}

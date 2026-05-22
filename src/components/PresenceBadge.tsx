@@ -37,6 +37,7 @@ export default function PresenceBadge({
   const [people, setPeople] = useState<Person[]>([]);
   const [open, setOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   // Track the *latest* desired meta in a ref so the throttle can read
   // it without re-triggering the effect on every page change.
@@ -119,14 +120,23 @@ export default function PresenceBadge({
     };
   }, [roomId, userId, userName, currentPageId]);
 
-  // Close popover on outside click.
+  // Close popover on outside click, Escape, and restore focus to the
+  // trigger so keyboard users don't lose their place.
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
       if (!popoverRef.current?.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onClick);
+      window.removeEventListener("keydown", onKey);
+      triggerRef.current?.focus();
+    };
   }, [open]);
 
   const counts = useMemo(() => {
@@ -142,6 +152,7 @@ export default function PresenceBadge({
   return (
     <div ref={popoverRef} className="relative">
       <button
+        ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
         className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-600/40 hover:bg-emerald-200 transition-colors"
         title={`${counts.total} ${peopleLabel} in this room${
@@ -223,6 +234,7 @@ export default function PresenceBadge({
                         onClick={() => onSetDrawGrant(null)}
                         className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600"
                         title="Currently drawing — tap to revoke"
+                        aria-label={`Revoke drawing privilege from ${p.name}`}
                       >
                         Drawing
                       </button>
@@ -231,6 +243,7 @@ export default function PresenceBadge({
                         onClick={() => onSetDrawGrant(p.userId)}
                         className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--hover)] text-[var(--text-muted)] hover:bg-brand-100 hover:text-brand-800"
                         title="Grant this student drawing privilege (they default to the draw tool)"
+                        aria-label={`Grant drawing privilege to ${p.name}`}
                       >
                         Let draw
                       </button>

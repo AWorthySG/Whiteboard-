@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CaretDown, File as FileIcon, X } from "@phosphor-icons/react";
+import { getSupabase } from "@/lib/supabase";
 import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
@@ -205,16 +206,14 @@ export default function RoomShell({
   }, [pagesMenuOpen]);
 
   // Dismiss the empty-room hint as soon as the canvas has any shapes
-  // or more than one page. Runs an immediate check (so a refresh on a
-  // populated room doesn't flash the hint for ~800 ms before it goes)
-  // plus a polling tick that picks up freshly drawn strokes / new
-  // pages. Persists dismissal via dismissEmptyRoomHint so the
-  // localStorage flag is set the moment the canvas becomes non-empty.
+  // or more than one page. Subscribes to the editor store so freshly
+  // drawn strokes and new pages trigger an immediate re-check without
+  // a polling loop.
   useEffect(() => {
     if (!emptyRoomHintVisible || !pagesState) return;
+    const editor = canvasEditorRef.current;
+    if (!editor) return;
     const checkAndMaybeDismiss = () => {
-      const editor = canvasEditorRef.current;
-      if (!editor) return;
       const shapeCount = editor.getCurrentPageShapeIds().size;
       const pageCount = editor.getPages().length;
       if (shapeCount > 0 || pageCount > 1) {
@@ -222,8 +221,8 @@ export default function RoomShell({
       }
     };
     checkAndMaybeDismiss();
-    const id = window.setInterval(checkAndMaybeDismiss, 800);
-    return () => clearInterval(id);
+    const unsub = editor.store.listen(checkAndMaybeDismiss, { scope: "all" });
+    return () => unsub();
   }, [emptyRoomHintVisible, pagesState, dismissEmptyRoomHint]);
 
   // When the Pages dropdown opens, render thumbnails for every page.
@@ -361,6 +360,25 @@ export default function RoomShell({
     if (!roomId) return;
     trackRoomVisit(roomId, meta.title || roomId, isHost ? "host" : "guest");
   }, [roomId, meta.title, isHost]);
+
+  // Host self-admission. Hosts skip KnockGate, so they don't get a
+  // join_requests row by default — but the LiveKit token endpoint now
+  // checks that row before minting. Upsert the host as admitted so
+  // VideoPanel's token fetch succeeds.
+  useEffect(() => {
+    if (!isHost || !roomId || !userId) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    void supabase.from("join_requests").upsert(
+      {
+        room_id: roomId,
+        user_id: userId,
+        user_name: name || "Host",
+        status: "admitted",
+      },
+      { onConflict: "room_id,user_id" },
+    );
+  }, [isHost, roomId, userId, name]);
 
   useEffect(() => {
     if (!menuOpen) return;

@@ -92,12 +92,16 @@ export default function HomeworkDrawer({
       const [hw, subs] = await Promise.all([
         supabase
           .from("room_homework")
-          .select("*")
+          .select(
+            "id,room_id,title,description,due_date,created_at,attachment_url,attachment_name",
+          )
           .eq("room_id", roomId)
           .order("created_at", { ascending: false }),
         supabase
           .from("homework_submissions")
-          .select("*")
+          .select(
+            "id,homework_id,student_user_id,student_name,file_url,file_name,note,submitted_at,feedback,feedback_at",
+          )
           .eq("room_id", roomId)
           .order("submitted_at", { ascending: false }),
       ]);
@@ -152,6 +156,14 @@ export default function HomeworkDrawer({
     });
     setSaving(false);
     if (error) {
+      // Same orphan-cleanup pattern as homework_submissions — only
+      // remove if the host uploaded fresh on this form. A picked
+      // existing document is referenced by its room_documents row.
+      if (newAttachment?.freshUploadPath) {
+        void supabase.storage
+          .from("whiteboard-assets")
+          .remove([newAttachment.freshUploadPath]);
+      }
       toast.error(`Couldn't add homework: ${error.message}`);
       return;
     }
@@ -189,6 +201,14 @@ export default function HomeworkDrawer({
         file_name: att.name,
       });
     if (dbErr) {
+      // The file is in Storage but no submissions row references it.
+      // Delete the orphan if it was a fresh upload — picked existing
+      // documents stay in the bucket because other rows still link to them.
+      if (att.freshUploadPath) {
+        void supabase.storage
+          .from("whiteboard-assets")
+          .remove([att.freshUploadPath]);
+      }
       toast.error(`Submission failed: ${dbErr.message}`);
       return;
     }
@@ -200,6 +220,9 @@ export default function HomeworkDrawer({
   const setFeedback = async (submissionId: string, feedback: string | null) => {
     const supabase = getSupabase();
     if (!supabase) return;
+    // Snapshot the prior row so we can roll back if the PATCH fails —
+    // otherwise the UI would lie about persisted state.
+    const prior = submissions.find((s) => s.id === submissionId);
     // Optimistic update so the host sees the chip immediately.
     setSubmissions((prev) =>
       prev.map((s) =>
@@ -220,6 +243,11 @@ export default function HomeworkDrawer({
       })
       .eq("id", submissionId);
     if (error) {
+      if (prior) {
+        setSubmissions((prev) =>
+          prev.map((s) => (s.id === submissionId ? prior : s)),
+        );
+      }
       toast.error(`Couldn't save feedback: ${error.message}`);
     }
   };

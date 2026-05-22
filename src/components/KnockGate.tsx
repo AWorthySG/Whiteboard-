@@ -61,8 +61,12 @@ export default function KnockGate({
       requestId = data.id;
       setStatus(data.status as Status);
 
-      // 2. Subscribe to changes on our specific request.
-      const channel = supabase
+      // 2. Subscribe to changes on our specific request. We pass a
+      // status callback so a CHANNEL_ERROR / TIMED_OUT triggers a
+      // re-subscribe — without this the channel would stay dead and
+      // we'd rely entirely on the 8s heartbeat below for admission
+      // signal, doubling perceived admit latency on flaky networks.
+      let channel = supabase
         .channel(`join-${requestId}`)
         .on(
           "postgres_changes",
@@ -76,8 +80,41 @@ export default function KnockGate({
             const next = (payload.new as { status?: Status })?.status;
             if (next) setStatus(next);
           },
-        )
-        .subscribe();
+        );
+      let reconnectAttempts = 0;
+      const subscribeWithRetry = () => {
+        channel.subscribe((channelStatus) => {
+          if (
+            channelStatus === "CHANNEL_ERROR" ||
+            channelStatus === "TIMED_OUT"
+          ) {
+            // Exponential backoff capped at 30s.
+            const delay = Math.min(30_000, 1_000 * 2 ** reconnectAttempts);
+            reconnectAttempts += 1;
+            window.setTimeout(() => {
+              if (cancelled) return;
+              supabase.removeChannel(channel);
+              channel = supabase.channel(`join-${requestId}`).on(
+                "postgres_changes",
+                {
+                  event: "UPDATE",
+                  schema: "public",
+                  table: "join_requests",
+                  filter: `id=eq.${requestId}`,
+                },
+                (payload) => {
+                  const next = (payload.new as { status?: Status })?.status;
+                  if (next) setStatus(next);
+                },
+              );
+              subscribeWithRetry();
+            }, delay);
+          } else if (channelStatus === "SUBSCRIBED") {
+            reconnectAttempts = 0;
+          }
+        });
+      };
+      subscribeWithRetry();
 
       // Heartbeat fallback — if Supabase Realtime drops (poor network,
       // service blip), we'd otherwise sit on 'pending' forever even

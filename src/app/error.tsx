@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 // Next.js renders this whenever a client component throws during render.
 // Without it the user just sees the bare 'Application error: a client-side
@@ -37,12 +38,12 @@ export default function ErrorBoundary({
           >
             Try again
           </button>
-          <a
+          <Link
             href="/"
             className="rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm"
           >
             Go home
-          </a>
+          </Link>
         </div>
       </div>
     </main>

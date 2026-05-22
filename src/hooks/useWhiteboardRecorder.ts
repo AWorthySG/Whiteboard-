@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { Editor } from "tldraw";
 import { getSupabase } from "@/lib/supabase";
+import { useToast } from "@/components/Toast";
+
+// Reasonable ceiling for the frames JSONL upload — long enough to
+// accommodate a slow mobile connection on a multi-hour lesson, short
+// enough that a true hang doesn't block the user from recording again.
+const FRAMES_UPLOAD_TIMEOUT_MS = 60_000;
 
 type Frame = { t: number; snapshot: unknown };
 
@@ -24,6 +30,7 @@ export function useWhiteboardRecorder(
   getEditor: () => Editor | null,
   intervalMs = 5_000,
 ) {
+  const toast = useToast();
   const sessionRef = useRef<{
     id: string;
     startedAt: number;
@@ -102,6 +109,11 @@ export function useWhiteboardRecorder(
     const path = `${roomId}/${recordingId}-frames.jsonl`;
     const endpoint = `${url}/storage/v1/object/whiteboard-recordings/${path}`;
 
+    const controller = new AbortController();
+    const timeout = window.setTimeout(
+      () => controller.abort(),
+      FRAMES_UPLOAD_TIMEOUT_MS,
+    );
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -112,12 +124,13 @@ export function useWhiteboardRecorder(
           "x-upsert": "true",
         },
         body: blob,
+        signal: controller.signal,
       });
       if (!res.ok) {
-        console.warn(
-          "[wb-recorder] frames upload failed",
-          res.status,
-          await res.text(),
+        const body = await res.text();
+        console.warn("[wb-recorder] frames upload failed", res.status, body);
+        toast.error(
+          `Recording saved, but the whiteboard timeline didn't upload (HTTP ${res.status}). Playback will only show the video.`,
         );
         return;
       }
@@ -128,9 +141,20 @@ export function useWhiteboardRecorder(
         .eq("id", recordingId);
       if (error) {
         console.warn("[wb-recorder] frames_url update failed", error);
+        toast.error(
+          `Recording saved, but couldn't attach the whiteboard timeline: ${error.message}`,
+        );
       }
     } catch (e) {
+      const aborted = (e as { name?: string })?.name === "AbortError";
       console.warn("[wb-recorder] frames upload threw", e);
+      toast.error(
+        aborted
+          ? "Whiteboard timeline upload timed out — playback will only show the video."
+          : `Whiteboard timeline upload failed: ${(e as Error).message}`,
+      );
+    } finally {
+      window.clearTimeout(timeout);
     }
   }, [captureNow, roomId]);
 
