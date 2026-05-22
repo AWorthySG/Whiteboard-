@@ -28,9 +28,10 @@ const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
 const VideoPanelResizer = dynamic(() => import("./VideoPanelResizer"), { ssr: false });
 const RecordingsDrawer = dynamic(() => import("./RecordingsDrawer"), { ssr: false });
 const ChatBubble = dynamic(() => import("./ChatBubble"), { ssr: false });
-const CaptionsOverlay = dynamic(() => import("./CaptionsOverlay"), {
+const CaptionsHost = dynamic(() => import("./CaptionsHost"), {
   ssr: false,
 });
+import { pushCaption as captionsStorePush } from "@/lib/captionsStore";
 const CommandPalette = dynamic(() => import("./CommandPalette"), {
   ssr: false,
 });
@@ -167,25 +168,12 @@ export default function RoomShell({
       // state still keeps it dismissed for this session.
     }
   }, [HINT_DISMISS_KEY]);
-  const [captionLines, setCaptionLines] = useState<
-    import("./CaptionsManager").CaptionLine[]
-  >([]);
-  const pushCaption = useCallback(
-    (line: import("./CaptionsManager").CaptionLine) => {
-      setCaptionLines((prev) => {
-        // Replace the speaker's previous still-interim line, otherwise
-        // append. Cap the buffer at 30 lines so it doesn't grow forever.
-        const idx = prev.findIndex(
-          (l) => l.identity === line.identity && !l.isFinal,
-        );
-        const next = [...prev];
-        if (idx >= 0) next[idx] = line;
-        else next.push(line);
-        return next.slice(-30);
-      });
-    },
-    [],
-  );
+  // Caption state lives in a module-level store in @/lib/captionsStore
+  // so interim caption updates (5-10/sec while speaking) don't trigger
+  // RoomShell re-renders. captionsStorePush is the writer; CaptionsHost
+  // subscribes via useSyncExternalStore and is the only React subtree
+  // that re-renders on a caption tick.
+  const pushCaption = captionsStorePush;
   const [pagesState, setPagesState] = useState<{
     pages: { id: string; name: string }[];
     currentId: string;
@@ -920,9 +908,8 @@ export default function RoomShell({
             hostUserId={userId}
           />
         )}
-        <CaptionsOverlay
+        <CaptionsHost
           enabled={settings.captionsEnabled}
-          lines={captionLines}
           supported={localCaptionsSupportedSync}
         />
       </div>

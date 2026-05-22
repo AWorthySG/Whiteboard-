@@ -129,7 +129,21 @@ export default function CaptionsManager({
       return;
     }
     const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return; // Safari / Firefox — receive-only mode.
+    if (!Ctor) {
+      // Safari, Firefox, and any iOS browser (including iPad Chrome,
+      // which is a WKWebView wrapper) — receive-only. Tell the user
+      // up-front instead of letting them wonder why their own voice
+      // never produces captions. The overlay also surfaces a notice
+      // in quiet moments, but that's easy to miss if other people
+      // are speaking.
+      if (!errorToastShownRef.current) {
+        toast.info(
+          "Your voice can't be transcribed on this browser. Switch to desktop Chrome (Mac/Windows) or Android Chrome to caption your speech. You'll still see captions from others.",
+        );
+        errorToastShownRef.current = true;
+      }
+      return;
+    }
 
     const startIfPossible = () => {
       if (!enabled) return;
@@ -209,10 +223,11 @@ export default function CaptionsManager({
       };
       rec.onend = () => {
         recognitionRef.current = null;
-        // The browser ends sessions every ~60s; restart if we still
-        // want captions on.
+        // The browser ends sessions every ~60s; restart promptly to
+        // close the gap during active speech. 50ms is enough for
+        // Chrome to release the previous session without spamming.
         if (wantRunningRef.current) {
-          window.setTimeout(startIfPossible, 250);
+          window.setTimeout(startIfPossible, 50);
         }
       };
       try {
