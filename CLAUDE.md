@@ -273,6 +273,10 @@ commit `45a340e` (15+ classes swept).
 - **Camera release**: LiveKit by default just mutes when you disable camera/mic. `CameraReleaseGuard` explicitly calls `track.stop()` 150 ms after disable so the OS hardware indicator goes off. Mic uses `publishDefaults.stopMicTrackOnMute: true`.
 - **Pen mode / palm rejection**: tldraw auto-enables `isPenMode` on first pointerType==='pen' event. We also expose an explicit `penOnly` setting that forces it on at mount.
 - **Stroke thickness**: default size is `"s"` (small) — set via `editor.setStyleForNextShapes(DefaultSizeStyle, "s")` in `WhiteboardCanvas.onMount`. tldraw's `"m"` was too thick under Apple Pencil pressure. Users can still pick any size from the size picker.
+- **Pen feel tuning**: three layers, all targeting Apple Pencil latency + fountain-pen aesthetic.
+  1. `editor.user.updateUserPreferences({ animationSpeed: 0 })` in `WhiteboardCanvas.onMount` (and the theme-applying useEffect) skips tldraw's default 1-frame ease on stroke commit. Strokes snap into place instead of fading in.
+  2. `patches/tldraw+<version>.patch` rewrites `getFreehandOptions` constants for both `realPressureSettings` (stylus path, `isPen=true`) and `simulatePressureSettings` (finger/mouse fallback). Targets: `thinning` ~0.8 (strong pressure contrast), `streamline` ~0.4 (less smoothing, more direct), `smoothing` ~0.55, plus `start/end.taper` 25–30 for calligraphic tapered ends. Applied via `patch-package` on every `npm install` (postinstall hook). When tldraw upgrades: `rm -rf node_modules/tldraw && npm install` — if patch-package warns, edit the new version's `getPath.js` in `dist-cjs` + `dist-esm`, then `npx patch-package tldraw` to regenerate.
+  3. Per-stroke local rendering is unconditionally optimistic — tldraw renders the line as you draw before sync ack. Network RTT does not gate the visible stroke.
 - **Non-host default tool is hand**: in `WhiteboardCanvas.onMount` we call `editor.setCurrentTool("hand")` when `!isHost`. With `touch-action: none` on the canvas, a single-finger swipe goes to tldraw's gesture pipeline — defaulting students to the hand tool means a swipe pans rather than drawing a stray line. The host stays on `draw`. The student can still switch tools if they want to annotate.
 - **Toolbar active state**: globals.css forces a brand-blue background + white icon for the selected tool button (`[aria-pressed="true"]` / `[data-state="selected"]`). tldraw's default light-mode highlight was too subtle.
 - **Leader mode UI**: when on, the host sees a yellow "LEADING VIEW" pill top-right of the canvas, AND the eye icon in the toolbar gets a filled amber background with white icon (vs. a thin amber outline before). Guests being followed see the existing "Following host" pill.
@@ -282,6 +286,10 @@ commit `45a340e` (15+ classes swept).
 - **Guests don't sign up**. Anyone with a room link can join: they land on `/r/<roomId>`, see the `GuestNameEntry` form (or skip it if they have a remembered name), then KnockGate creates a `join_requests` row and waits for the host to Admit. The host sees an `AdmissionPanel` floating top-right + a toast for every new knocker.
 - **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) is disabled in our `components` override, so we render our own `ZoomControls` bottom-left (was bottom-right; moved so the video panel doesn't cover it).
 - **PWA orientation lock**: `public/manifest.webmanifest` sets `"orientation": "portrait"`. This is honoured for installed PWAs on Android Chrome; iOS Safari ignores it for non-installed sessions.
+- **PWA icons**: the manifest lists five PNG sizes (152/167/180/192/512) plus a maskable variant and an SVG. iOS doesn't read the manifest list reliably on first install — `src/app/layout.tsx` adds explicit `<link rel="apple-touch-icon" sizes="...">` tags for 152/167/180 so Safari picks the right one. Regenerate the smaller PNGs from `public/icon.svg` whenever the source art changes (sharp can do this in ~10 lines; see commit `7f81a18` for the original pass).
+- **PWA install banner**: `PwaInstallBanner.tsx` listens for `beforeinstallprompt` (Android Chrome only — iOS Safari doesn't fire this) and persists dismissal in `wb_pwa_install_dismissed`. iOS users install via Share → Add to Home Screen.
+- **Service worker caching strategy**: `public/sw.js` runs two cache buckets. `wb-static-v2` is cache-first for `/_next/static/*` (content-hashed by Next so safe-to-cache-forever) — every PWA cold launch after the first boots from cache, dropping startup ~1s. `wb-shell-v2` is stale-while-revalidate for `manifest.webmanifest` + `icon.svg`. Everything else (HTML routes, API calls, Supabase, LiveKit, sync worker) is network-only — no risk of a stale room shell or stale auth token. If you change the cache schema, bump both bucket names (`-v2` → `-v3`); the `activate` listener sweeps any older bucket.
+- **Notch / Dynamic Island**: `viewport: { viewportFit: "cover" }` in `layout.tsx` lets the canvas paint behind the iPhone X+ cutout in landscape PWA mode. Interactive UI stays clear via `safe-area-inset-*` paddings in `globals.css`.
 - **No horizontal scroll**: `html, body { overflow-x: hidden; max-width: 100vw; }` in `globals.css` keeps the room shell from sliding sideways even if a child overflows. tldraw's canvas still pans freely because it sets its own touch-action and is inside an `inset-0` container.
 - **Header is two rows on md+**: row 1 = Documents / Homework / Recordings / Record; row 2 = Export / Invite / Hide-video / Settings. Mobile collapses both rows into the existing kebab/hamburger menu.
 - **`/auth/callback` is a no-op stub** now that magic-link auth is gone. Don't remove it — it's wrapped in `<Suspense>` and harmless if hit, and password reset / OAuth could re-use it later.
@@ -295,10 +303,16 @@ npm run dev:sync     # wrangler dev for the sync worker
 npm run dev:all      # both concurrently
 npm run typecheck    # tsc --noEmit (run before committing)
 npm run build        # production build + size report
+npm test             # vitest run (29 tests across 5 files)
+npm run test:watch   # vitest watch mode
 ```
 
-The bundle is currently ~178 KB First Load JS for the room route. Anything that
-adds significantly to that should be lazy-loaded via `dynamic(() => import(...))`.
+The bundle is currently ~186 KB First Load JS for the room route (200 KB budget).
+Anything that adds significantly to that should be lazy-loaded via `dynamic(() => import(...))`.
+
+`postinstall` runs `patch-package`, which reapplies the tldraw fountain-pen patch
+in `patches/tldraw+*.patch`. Don't disable this — drawing will revert to tldraw's
+default stroke profile if the patch isn't applied.
 
 ## Watch-outs for future changes
 
@@ -322,4 +336,26 @@ adds significantly to that should be lazy-loaded via `dynamic(() => import(...))
 10. **Upload path is now direct browser → Supabase** — if you add a new upload entry
     point, mirror the existing pattern (`uploadAsset()` in WhiteboardCanvas, or the
     inline POSTs in DocumentsDrawer / HomeworkDrawer). Don't reintroduce the
-    `/api/uploads` proxy hop.
+    `/api/uploads` proxy hop. Always pair the storage upload with the DB insert,
+    and on DB-insert failure call `supabase.storage.from(bucket).remove([path])`
+    so orphans don't accumulate. For uploads sourced from `AttachmentPicker`,
+    check `att.freshUploadPath` before removing — picked existing documents are
+    referenced by other rows and must not be deleted.
+11. **The tldraw patch survives upgrades only if you re-apply it.** When you bump
+    tldraw, `npm install` will warn that `patches/tldraw+OLD.patch` no longer applies.
+    Open `node_modules/tldraw/dist-{cjs,esm}/lib/shapes/draw/getPath.{js,mjs}` in the
+    new version, re-edit `realPressureSettings` and `simulatePressureSettings` with
+    the fountain-pen values (`thinning: 0.82/0.7`, `streamline: 0.4/0.5`,
+    `smoothing: 0.55`, `start/end: { taper: 30/25, cap: true }`), then run
+    `npx patch-package tldraw`. Delete the old patch file and commit the new one.
+12. **Service worker is intentionally narrow.** Don't widen `sw.js` to cache HTML
+    routes, API responses, Supabase, LiveKit, or the sync worker. Cache only
+    `/_next/static/*` (content-hashed, immutable) and the small shell set. A
+    cached room shell or a cached auth token is far more confusing to debug than
+    a slow first launch.
+13. **Worker auth must stay configured.** `WORKER_SHARED_SECRET` lives in two
+    places (Vercel env + Cloudflare Worker secret). Both must be set to the same
+    value — and the worker fails closed without it (returns 500 on every connect
+    attempt). When rotating: update Cloudflare first (`wrangler secret put`),
+    then Vercel, then redeploy. Tokens currently in flight will keep working
+    until their 15-minute TTL expires.
