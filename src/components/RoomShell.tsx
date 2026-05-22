@@ -22,6 +22,9 @@ const HomeworkDrawer = dynamic(() => import("./HomeworkDrawer"), { ssr: false })
 const KnockGate = dynamic(() => import("./KnockGate"), { ssr: false });
 const AdmissionPanel = dynamic(() => import("./AdmissionPanel"), { ssr: false });
 const RecordButton = dynamic(() => import("./RecordButton"), { ssr: false });
+const RecordingIndicator = dynamic(() => import("./RecordingIndicator"), {
+  ssr: false,
+});
 const InvitePanel = dynamic(() => import("./InvitePanel"), { ssr: false });
 const OnboardingHint = dynamic(() => import("./OnboardingHint"), { ssr: false });
 const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
@@ -139,6 +142,17 @@ export default function RoomShell({
   const whiteboardRecorder = useWhiteboardRecorder(
     roomId,
     () => canvasEditorRef.current,
+  );
+  // Toggled by RecordButton.onStateChange — RecordingIndicator paints
+  // the canvas inset border + REC badge when this is true. We treat
+  // "paused" as still-active visually so the host doesn't think they
+  // stopped recording when they only paused.
+  const [recordingActive, setRecordingActive] = useState(false);
+  const onRecorderStateChange = useCallback(
+    (s: "idle" | "recording" | "paused" | "saving") => {
+      setRecordingActive(s === "recording" || s === "paused");
+    },
+    [],
   );
   const [endLessonOpen, setEndLessonOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -646,6 +660,7 @@ export default function RoomShell({
                   roomTitle={meta.title}
                   onRecordingStarted={whiteboardRecorder.start}
                   onRecordingFinished={whiteboardRecorder.finish}
+                  onStateChange={onRecorderStateChange}
                 />
               </>
             )}
@@ -787,6 +802,7 @@ export default function RoomShell({
                         roomTitle={meta.title}
                         onRecordingStarted={whiteboardRecorder.start}
                         onRecordingFinished={whiteboardRecorder.finish}
+                        onStateChange={onRecorderStateChange}
                       />
                     </div>
                   </div>
@@ -799,6 +815,10 @@ export default function RoomShell({
 
       <div className="flex-1 min-h-0 relative flex flex-col md:flex-row">
         <div className="relative flex-1 min-w-0 min-h-0">
+          {/* Recording state overlay — red inset border + REC badge.
+              Mounts above the canvas (pointer-events: none) so it
+              doesn't interfere with drawing. */}
+          <RecordingIndicator active={recordingActive} />
           {/* Loading skeleton: holds the page until tldraw chunks finish
               loading and the editor mounts. pagesState becomes non-null
               once the editor publishes its initial page list via

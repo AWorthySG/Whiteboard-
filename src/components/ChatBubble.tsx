@@ -135,7 +135,7 @@ export default function ChatBubble({
               ? `Open chat — ${unread} unread message${unread === 1 ? "" : "s"}`
               : "Open chat"
         }
-        className="touch-target fixed bottom-4 right-4 z-[8000] rounded-full bg-brand-600 hover:bg-brand-500 text-white w-12 h-12 shadow-2xl flex items-center justify-center"
+        className="touch-target fixed bottom-4 right-4 z-[8000] rounded-full bg-brand-600 hover:bg-brand-500 text-white w-12 h-12 flex items-center justify-center shadow-[0_8px_24px_rgba(31,75,67,0.28),0_2px_6px_rgba(31,75,67,0.16)]"
         title="Chat"
       >
         <ChatSvg />
@@ -184,7 +184,7 @@ export default function ChatBubble({
                     <span
                       className={`max-w-[85%] rounded-lg px-2.5 py-1.5 break-words whitespace-pre-wrap ${
                         mine
-                          ? "bg-brand-600 text-[var(--text)]"
+                          ? "bg-brand-600 text-white"
                           : "bg-[var(--hover)] text-[var(--text)]"
                       }`}
                     >

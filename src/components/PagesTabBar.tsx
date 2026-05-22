@@ -96,7 +96,7 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
       // bottom pill on a narrow screen overlaps the ZoomControls. From
       // tablet up (md), the bottom tabs are still nicer for fast
       // switching between many pages.
-      className="hidden md:flex absolute bottom-20 left-1/2 -translate-x-1/2 z-[60] items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl px-1.5 py-1 max-w-[92vw]"
+      className="hidden md:flex absolute bottom-20 left-1/2 -translate-x-1/2 z-[60] items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-[0_4px_12px_rgba(60,40,20,0.08)] px-1.5 py-1 max-w-[92vw]"
       style={{ pointerEvents: "auto" }}
     >
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">

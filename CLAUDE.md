@@ -241,6 +241,16 @@ PwaRegister.tsx        Registers /sw.js client-side.
 
 RecordButton.tsx       getDisplayMedia + getUserMedia + MediaRecorder; saves local
                        MP4/WebM AND uploads to Supabase Storage with progress.
+                       Exposes onStateChange so RoomShell can render the
+                       RecordingIndicator overlay while idle/recording/paused/
+                       saving — "active" = recording OR paused.
+
+RecordingIndicator.tsx Red inset border + pulsing 'REC' badge painted over
+                       the canvas while recording is live. pointer-events:
+                       none so it doesn't block drawing. Mounted inside the
+                       canvas wrapper div in RoomShell so it tracks the canvas
+                       exactly (not the room shell — wouldn't want it framing
+                       the video panel too).
 
 VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width persists
                        in localStorage.

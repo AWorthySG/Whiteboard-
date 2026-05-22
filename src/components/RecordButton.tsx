@@ -46,6 +46,7 @@ export default function RecordButton({
   roomTitle,
   onRecordingStarted,
   onRecordingFinished,
+  onStateChange,
 }: {
   roomId: string;
   hostUserId: string;
@@ -59,9 +60,21 @@ export default function RecordButton({
   // (frames.jsonl) to the same recording id.
   onRecordingStarted?: (recordingId: string) => void;
   onRecordingFinished?: (recordingId: string) => void;
+  // Fires on every state transition (idle → recording → paused →
+  // saving → idle). Parent uses this for cosmetic affordances like
+  // the canvas inset border + REC badge. Optional — recording works
+  // without a listener.
+  onStateChange?: (state: State) => void;
 }) {
   const toast = useToast();
   const [state, setState] = useState<State>("idle");
+  // Fire onStateChange whenever the recorder transitions so parent
+  // components (RoomShell) can update cosmetic affordances like the
+  // canvas inset border. Effect dep on state keeps this in sync
+  // even if the recorder mutates state in a tight loop.
+  useEffect(() => {
+    onStateChange?.(state);
+  }, [state, onStateChange]);
   const [elapsed, setElapsed] = useState(0);
   const [uploadPct, setUploadPct] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
