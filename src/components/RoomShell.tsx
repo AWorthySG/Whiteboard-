@@ -987,6 +987,8 @@ export default function RoomShell({
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         inviteUrl={inviteUrl}
+        roomId={roomId}
+        isHost={isHost}
       />
       <RecordingsDrawer
         open={recsOpen}

@@ -37,29 +37,75 @@ export default function KnockGate({
     let requestId: string | null = null;
 
     (async () => {
-      // 1. Upsert our join request.
-      const { data, error: upErr } = await supabase
+      // 0. If the URL carries an `?invite=` token, redeem it first.
+      // The redeem endpoint upserts an admitted row for our userId, so
+      // anyone with the link walks straight in regardless of whether
+      // they've been admitted on this device before. Idempotent — a
+      // device that's already admitted just re-affirms its status.
+      const params = new URLSearchParams(window.location.search);
+      const inviteToken = params.get("invite");
+      if (inviteToken) {
+        try {
+          await fetch("/api/invite/redeem", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: inviteToken,
+              roomId,
+              userId,
+              userName,
+            }),
+          });
+        } catch {
+          // Network blip — fall through to the regular knock flow.
+          // An invalid / expired invite also falls through; better to
+          // make the guest knock than to dead-end them on a typo.
+        }
+      }
+
+      // 1. Find or create our join request.
+      // First, check if a row already exists for this (room, user).
+      // Admission is meant to be persistent — once a host admits a
+      // student, the student should be able to return without
+      // re-knocking. An older revision of this code unconditionally
+      // upserted 'pending', which clobbered admitted rows on every
+      // visit; we now read-then-conditionally-insert.
+      const { data: existing } = await supabase
         .from("join_requests")
-        .upsert(
-          {
+        .select("id, status")
+        .eq("room_id", roomId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      let initial: { id: string; status: Status };
+      if (existing) {
+        initial = {
+          id: existing.id as string,
+          status: existing.status as Status,
+        };
+      } else {
+        const { data: created, error: insertErr } = await supabase
+          .from("join_requests")
+          .insert({
             room_id: roomId,
             user_id: userId,
             user_name: userName,
             status: "pending",
-          },
-          { onConflict: "room_id,user_id" },
-        )
-        .select()
-        .single();
+          })
+          .select()
+          .single();
+        if (cancelled) return;
+        if (insertErr || !created) {
+          setStatus("error");
+          setError(insertErr?.message ?? "Could not request to join");
+          return;
+        }
+        initial = { id: created.id as string, status: "pending" };
+      }
 
       if (cancelled) return;
-      if (upErr || !data) {
-        setStatus("error");
-        setError(upErr?.message ?? "Could not request to join");
-        return;
-      }
-      requestId = data.id;
-      setStatus(data.status as Status);
+      requestId = initial.id;
+      setStatus(initial.status);
 
       // 2. Subscribe to changes on our specific request. We pass a
       // status callback so a CHANNEL_ERROR / TIMED_OUT triggers a
