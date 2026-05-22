@@ -10,6 +10,7 @@ import {
   removeRoomFromRecents,
   type RecentRoom,
 } from "@/hooks/useRecentRooms";
+import { pinRoom, unpinRoom, usePinnedRooms } from "@/hooks/usePinnedRooms";
 import { getSupabase } from "@/lib/supabase";
 import BrandLogo from "@/components/BrandLogo";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
@@ -39,7 +40,9 @@ export default function Home() {
   const [pendingSignIn, setPendingSignIn] = useState(false);
 
   const localRooms = useRecentRooms();
+  const pinnedIds = usePinnedRooms();
   const [hostedRooms, setHostedRooms] = useState<ServerRoom[]>([]);
+  const [search, setSearch] = useState("");
 
   // Pull rooms this signed-in user is registered as host for, so they
   // show up even on devices that haven't been into them locally.
@@ -87,8 +90,41 @@ export default function Home() {
     }
     return Array.from(map.values())
       .sort((a, b) => b.lastVisitedAt - a.lastVisitedAt)
-      .slice(0, 12);
+      .slice(0, 30);
   }, [localRooms, hostedRooms]);
+
+  // Filter by search query (matches title OR room id, case-insensitive).
+  // Search overrides grouping — when filtering, show a flat list so the
+  // user can see all matches without context-switching between buckets.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return recent;
+    return recent.filter((r) => {
+      const title = (r.title ?? "").toLowerCase();
+      const id = r.roomId.toLowerCase();
+      return title.includes(q) || id.includes(q);
+    });
+  }, [recent, search]);
+
+  // Split pinned from unpinned. Pinned section floats above the
+  // time-bucketed unpinned list and preserves the pin order.
+  const { pinnedRooms, unpinnedRooms } = useMemo(() => {
+    const pinned: RecentRoom[] = [];
+    const unpinned: RecentRoom[] = [];
+    for (const r of filtered) {
+      if (pinnedIds.has(r.roomId)) pinned.push(r);
+      else unpinned.push(r);
+    }
+    return { pinnedRooms: pinned, unpinnedRooms: unpinned };
+  }, [filtered, pinnedIds]);
+
+  // Bucket unpinned rooms by date so the list reads as a timeline.
+  // Today / Yesterday / This week / This month / Older. Disabled when
+  // the user is searching — flat list is easier to scan when filtering.
+  const buckets = useMemo(() => {
+    if (search.trim()) return null;
+    return bucketByDate(unpinnedRooms);
+  }, [unpinnedRooms, search]);
 
   const start = async (id: string, isNew: boolean) => {
     if (isNew) {
@@ -183,61 +219,54 @@ export default function Home() {
 
         {recent.length > 0 && (
           <section className="mt-8 border-t border-[color:var(--border-subtle)] pt-5">
-            <h2 className="text-xs uppercase tracking-wider text-[var(--text-dim)] mb-2">
-              Recent rooms
-            </h2>
-            <ul className="space-y-1">
-              {recent.map((r) => (
-                <li
-                  key={r.roomId}
-                  className="group flex items-center gap-2 rounded-lg hover:bg-[var(--hover)] px-2 py-1.5"
-                >
-                  <button
-                    onClick={() => start(r.roomId, false)}
-                    className="flex-1 min-w-0 text-left flex items-center gap-2"
-                  >
-                    {/* Deterministic colour dot from roomId — helps
-                        the eye scan a long list of recent rooms at
-                        a glance. */}
-                    <span
-                      aria-hidden
-                      className="shrink-0 w-2.5 h-2.5 rounded-full"
-                      style={{ background: hashHue(r.roomId) }}
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="text-xs uppercase tracking-wider text-[var(--text-dim)]">
+                Your rooms
+              </h2>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search…"
+                aria-label="Search rooms by title or room ID"
+                className="flex-1 max-w-[16rem] rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2.5 py-1 text-sm outline-none focus:border-brand-500"
+              />
+            </div>
+
+            {filtered.length === 0 ? (
+              <p className="text-sm text-[var(--text-dim)] px-2 py-3">
+                No rooms match “{search.trim()}”.
+              </p>
+            ) : (
+              <>
+                {pinnedRooms.length > 0 && (
+                  <RoomSection
+                    label="Pinned"
+                    rooms={pinnedRooms}
+                    pinnedIds={pinnedIds}
+                    onOpen={(id) => start(id, false)}
+                  />
+                )}
+                {buckets ? (
+                  buckets.map((b) => (
+                    <RoomSection
+                      key={b.label}
+                      label={b.label}
+                      rooms={b.rooms}
+                      pinnedIds={pinnedIds}
+                      onOpen={(id) => start(id, false)}
                     />
-                    <span
-                      className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
-                        r.role === "host"
-                          ? "bg-brand-100 text-brand-800"
-                          : "bg-[var(--hover)] text-[var(--text-dim)]"
-                      }`}
-                    >
-                      {r.role}
-                    </span>
-                    <span className="truncate text-sm" title={r.title ?? r.roomId}>
-                      {r.title || r.roomId}
-                    </span>
-                    {r.title && r.title !== r.roomId && (
-                      <span className="text-xs text-[var(--text-dim)] truncate shrink-0">
-                        {r.roomId}
-                      </span>
-                    )}
-                  </button>
-                  <span className="text-xs text-[var(--text-dim)] shrink-0">
-                    {r.lastVisitedAt
-                      ? formatRelative(r.lastVisitedAt)
-                      : ""}
-                  </span>
-                  <button
-                    onClick={() => removeRoomFromRecents(r.roomId)}
-                    className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-danger-600 text-xs px-1"
-                    aria-label="Remove from recent rooms"
-                    title="Remove from recent"
-                  >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
+                  ))
+                ) : (
+                  // Searching — flat list, no buckets.
+                  <RoomSection
+                    label={null}
+                    rooms={unpinnedRooms}
+                    pinnedIds={pinnedIds}
+                    onOpen={(id) => start(id, false)}
+                  />
+                )}
+              </>
+            )}
           </section>
         )}
       </div>
@@ -301,4 +330,140 @@ function hashHue(s: string): string {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return `hsl(${h % 360}, 55%, 50%)`;
+}
+
+// Date buckets — Today / Yesterday / This week / This month / Older.
+// We compute boundaries at midnight in the user's local time so a
+// session at 11:55 PM doesn't roll to Yesterday at midnight while
+// they're still looking at it.
+type Bucket = { label: string; rooms: RecentRoom[] };
+
+function bucketByDate(rooms: RecentRoom[]): Bucket[] {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfYesterday = startOfToday - 86_400_000;
+  const startOfWeek = startOfToday - 6 * 86_400_000; // last 7 days inclusive
+  const startOfMonth = startOfToday - 30 * 86_400_000;
+
+  const today: RecentRoom[] = [];
+  const yesterday: RecentRoom[] = [];
+  const thisWeek: RecentRoom[] = [];
+  const thisMonth: RecentRoom[] = [];
+  const older: RecentRoom[] = [];
+
+  for (const r of rooms) {
+    const t = r.lastVisitedAt || 0;
+    if (t >= startOfToday) today.push(r);
+    else if (t >= startOfYesterday) yesterday.push(r);
+    else if (t >= startOfWeek) thisWeek.push(r);
+    else if (t >= startOfMonth) thisMonth.push(r);
+    else older.push(r);
+  }
+
+  return [
+    { label: "Today", rooms: today },
+    { label: "Yesterday", rooms: yesterday },
+    { label: "This week", rooms: thisWeek },
+    { label: "This month", rooms: thisMonth },
+    { label: "Older", rooms: older },
+  ].filter((b) => b.rooms.length > 0);
+}
+
+function RoomSection({
+  label,
+  rooms,
+  pinnedIds,
+  onOpen,
+}: {
+  label: string | null;
+  rooms: RecentRoom[];
+  pinnedIds: Set<string>;
+  onOpen: (roomId: string) => void;
+}) {
+  return (
+    <div className="mb-4 last:mb-0">
+      {label && (
+        <div className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] font-semibold mb-1 px-2">
+          {label}
+        </div>
+      )}
+      <ul className="space-y-0.5">
+        {rooms.map((r) => (
+          <RoomRow
+            key={r.roomId}
+            room={r}
+            pinned={pinnedIds.has(r.roomId)}
+            onOpen={() => onOpen(r.roomId)}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function RoomRow({
+  room: r,
+  pinned,
+  onOpen,
+}: {
+  room: RecentRoom;
+  pinned: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <li className="group flex items-center gap-2 rounded-lg hover:bg-[var(--hover)] px-2 py-1.5">
+      <button
+        onClick={onOpen}
+        className="flex-1 min-w-0 text-left flex items-center gap-2"
+      >
+        <span
+          aria-hidden
+          className="shrink-0 w-2.5 h-2.5 rounded-full"
+          style={{ background: hashHue(r.roomId) }}
+        />
+        <span
+          className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+            r.role === "host"
+              ? "bg-brand-100 text-brand-800"
+              : "bg-[var(--hover)] text-[var(--text-dim)]"
+          }`}
+        >
+          {r.role}
+        </span>
+        <span className="truncate text-sm" title={r.title ?? r.roomId}>
+          {r.title || r.roomId}
+        </span>
+        {r.title && r.title !== r.roomId && (
+          <span className="text-xs text-[var(--text-dim)] truncate shrink-0">
+            {r.roomId}
+          </span>
+        )}
+      </button>
+      <span className="text-xs text-[var(--text-dim)] shrink-0">
+        {r.lastVisitedAt ? formatRelative(r.lastVisitedAt) : ""}
+      </span>
+      {/* Pin toggle — filled star when pinned (always visible), outline
+          on hover only when unpinned (keeps the row visually quiet). */}
+      <button
+        onClick={() => (pinned ? unpinRoom(r.roomId) : pinRoom(r.roomId))}
+        className={`text-sm px-1 leading-none ${
+          pinned
+            ? "text-[color:var(--accent)]"
+            : "opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-[color:var(--accent)]"
+        }`}
+        aria-label={pinned ? "Unpin room" : "Pin room"}
+        title={pinned ? "Unpin" : "Pin to top"}
+      >
+        {pinned ? "★" : "☆"}
+      </button>
+      <button
+        onClick={() => removeRoomFromRecents(r.roomId)}
+        className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-danger-600 text-xs px-1"
+        aria-label="Remove from recent rooms"
+        title="Remove from recent"
+      >
+        ×
+      </button>
+    </li>
+  );
 }
