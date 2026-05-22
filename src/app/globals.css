@@ -2,31 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light mode is now the only theme — dark mode caused contrast issues
-   across tldraw + LiveKit + drawer overlays. */
+/* Paper-and-ink palette inspired by Bear's identity (warm cream
+   canvas, Bear red as the single accent). Light mode is the only
+   theme — dark mode caused contrast issues across tldraw + LiveKit
+   + drawer overlays. */
 :root {
-  --bg: #f5f6f9;
-  --bg-elev: #ffffff;
-  --bg-elev-2: #f0f2f6;
-  --text: #1a1d24;
-  --text-muted: rgba(26, 29, 36, 0.65);
-  --text-dim: rgba(26, 29, 36, 0.4);
-  --border: rgba(0, 0, 0, 0.12);
-  --border-subtle: rgba(0, 0, 0, 0.06);
-  --hover: rgba(0, 0, 0, 0.05);
+  --bg: #ffffff;          /* page / surfaces */
+  --bg-elev: #ffffff;     /* elevated cards */
+  --bg-elev-2: #faf6ed;   /* subtle warm tint for inset surfaces */
+  --canvas: #f7f2e8;      /* warm cream paper — the whiteboard itself */
+  --text: #1e1b17;        /* ink */
+  --text-muted: #807868;
+  --text-dim: #bfb6a3;
+  --border: #ece6d6;
+  --border-subtle: rgba(60, 45, 25, 0.06);
+  --border-strong: #ddd4bd;
+  --hover: rgba(60, 45, 25, 0.05);
+  --accent: #d63a4f;      /* Bear red — buttons, links, active states */
+  --accent-soft: #fbe8eb;
+  /* Recording / destructive uses the same red — the brand IS red. */
+  --presence: #5a8f3d;    /* green dot for "online" */
 }
 
 html.theme-light {
   /* kept as alias for any external references; same values as :root */
-  --bg: #f5f6f9;
+  --bg: #ffffff;
   --bg-elev: #ffffff;
-  --bg-elev-2: #f0f2f6;
-  --text: #1a1d24;
-  --text-muted: rgba(26, 29, 36, 0.65);
-  --text-dim: rgba(26, 29, 36, 0.4);
-  --border: rgba(0, 0, 0, 0.12);
-  --border-subtle: rgba(0, 0, 0, 0.06);
-  --hover: rgba(0, 0, 0, 0.05);
+  --bg-elev-2: #faf6ed;
+  --canvas: #f7f2e8;
+  --text: #1e1b17;
+  --text-muted: #807868;
+  --text-dim: #bfb6a3;
+  --border: #ece6d6;
+  --border-subtle: rgba(60, 45, 25, 0.06);
+  --border-strong: #ddd4bd;
+  --hover: rgba(60, 45, 25, 0.05);
+  --accent: #d63a4f;
+  --accent-soft: #fbe8eb;
+  --presence: #5a8f3d;
 }
 
 html,
@@ -36,15 +49,17 @@ body,
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-sans), "Nunito", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Match tldraw's own theme attribute to our setting, so the canvas
    toolbar swaps colors with the rest of the app. */
 html[data-theme="light"] .tl-container,
 html[data-theme="light"] .tl-canvas {
-  --color-background: #ffffff;
+  /* Warm cream paper — picks up the design's canvas color. tldraw
+     reads --color-background for its canvas background fill. */
+  --color-background: var(--canvas);
 }
 
 /* tldraw needs a positioned container at 100% */

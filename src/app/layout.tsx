@@ -1,11 +1,36 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { Nunito, Caveat, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "tldraw/tldraw.css";
 import "@livekit/components-styles";
 import PwaRegister from "@/components/PwaRegister";
 import { ToastProvider } from "@/components/Toast";
 import ThemeApplier from "@/components/ThemeApplier";
+
+// Self-hosted via next/font: zero render-blocking, automatic
+// font-display: swap, and the family name is exposed as a CSS variable
+// so tailwind + raw CSS can reference it. Matches the typography
+// system in the design handoff (Nunito UI, Caveat for handwriting,
+// JetBrains Mono for code/room-ids).
+const nunito = Nunito({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-sans",
+});
+const caveat = Caveat({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  display: "swap",
+  variable: "--font-hand",
+});
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
   title: "A Worthy Whiteboard",
@@ -35,7 +60,7 @@ export const viewport: Viewport = {
   // landscape PWA mode. Pairs with the safe-area-inset paddings in
   // globals.css so interactive UI doesn't slide under the cutout.
   viewportFit: "cover",
-  themeColor: "#f5f6f9",
+  themeColor: "#ffffff",
 };
 
 // Compute https origins for preconnect from the env vars that point at
@@ -63,7 +88,10 @@ const PRECONNECT_ORIGINS = Array.from(
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${nunito.variable} ${caveat.variable} ${jetbrains.variable}`}
+    >
       <head>
         {PRECONNECT_ORIGINS.map((origin) => (
           <link key={origin} rel="preconnect" href={origin} crossOrigin="" />
