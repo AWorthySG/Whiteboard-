@@ -170,15 +170,31 @@ CaptionsManager.tsx    Lives inside the LiveKitRoom context. Runs the browser-na
                        mic when captions are enabled + the mic is on. Each finalised
                        or interim utterance is broadcast over the LiveKit data
                        channel as {type: "caption", text, isFinal, name}. Also
-                       listens for incoming caption messages from peers and calls
-                       onCaption to push them up to RoomShell.
+                       listens for incoming caption messages from peers and writes
+                       them into the module-level captionsStore (see Captions
+                       architecture note below). Auto-restarts every ~60s when
+                       Chrome ends the session — 50ms delay closes the gap so
+                       long sentences don't lose words. On unsupported browsers
+                       (Safari, Firefox, all iOS browsers including iPad Chrome
+                       since it's a WKWebView wrapper) it fires a one-time
+                       toast.info telling the user to switch to desktop Chrome
+                       or Android Chrome to caption their own voice.
+
+CaptionsHost.tsx       Subscribes to the captions store via useSyncExternalStore
+                       and renders CaptionsOverlay. RoomShell mounts this once;
+                       only this subtree re-renders on a caption tick. Prevents
+                       the whole RoomShell tree (header, drawers, ~14 children)
+                       from re-rendering 5-10×/sec during active speech, which
+                       was the previous bottleneck — both perceived caption lag
+                       AND a drag on pen latency while someone was speaking.
 
 CaptionsOverlay.tsx    Bottom-center floating panel that renders the last ~3 caption
                        lines with the speaker's name. Final lines render solid;
                        interim lines render italic + lighter. Lines fade after 8s
-                       and disappear after 10s. On Safari/Firefox it shows a single
-                       'your browser can't transcribe locally' notice when the user
-                       turns captions on themselves.
+                       and disappear after 10s. Shows a quiet-moment notice when
+                       the local browser can't transcribe AND no other captions
+                       are on screen (the up-front toast in CaptionsManager
+                       handles the noisy case).
 
 Toast.tsx              Stacked toast notifications (ToastProvider in root layout). Solid
                        red / green variants have explicit text-white (the bg is saturated
@@ -237,6 +253,11 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 - `useIsHost(roomId)` — combined server + localStorage host check
 - `useRoomMeta(roomId)` — room title + leader-mode state, with `setTitle` / `setLeaderMode`
 - `useRecentRooms()` + `trackRoomVisit()` — localStorage list shown on home page
+- `useSyncToken(roomId, userId)` — fetches an HS256 sync token from `/api/sync-token` and auto-refreshes ~2 min before its 15-min TTL. Until the first token arrives, `WhiteboardCanvas` uses a placeholder URI that 401s — useSync briefly shows offline state and swaps to the real URI when the token lands.
+
+## Module-level stores (`src/lib/`)
+
+- `captionsStore.ts` — singleton store for live caption lines. `pushCaption()` writes; `subscribeToCaptions()` / `getCaptionsSnapshot()` are consumed by `CaptionsHost` via `useSyncExternalStore`. The store lives outside React because caption updates arrive 5-10×/sec during active speech, and putting that churn into RoomShell state was forcing a full-tree re-render on every interim. Moving it out also frees ~10-30ms of frame budget per interim, which directly improves pen latency while someone is speaking.
 
 ## Theming
 
@@ -277,6 +298,8 @@ commit `45a340e` (15+ classes swept).
   1. `editor.user.updateUserPreferences({ animationSpeed: 0 })` in `WhiteboardCanvas.onMount` (and the theme-applying useEffect) skips tldraw's default 1-frame ease on stroke commit. Strokes snap into place instead of fading in.
   2. `patches/tldraw+<version>.patch` rewrites `getFreehandOptions` constants for both `realPressureSettings` (stylus path, `isPen=true`) and `simulatePressureSettings` (finger/mouse fallback). Targets: `thinning` ~0.8 (strong pressure contrast), `streamline` ~0.4 (less smoothing, more direct), `smoothing` ~0.55, plus `start/end.taper` 25–30 for calligraphic tapered ends. Applied via `patch-package` on every `npm install` (postinstall hook). When tldraw upgrades: `rm -rf node_modules/tldraw && npm install` — if patch-package warns, edit the new version's `getPath.js` in `dist-cjs` + `dist-esm`, then `npx patch-package tldraw` to regenerate.
   3. Per-stroke local rendering is unconditionally optimistic — tldraw renders the line as you draw before sync ack. Network RTT does not gate the visible stroke.
+- **Captions on iOS**: all iOS browsers — Safari, Firefox, Chrome, Edge — are WKWebView wrappers and have no reliable `webkitSpeechRecognition`. The host's own voice can't be transcribed from an iPad or iPhone. `CaptionsManager` detects this on captions-enable and fires a one-time toast pointing the user to desktop or Android Chrome. Other participants on supported browsers still see their own captions broadcast; the iOS user receives them. Don't try to "fix" this with a polyfill — the platform doesn't expose the API.
+- **Captions performance**: caption state is held in `src/lib/captionsStore.ts`, NOT in RoomShell. Interim captions arrive 5-10× per second during active speech; if you put them into a top-level useState, every interim re-renders the whole room tree (header, drawers, etc.) and visibly degrades both perceived caption latency AND pen latency. New caption-adjacent UI should subscribe to the store via `useSyncExternalStore` (see `CaptionsHost.tsx`), not pass `captionLines` as props.
 - **Non-host default tool is hand**: in `WhiteboardCanvas.onMount` we call `editor.setCurrentTool("hand")` when `!isHost`. With `touch-action: none` on the canvas, a single-finger swipe goes to tldraw's gesture pipeline — defaulting students to the hand tool means a swipe pans rather than drawing a stray line. The host stays on `draw`. The student can still switch tools if they want to annotate.
 - **Toolbar active state**: globals.css forces a brand-blue background + white icon for the selected tool button (`[aria-pressed="true"]` / `[data-state="selected"]`). tldraw's default light-mode highlight was too subtle.
 - **Leader mode UI**: when on, the host sees a yellow "LEADING VIEW" pill top-right of the canvas, AND the eye icon in the toolbar gets a filled amber background with white icon (vs. a thin amber outline before). Guests being followed see the existing "Following host" pill.
