@@ -83,7 +83,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             onClick={() => dismiss(t.id)}
             className={`pointer-events-auto max-w-[min(420px,92vw)] rounded-md px-3 py-2 text-sm shadow-2xl border ${
               t.kind === "error"
-                ? "bg-red-600 border-red-700 text-white"
+                ? "bg-danger-600 border-danger-700 text-white"
                 : t.kind === "success"
                   ? "bg-emerald-600 border-emerald-700 text-white"
                   : "bg-[var(--bg-elev)] border-[color:var(--border)] text-[var(--text)]"

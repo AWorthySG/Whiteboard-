@@ -119,7 +119,7 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
               {active && pages.length > 1 && (
                 <button
                   onClick={() => removePage(page.id)}
-                  className="text-[var(--text-dim)] hover:text-red-600 text-xs px-1"
+                  className="text-[var(--text-dim)] hover:text-danger-600 text-xs px-1"
                   aria-label="Delete page"
                   title="Delete page"
                 >

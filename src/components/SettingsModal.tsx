@@ -231,7 +231,7 @@ export default function SettingsModal({
               onClick={() => {
                 window.location.href = "/";
               }}
-              className="w-full rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-danger-600 text-danger-700 hover:bg-danger-50 px-3 py-2 text-sm"
             >
               Leave room
             </button>

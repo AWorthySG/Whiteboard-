@@ -138,7 +138,7 @@ export default function AttachmentPicker({
         <button
           type="button"
           onClick={() => onChange(null)}
-          className="text-[var(--text-dim)] hover:text-red-600"
+          className="text-[var(--text-dim)] hover:text-danger-600"
           aria-label="Remove attachment"
           title="Remove attachment"
         >

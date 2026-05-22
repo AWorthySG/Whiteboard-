@@ -2,10 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Paper-and-ink palette inspired by Bear's identity (warm cream
-   canvas, Bear red as the single accent). Light mode is the only
-   theme — dark mode caused contrast issues across tldraw + LiveKit
-   + drawer overlays. */
+/* Paper-and-ink palette — warm cream canvas, deep forest teal as the
+   single calm accent, carmine red reserved for actual destructive
+   states (recording, end lesson). Light mode is the only theme —
+   dark mode caused contrast issues across tldraw + LiveKit + drawer
+   overlays. */
 :root {
   --bg: #ffffff;          /* page / surfaces */
   --bg-elev: #ffffff;     /* elevated cards */
@@ -18,9 +19,10 @@
   --border-subtle: rgba(60, 45, 25, 0.06);
   --border-strong: #ddd4bd;
   --hover: rgba(60, 45, 25, 0.05);
-  --accent: #d63a4f;      /* Bear red — buttons, links, active states */
-  --accent-soft: #fbe8eb;
-  /* Recording / destructive uses the same red — the brand IS red. */
+  --accent: #1f4b43;      /* deep forest teal — buttons, links, active */
+  --accent-soft: #e6efed;
+  --destructive: #b83e3e;     /* muted carmine — recording, end lesson */
+  --destructive-soft: #f8e6e6;
   --presence: #5a8f3d;    /* green dot for "online" */
 }
 
@@ -37,8 +39,10 @@ html.theme-light {
   --border-subtle: rgba(60, 45, 25, 0.06);
   --border-strong: #ddd4bd;
   --hover: rgba(60, 45, 25, 0.05);
-  --accent: #d63a4f;
-  --accent-soft: #fbe8eb;
+  --accent: #1f4b43;
+  --accent-soft: #e6efed;
+  --destructive: #b83e3e;
+  --destructive-soft: #f8e6e6;
   --presence: #5a8f3d;
 }
 

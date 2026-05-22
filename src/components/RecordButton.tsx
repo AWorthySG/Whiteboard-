@@ -344,10 +344,10 @@ export default function RecordButton({
     return (
       <button
         onClick={start}
-        className="touch-target text-sm rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+        className="touch-target text-sm rounded-md border border-danger-600 text-danger-700 hover:bg-danger-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
         title="Record this lesson — saves to cloud and downloads a backup MP4"
       >
-        <RecordIcon weight="fill" aria-hidden size={14} className="text-red-600" />
+        <RecordIcon weight="fill" aria-hidden size={14} className="text-danger-600" />
         <span className="hidden lg:inline">Record</span>
       </button>
     );
@@ -359,7 +359,7 @@ export default function RecordButton({
       <div className="flex items-center gap-1">
         <button
           onClick={stop}
-          className="touch-target text-sm rounded-md bg-red-600 hover:bg-red-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+          className="touch-target text-sm rounded-md bg-danger-600 hover:bg-danger-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
           title="Stop and upload"
         >
           <span
@@ -405,7 +405,7 @@ export default function RecordButton({
     >
       <span
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-0.5 bg-red-600 transition-[width] duration-300"
+        className="absolute inset-x-0 bottom-0 h-0.5 bg-danger-600 transition-[width] duration-300"
         style={{ width: `${Math.max(2, uploadPct)}%` }}
       />
       <span className="inline-block w-3 h-3 rounded-full border-2 border-[color:var(--border)] border-t-[var(--text)] animate-spin" />

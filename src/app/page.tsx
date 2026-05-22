@@ -229,7 +229,7 @@ export default function Home() {
                   </span>
                   <button
                     onClick={() => removeRoomFromRecents(r.roomId)}
-                    className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-red-600 text-xs px-1"
+                    className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-danger-600 text-xs px-1"
                     aria-label="Remove from recent rooms"
                     title="Remove from recent"
                   >

@@ -21,8 +21,8 @@ export default function ConfirmButton({
 }) {
   const { armed, trigger } = useConfirmAction(onConfirm);
   const armedCls = armed
-    ? "text-red-700 font-medium"
-    : "text-[var(--text-dim)] hover:text-red-600";
+    ? "text-danger-700 font-medium"
+    : "text-[var(--text-dim)] hover:text-danger-600";
   return (
     <button
       onClick={trigger}

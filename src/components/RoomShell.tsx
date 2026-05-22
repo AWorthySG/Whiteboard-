@@ -723,10 +723,10 @@ export default function RoomShell({
                 />
                 <button
                   onClick={() => setEndLessonOpen(true)}
-                  className="touch-target text-[13px] rounded-md border border-[color:var(--accent)] text-[color:var(--accent)] hover:bg-[var(--accent-soft)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 font-medium"
+                  className="touch-target text-[13px] rounded-md border border-[color:var(--destructive)] text-[color:var(--destructive)] hover:bg-[var(--destructive-soft)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 font-medium"
                   title="End the lesson — exports the whiteboard as a PDF, shares it in the room chat, and leaves the room"
                 >
-                  <span className="w-2 h-2 rounded-full bg-[color:var(--accent)]" />
+                  <span className="w-2 h-2 rounded-full bg-[color:var(--destructive)]" />
                   <span className="hidden lg:inline">End lesson</span>
                 </button>
               </>

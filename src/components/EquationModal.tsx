@@ -148,7 +148,7 @@ export default function EquationModal({ open, onClose, onInsert }: Props) {
             <label className="text-xs text-[var(--text-muted)]">Preview</label>
             <div className="mt-1 rounded-md bg-white border border-[color:var(--border)] p-4 min-h-[80px] flex items-center justify-center overflow-x-auto">
               {previewErr ? (
-                <span className="text-red-500 text-sm">{previewErr}</span>
+                <span className="text-danger-500 text-sm">{previewErr}</span>
               ) : previewSvg ? (
                 <img
                   src={previewSvg}

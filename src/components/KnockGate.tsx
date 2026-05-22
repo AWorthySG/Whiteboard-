@@ -197,7 +197,7 @@ export default function KnockGate({
         )}
         {status === "error" && (
           <>
-            <h2 className="text-lg font-semibold text-red-700">
+            <h2 className="text-lg font-semibold text-danger-700">
               Couldn't request to join
             </h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">{error}</p>

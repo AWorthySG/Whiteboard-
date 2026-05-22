@@ -142,7 +142,7 @@ export default function ChatBubble({
         {unread > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-[10px] font-semibold px-1 flex items-center justify-center text-[var(--text)] border border-[var(--bg)]"
+            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-danger-600 text-[10px] font-semibold px-1 flex items-center justify-center text-white border border-[var(--bg)]"
           >
             {unread > 99 ? "99+" : unread}
           </span>

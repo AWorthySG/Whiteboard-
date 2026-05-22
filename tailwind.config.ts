@@ -5,16 +5,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Bear-red brand palette. The system uses red as both the
-        // brand accent AND the recording/destructive state — they
-        // share the same value by design (see CLAUDE.md / handoff).
+        // Deep forest teal — primary accent. Calm against the warm
+        // cream canvas; used for Invite, New page, Show video, host
+        // badge, and any "draw attention without alarm" surface.
         brand: {
-          50: "#fdf2f4",
-          100: "#fbe8eb",
-          500: "#e0566a",
-          600: "#d63a4f",
-          700: "#b32a3d",
-          900: "#7a1a28",
+          50: "#eef4f3",
+          100: "#dceae7",
+          500: "#3a716a",
+          600: "#1f4b43",
+          700: "#163730",
+          900: "#0c211c",
+        },
+        // Muted carmine — destructive only. Used by End lesson and
+        // the active recording state. Distinct from brand so the eye
+        // can tell "do this" apart from "careful, this changes state".
+        danger: {
+          50: "#fdf2f2",
+          100: "#f8e6e6",
+          500: "#cc5757",
+          600: "#b83e3e",
+          700: "#962d2d",
+          900: "#5d1c1c",
         },
       },
       fontFamily: {

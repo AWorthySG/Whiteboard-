@@ -454,7 +454,7 @@ export default function HomeworkDrawer({
                             </span>
                             <button
                               onClick={() => removeSubmission(s.id)}
-                              className="text-[var(--text-dim)] hover:text-red-600 inline-flex"
+                              className="text-[var(--text-dim)] hover:text-danger-600 inline-flex"
                               title="Remove submission"
                               aria-label="Remove submission"
                             >
@@ -552,7 +552,7 @@ function SubmissionFeedback({
         </button>
         <button
           onClick={() => onSet(null)}
-          className="text-[var(--text-dim)] hover:text-red-600"
+          className="text-[var(--text-dim)] hover:text-danger-600"
           title="Clear feedback"
         >
           Clear

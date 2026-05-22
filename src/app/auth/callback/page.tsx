@@ -42,7 +42,7 @@ function Inner() {
     return (
       <main className="min-h-[100dvh] flex items-center justify-center px-4">
         <div className="rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] p-6 text-center">
-          <p className="text-red-700 font-medium">Sign-in failed</p>
+          <p className="text-danger-700 font-medium">Sign-in failed</p>
           <p className="text-xs text-[var(--text-muted)] mt-1">{error}</p>
         </div>
       </main>

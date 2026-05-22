@@ -92,7 +92,7 @@ export default function VideoPanel({
 
   if (error) {
     return (
-      <div role="alert" className="p-4 text-sm text-red-700">
+      <div role="alert" className="p-4 text-sm text-danger-700">
         Couldn't connect to video: {error}
         <p className="mt-2 text-[var(--text-dim)]">
           Make sure{" "}
@@ -505,7 +505,7 @@ function RoomCoordinatorBar({
           label="Leave call"
           icon={<SignOut weight="fill" />}
           onClick={onLeave}
-          className="bg-red-600 text-white border-red-600 hover:bg-red-500"
+          className="bg-danger-600 text-white border-danger-600 hover:bg-danger-500"
           collapseTextBelow="sm"
         />
       </div>
