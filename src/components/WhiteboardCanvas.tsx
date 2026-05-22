@@ -316,10 +316,16 @@ export default function WhiteboardCanvas({
 
   // tldraw is locked to light mode — dark mode caused contrast issues
   // and was removed app-wide.
+  // animationSpeed: 0 skips tldraw's default 1-frame ease on stroke
+  // commit so the drawn line snaps into place instantly — most users
+  // describe it as "feeling more direct" on Apple Pencil.
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
-    editor.user.updateUserPreferences({ colorScheme: "light" });
+    editor.user.updateUserPreferences({
+      colorScheme: "light",
+      animationSpeed: 0,
+    });
   }, []);
 
   // Apply the user's palm-rejection preference. tldraw stores pen mode on
@@ -566,7 +572,10 @@ export default function WhiteboardCanvas({
           onMount={(editor) => {
             editorRef.current = editor;
             if (editorOutRef) editorOutRef.current = editor;
-            editor.user.updateUserPreferences({ colorScheme: "light" });
+            editor.user.updateUserPreferences({
+              colorScheme: "light",
+              animationSpeed: 0,
+            });
             // Default stroke thickness — tldraw's "m" (medium) felt too
             // thick under stylus pressure on iPad/Apple Pencil. Drop to
             // "s" (small) so pressure modulation produces a natural
