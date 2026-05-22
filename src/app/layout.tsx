@@ -31,6 +31,10 @@ export const viewport: Viewport = {
   // Disable page-level pinch-zoom so two-finger gestures reach tldraw's
   // own pan/zoom handler instead of zooming the whole page.
   userScalable: false,
+  // Lets the room paint behind the iPhone notch / Dynamic Island in
+  // landscape PWA mode. Pairs with the safe-area-inset paddings in
+  // globals.css so interactive UI doesn't slide under the cutout.
+  viewportFit: "cover",
   themeColor: "#f5f6f9",
 };
 
@@ -67,6 +71,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {PRECONNECT_ORIGINS.map((origin) => (
           <link key={`dns-${origin}`} rel="dns-prefetch" href={origin} />
         ))}
+        {/* iOS uses these directly when adding to home screen — the
+            manifest icon list alone isn't enough on Safari. 180px is
+            the rendered home-screen size; the other two cover iPad
+            Pro and pinned-tab cases. */}
+        <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
+        <link rel="apple-touch-icon" sizes="167x167" href="/icon-167.png" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png" />
       </head>
       <body>
         {/* Telegram WebApp SDK — only does anything when the page is

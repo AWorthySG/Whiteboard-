@@ -11,6 +11,30 @@
   "categories": ["education", "productivity"],
   "icons": [
     {
+      "src": "/icon-152.png",
+      "type": "image/png",
+      "sizes": "152x152",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-167.png",
+      "type": "image/png",
+      "sizes": "167x167",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-180.png",
+      "type": "image/png",
+      "sizes": "180x180",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
       "src": "/icon.png",
       "type": "image/png",
       "sizes": "512x512",
