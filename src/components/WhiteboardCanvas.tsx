@@ -1151,7 +1151,7 @@ function CanvasWatermark() {
         style={{
           width: "min(40vw, 480px)",
           height: "min(40vw, 480px)",
-          opacity: 0.06,
+          opacity: 0.14,
           objectFit: "contain",
         }}
       />

@@ -407,15 +407,23 @@ export default function RoomShell({
 
   const room = (
     <div className="h-app w-screen flex flex-col">
-      <header className="flex items-start md:items-center gap-2 px-3 sm:px-4 py-2 bg-[var(--bg-elev)] border-b border-[color:var(--border-subtle)] z-10 safe-pt">
+      <header className="flex items-start md:items-center gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
         <Link
           href="/"
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
           title="Back to home"
         >
-          <BrandLogo size={80} priority className="rounded-xl" />
-          <span className="hidden sm:inline text-xl font-semibold">A Worthy</span>
+          <BrandLogo size={32} priority className="rounded-md" />
+          <span className="hidden sm:inline text-[15px] font-extrabold tracking-tight leading-none">
+            A Worthy
+          </span>
         </Link>
+
+        {/* Vertical divider — visual rhythm between sections */}
+        <span
+          aria-hidden
+          className="hidden sm:block w-px h-6 bg-[var(--border)] shrink-0"
+        />
 
         {/* Top-left 'New page' action — host-only since only the host
             should be creating pages mid-lesson. One click spawns a
@@ -430,7 +438,7 @@ export default function RoomShell({
                 toast.error(`Couldn't add page: ${(e as Error).message}`);
               }
             }}
-            className="touch-target shrink-0 text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 flex items-center gap-1.5"
+            className="touch-target shrink-0 text-[13px] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 py-1 flex items-center gap-1.5 font-medium"
             title="Add a new blank page to this whiteboard"
           >
             <span className="text-base leading-none">+</span>
@@ -445,7 +453,7 @@ export default function RoomShell({
           <div ref={pagesMenuRef} className="relative shrink-0">
             <button
               onClick={() => setPagesMenuOpen((o) => !o)}
-              className="touch-target text-sm rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+              className="touch-target text-[13px] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 flex items-center gap-1.5 font-medium"
               title="Switch pages"
               aria-haspopup="listbox"
               aria-expanded={pagesMenuOpen}
@@ -518,10 +526,18 @@ export default function RoomShell({
           </div>
         )}
 
-        <span className="text-[var(--text-dim)] hidden sm:inline">/</span>
-
-        {/* Lesson title (editable by host) */}
-        <div className="min-w-0 flex-1 sm:flex-none sm:max-w-[20rem]">
+        {/* Breadcrumb-style title path. The 'Lessons' crumb + the
+            chevron + the editable title + a mono-font room id read
+            as one connected string, matching the design's header
+            information hierarchy. */}
+        <div className="min-w-0 flex-1 sm:flex-none flex items-center gap-1.5 sm:gap-2 text-[13px] text-[var(--text-muted)] sm:max-w-[28rem]">
+          <span className="hidden sm:inline">Lessons</span>
+          <CaretDown
+            aria-hidden
+            size={10}
+            weight="bold"
+            className="hidden sm:inline -rotate-90 text-[var(--text-dim)]"
+          />
           {isHost && editingTitle ? (
             <input
               autoFocus
@@ -533,7 +549,7 @@ export default function RoomShell({
                 if (e.key === "Escape") setEditingTitle(false);
               }}
               placeholder={roomId}
-              className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1 text-sm outline-none focus:border-brand-500"
+              className="min-w-0 flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-0.5 text-[13px] outline-none focus:border-brand-500"
             />
           ) : (
             <button
@@ -542,28 +558,31 @@ export default function RoomShell({
                 setTitleDraft(meta.title);
                 setEditingTitle(true);
               }}
-              className={`truncate block w-full text-left text-sm sm:text-base ${
-                isHost ? "cursor-text hover:text-[var(--text)]" : "cursor-default"
-              } text-[var(--text)]`}
+              className={`truncate min-w-0 text-left font-semibold text-[var(--text)] text-[13px] sm:text-[14px] ${
+                isHost ? "cursor-text hover:underline decoration-dotted" : "cursor-default"
+              }`}
               title={isHost ? "Click to rename" : headerTitle}
             >
               {headerTitle}
             </button>
           )}
+          {/* Room id chip — mono font + faint, matches the design's
+              'neat-comet-815' breadcrumb terminal. Tablet+ only;
+              phones don't have the horizontal room. */}
+          <span className="hidden lg:inline font-mono text-[11px] text-[var(--text-dim)] tabular-nums">
+            {roomId}
+          </span>
         </div>
 
         {isHost && (
           <span
-            className="text-[10px] uppercase tracking-wider bg-brand-100 text-brand-800 px-1.5 py-0.5 rounded shrink-0 inline-flex items-center gap-1"
+            className="text-[10px] uppercase tracking-wider bg-[var(--accent-soft)] text-[color:var(--accent)] px-1.5 py-0.5 rounded-full shrink-0 inline-flex items-center gap-1 font-bold"
             title="You're the host of this room"
           >
             <span
               aria-hidden
-              className="w-1.5 h-1.5 rounded-full bg-brand-700"
+              className="w-1.5 h-1.5 rounded-full bg-[color:var(--accent)]"
             />
-            {/* Hide the word on phones — the dot + the rest of the
-                host-only UI is plenty of signal, freeing ~32 px in
-                the very tight header row. */}
             <span className="hidden sm:inline">Host</span>
           </span>
         )}
@@ -588,7 +607,10 @@ export default function RoomShell({
             Display-name input only appears at xl (≥1280px) — it's
             available in the Settings panel on smaller screens. */}
         <div className="ml-auto hidden md:flex flex-col items-end gap-1.5">
-          {/* Row 1 — content shelves + Record */}
+          {/* Row 1 — content shelves (Documents / Homework / Recordings)
+              grouped between dividers, then Record on the far right
+              so the destructive-leaning action visually separates from
+              the navigation cluster. */}
           <div className="flex items-center gap-1.5 lg:gap-2">
             <input
               value={name}
@@ -612,23 +634,36 @@ export default function RoomShell({
               icon={<PlaySvg />}
             />
             {isHost && (
-              <RecordButton
-                roomId={roomId}
-                hostUserId={userId}
-                hostName={name || "Host"}
-                roomTitle={meta.title}
-                onRecordingStarted={whiteboardRecorder.start}
-                onRecordingFinished={whiteboardRecorder.finish}
-              />
+              <>
+                <span
+                  aria-hidden
+                  className="w-px h-6 bg-[var(--border)] mx-0.5"
+                />
+                <RecordButton
+                  roomId={roomId}
+                  hostUserId={userId}
+                  hostName={name || "Host"}
+                  roomTitle={meta.title}
+                  onRecordingStarted={whiteboardRecorder.start}
+                  onRecordingFinished={whiteboardRecorder.finish}
+                />
+              </>
             )}
           </div>
-          {/* Row 2 — meta actions */}
+          {/* Row 2 — meta actions. Captions / Video / Settings cluster
+              between dividers; Invite is the primary brand action; End
+              lesson is the destructive terminal action so it sits at
+              the far right where the user already looks for "leave". */}
           <div className="flex items-center gap-1.5 lg:gap-2">
             <HeaderBtn
               onClick={exportCanvas}
               label="Export"
               title="Export the canvas as a PNG file"
               icon={<DownloadSvg />}
+            />
+            <span
+              aria-hidden
+              className="w-px h-6 bg-[var(--border)] mx-0.5"
             />
             <HeaderBtn
               onClick={() => setInviteOpen(true)}
@@ -681,14 +716,20 @@ export default function RoomShell({
               <GearSvg />
             </IconBtn>
             {isHost && (
-              <button
-                onClick={() => setEndLessonOpen(true)}
-                className="touch-target text-sm rounded-md border border-red-600 text-red-700 hover:bg-red-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
-                title="End the lesson — exports the whiteboard as a PDF, shares it in the room chat, and leaves the room"
-              >
-                <span className="w-2 h-2 rounded-full bg-red-600" />
-                <span className="hidden lg:inline">End lesson</span>
-              </button>
+              <>
+                <span
+                  aria-hidden
+                  className="w-px h-6 bg-[var(--border)] mx-0.5"
+                />
+                <button
+                  onClick={() => setEndLessonOpen(true)}
+                  className="touch-target text-[13px] rounded-md border border-[color:var(--accent)] text-[color:var(--accent)] hover:bg-[var(--accent-soft)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 font-medium"
+                  title="End the lesson — exports the whiteboard as a PDF, shares it in the room chat, and leaves the room"
+                >
+                  <span className="w-2 h-2 rounded-full bg-[color:var(--accent)]" />
+                  <span className="hidden lg:inline">End lesson</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1084,7 +1125,7 @@ function HeaderBtn({
       onClick={onClick}
       title={title ?? label}
       aria-label={label}
-      className="touch-target text-sm rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+      className="touch-target text-[13px] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 flex items-center gap-1.5 font-medium text-[var(--text)]"
     >
       {icon}
       <span className="hidden lg:inline">{label}</span>
