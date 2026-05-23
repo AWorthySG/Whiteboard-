@@ -178,6 +178,8 @@ export default function WhiteboardCanvas({
   onToggleLeader,
   exportRef,
   addPageRef,
+  openEquationRef,
+  openUploadRef,
   onPagesChange,
   switchPageRef,
   pageThumbnailRef,
@@ -193,6 +195,12 @@ export default function WhiteboardCanvas({
   onToggleLeader: () => void | Promise<void>;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
   addPageRef?: MutableRefObject<(() => void) | null>;
+  // Lets the parent (RoomShell → LeftRail) trigger the in-canvas
+  // Equation modal + the document upload picker without having to
+  // lift either piece of state out of WhiteboardCanvas. Mirrors the
+  // existing addPageRef pattern.
+  openEquationRef?: MutableRefObject<(() => void) | null>;
+  openUploadRef?: MutableRefObject<(() => void) | null>;
   /** Lets the parent shell reach the live Editor instance — used by
    *  the End Lesson modal to render every page into a PDF. Set on
    *  mount, cleared on unmount. */
@@ -419,6 +427,23 @@ export default function WhiteboardCanvas({
       if (addPageRef.current) addPageRef.current = null;
     };
   }, [addPageRef]);
+
+  // Expose equation + upload triggers to the LeftRail (rendered by
+  // RoomShell, outside this component's tree). Mirrors addPageRef.
+  useEffect(() => {
+    if (!openEquationRef) return;
+    openEquationRef.current = () => setEquationOpen(true);
+    return () => {
+      if (openEquationRef.current) openEquationRef.current = null;
+    };
+  }, [openEquationRef]);
+  useEffect(() => {
+    if (!openUploadRef) return;
+    openUploadRef.current = () => openFilePicker(runUpload);
+    return () => {
+      if (openUploadRef.current) openUploadRef.current = null;
+    };
+  }, [openUploadRef, runUpload]);
 
   // Expose a page-thumbnail renderer. Generates a low-res PNG data URL
   // of every shape on the requested page using tldraw's exportToImage,

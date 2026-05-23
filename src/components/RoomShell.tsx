@@ -25,6 +25,8 @@ const RecordButton = dynamic(() => import("./RecordButton"), { ssr: false });
 const RecordingIndicator = dynamic(() => import("./RecordingIndicator"), {
   ssr: false,
 });
+const SubNav = dynamic(() => import("./SubNav"), { ssr: false });
+const LeftRail = dynamic(() => import("./LeftRail"), { ssr: false });
 const InvitePanel = dynamic(() => import("./InvitePanel"), { ssr: false });
 const OnboardingHint = dynamic(() => import("./OnboardingHint"), { ssr: false });
 const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
@@ -130,6 +132,8 @@ export default function RoomShell({
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
   const canvasAddPageRef = useRef<(() => void) | null>(null);
   const canvasSwitchPageRef = useRef<((pageId: string) => void) | null>(null);
+  const canvasOpenEquationRef = useRef<(() => void) | null>(null);
+  const canvasOpenUploadRef = useRef<(() => void) | null>(null);
   const canvasPageThumbnailRef = useRef<
     ((pageId: string) => Promise<string | null>) | null
   >(null);
@@ -621,10 +625,10 @@ export default function RoomShell({
             Display-name input only appears at xl (≥1280px) — it's
             available in the Settings panel on smaller screens. */}
         <div className="ml-auto hidden md:flex flex-col items-end gap-1.5">
-          {/* Row 1 — content shelves (Documents / Homework / Recordings)
-              grouped between dividers, then Record on the far right
-              so the destructive-leaning action visually separates from
-              the navigation cluster. */}
+          {/* Row 1 — Display name + Record. Documents / Homework /
+              Recordings moved to the SubNav tab strip below the
+              header (Phase 3), so this row is now just the host's
+              display name + the recording entry point. */}
           <div className="flex items-center gap-1.5 lg:gap-2">
             <input
               value={name}
@@ -632,37 +636,16 @@ export default function RoomShell({
               placeholder="Display name"
               className="hidden xl:block rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1 text-sm w-32 outline-none focus:border-brand-500"
             />
-            <HeaderBtn
-              onClick={() => setDocsOpen(true)}
-              label="Documents"
-              icon={<DocsSvg />}
-            />
-            <HeaderBtn
-              onClick={() => setHwOpen(true)}
-              label="Homework"
-              icon={<HomeworkSvg />}
-            />
-            <HeaderBtn
-              onClick={() => setRecsOpen(true)}
-              label="Recordings"
-              icon={<PlaySvg />}
-            />
             {isHost && (
-              <>
-                <span
-                  aria-hidden
-                  className="w-px h-6 bg-[var(--border)] mx-0.5"
-                />
-                <RecordButton
-                  roomId={roomId}
-                  hostUserId={userId}
-                  hostName={name || "Host"}
-                  roomTitle={meta.title}
-                  onRecordingStarted={whiteboardRecorder.start}
-                  onRecordingFinished={whiteboardRecorder.finish}
-                  onStateChange={onRecorderStateChange}
-                />
-              </>
+              <RecordButton
+                roomId={roomId}
+                hostUserId={userId}
+                hostName={name || "Host"}
+                roomTitle={meta.title}
+                onRecordingStarted={whiteboardRecorder.start}
+                onRecordingFinished={whiteboardRecorder.finish}
+                onStateChange={onRecorderStateChange}
+              />
             )}
           </div>
           {/* Row 2 — meta actions. Captions / Video / Settings cluster
@@ -813,7 +796,25 @@ export default function RoomShell({
         </div>
       </header>
 
+      <SubNav
+        onOpenDocuments={() => setDocsOpen(true)}
+        onOpenHomework={() => setHwOpen(true)}
+        onOpenRecordings={() => setRecsOpen(true)}
+      />
+
       <div className="flex-1 min-h-0 relative flex flex-col md:flex-row">
+        {/* Phase 4 vertical tool rail — desktop only. The canvas
+            naturally shrinks to fit because LeftRail is a flex
+            sibling, not an overlay. tldraw's bottom toolbar is
+            hidden at md+ via globals.css [data-rail-active]. */}
+        <LeftRail
+          editor={canvasEditorRef.current}
+          isHost={isHost}
+          leaderMode={meta.leaderMode}
+          onToggleLeader={() => setLeaderMode(!meta.leaderMode, userId)}
+          onUpload={() => canvasOpenUploadRef.current?.()}
+          onEquation={() => canvasOpenEquationRef.current?.()}
+        />
         <div className="relative flex-1 min-w-0 min-h-0">
           {/* Recording state overlay — red inset border + REC badge.
               Mounts above the canvas (pointer-events: none) so it
@@ -880,6 +881,8 @@ export default function RoomShell({
             }}
             exportRef={canvasExportRef}
             addPageRef={canvasAddPageRef}
+            openEquationRef={canvasOpenEquationRef}
+            openUploadRef={canvasOpenUploadRef}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}
@@ -1199,23 +1202,6 @@ function MenuSvg() {
     </svg>
   );
 }
-function DocsSvg() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-    </svg>
-  );
-}
-function HomeworkSvg() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 11h6M9 15h4" />
-      <rect x="4" y="4" width="16" height="16" rx="2" />
-      <path d="M9 4v4h6V4" />
-    </svg>
-  );
-}
 function DownloadSvg() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1236,14 +1222,6 @@ function ShareSvg() {
     </svg>
   );
 }
-function PlaySvg() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="6 4 20 12 6 20 6 4" />
-    </svg>
-  );
-}
-
 function CaptionsSvg() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

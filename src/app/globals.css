@@ -57,6 +57,18 @@ body,
     -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+/* Phase 4: hide tldraw's native bottom toolbar at md+ since we
+   render our own LeftRail there. Phones (<md) keep the native
+   toolbar because the left rail would eat too much screen width
+   on a thumb-sized display. The keyboard shortcuts (d, h, b, etc.)
+   keep working in both modes because tldraw still mounts the
+   toolbar internally — we're just hiding it visually. */
+@media (min-width: 768px) {
+  .tlui-toolbar {
+    display: none !important;
+  }
+}
+
 /* Match tldraw's own theme attribute to our setting, so the canvas
    toolbar swaps colors with the rest of the app. */
 html[data-theme="light"] .tl-container,
