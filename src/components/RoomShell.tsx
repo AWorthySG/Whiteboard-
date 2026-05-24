@@ -425,7 +425,7 @@ export default function RoomShell({
 
   const room = (
     <div className="h-app w-screen flex flex-col">
-      <header className="flex items-start md:items-center gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
+      <header className="flex items-start lg:items-center gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
         <Link
           href="/"
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
@@ -624,7 +624,7 @@ export default function RoomShell({
               Row 2: Export | Invite | Hide/Show video | Settings
             Display-name input only appears at xl (≥1280px) — it's
             available in the Settings panel on smaller screens. */}
-        <div className="ml-auto hidden md:flex flex-col items-end gap-1.5">
+        <div className="ml-auto hidden lg:flex flex-col items-end gap-1.5">
           {/* Row 1 — Display name + Record. Documents / Homework /
               Recordings moved to the SubNav tab strip below the
               header (Phase 3), so this row is now just the host's
@@ -733,7 +733,7 @@ export default function RoomShell({
         </div>
 
         {/* Mobile controls */}
-        <div className="ml-auto flex md:hidden items-center gap-1 shrink-0">
+        <div className="ml-auto flex lg:hidden items-center gap-1 shrink-0">
           <IconBtn
             onClick={() => setVideoOpen((v) => !v)}
             label={videoOpen ? "Hide video" : "Show video"}
