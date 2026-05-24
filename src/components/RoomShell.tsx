@@ -27,6 +27,7 @@ const RecordingIndicator = dynamic(() => import("./RecordingIndicator"), {
 });
 const SubNav = dynamic(() => import("./SubNav"), { ssr: false });
 const LeftRail = dynamic(() => import("./LeftRail"), { ssr: false });
+const LessonTimer = dynamic(() => import("./LessonTimer"), { ssr: false });
 const InvitePanel = dynamic(() => import("./InvitePanel"), { ssr: false });
 const OnboardingHint = dynamic(() => import("./OnboardingHint"), { ssr: false });
 const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
@@ -126,7 +127,13 @@ export default function RoomShell({
       window.localStorage.setItem(VIDEO_WIDTH_KEY, String(n));
     } catch {}
   };
-  const { meta, setTitle, setLeaderMode, setDrawGrant } = useRoomMeta(roomId);
+  const { meta, setTitle, setLeaderMode, setDrawGrant, setTimer } =
+    useRoomMeta(roomId);
+  // Host-local view toggle: hide every student-drawn shape from the
+  // host's own canvas without deleting it (per-client visibility, see
+  // WhiteboardCanvas getShapeVisibility). Not synced — it's a private
+  // "let me see my clean board" control for the tutor.
+  const [annotationsHidden, setAnnotationsHidden] = useState(false);
   const toast = useToast();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
@@ -811,6 +818,8 @@ export default function RoomShell({
           editor={canvasEditorRef.current}
           isHost={isHost}
           leaderMode={meta.leaderMode}
+          annotationsHidden={annotationsHidden}
+          onToggleAnnotations={() => setAnnotationsHidden((v) => !v)}
           onToggleLeader={() => setLeaderMode(!meta.leaderMode, userId)}
           onUpload={() => canvasOpenUploadRef.current?.()}
           onEquation={() => canvasOpenEquationRef.current?.()}
@@ -876,6 +885,7 @@ export default function RoomShell({
             leaderMode={meta.leaderMode}
             leaderUserId={meta.leaderUserId}
             drawGrantUserId={meta.drawGrantUserId}
+            hideStudentAnnotations={annotationsHidden}
             onToggleLeader={async () => {
               await setLeaderMode(!meta.leaderMode, userId);
             }}
@@ -887,6 +897,11 @@ export default function RoomShell({
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}
             onPagesChange={setPagesState}
+          />
+          <LessonTimer
+            timer={meta.timer}
+            isHost={isHost}
+            onChange={setTimer}
           />
         </div>
 

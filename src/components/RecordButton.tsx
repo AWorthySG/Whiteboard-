@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  CaretDown,
   Pause,
   Play,
   Record as RecordIcon,
@@ -77,6 +78,8 @@ export default function RecordButton({
   }, [state, onStateChange]);
   const [elapsed, setElapsed] = useState(0);
   const [uploadPct, setUploadPct] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -105,6 +108,15 @@ export default function RecordButton({
     }, 1000);
     return () => clearInterval(id);
   }, [state]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, [menuOpen]);
 
   const togglePause = () => {
     const rec = recorderRef.current;
@@ -230,7 +242,14 @@ export default function RecordButton({
     }
   };
 
-  const start = async () => {
+  // preferTab biases the OS picker toward the current browser tab, so a
+  // one-click "record the whiteboard" captures the canvas (+ the tab's
+  // audio, which includes remote LiveKit participants playing in-page)
+  // without the host hunting through the window list. preferCurrentTab
+  // is a Chromium hint; other browsers ignore it and fall back to the
+  // normal picker, so this degrades safely.
+  const start = async (preferTab = false) => {
+    setMenuOpen(false);
     if (!recordingSupported()) {
       toast.error(
         "Screen recording isn't supported on this browser. Try Chrome, Edge, or Firefox on desktop.",
@@ -238,10 +257,15 @@ export default function RecordButton({
       return;
     }
     try {
-      const display = await navigator.mediaDevices.getDisplayMedia({
+      const constraints: DisplayMediaStreamOptions & {
+        preferCurrentTab?: boolean;
+      } = {
         video: { frameRate: 30 },
         audio: true,
-      });
+      };
+      if (preferTab) constraints.preferCurrentTab = true;
+      const display =
+        await navigator.mediaDevices.getDisplayMedia(constraints);
       let combined = display;
       try {
         const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -355,14 +379,45 @@ export default function RecordButton({
       );
     }
     return (
-      <button
-        onClick={start}
-        className="touch-target text-sm rounded-md border border-danger-600 text-danger-700 hover:bg-danger-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
-        title="Record this lesson — saves to cloud and downloads a backup MP4"
-      >
-        <RecordIcon weight="fill" aria-hidden size={14} className="text-danger-600" />
-        <span className="hidden lg:inline">Record</span>
-      </button>
+      <div ref={menuRef} className="relative flex items-center">
+        {/* Primary: record the whiteboard tab itself (the canvas). */}
+        <button
+          onClick={() => start(true)}
+          className="touch-target text-sm rounded-l-md border border-danger-600 text-danger-700 hover:bg-danger-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+          title="Record the whiteboard — captures this tab plus everyone's audio, saves to the cloud, and downloads a backup"
+        >
+          <RecordIcon weight="fill" aria-hidden size={14} className="text-danger-600" />
+          <span className="hidden lg:inline">Record</span>
+        </button>
+        {/* Caret: pick what to capture (whiteboard tab vs full screen). */}
+        <button
+          onClick={() => setMenuOpen((o) => !o)}
+          className="touch-target text-sm rounded-r-md border border-l-0 border-danger-600 text-danger-700 hover:bg-danger-50 px-1.5 py-1 flex items-center"
+          aria-label="Recording options"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          title="Recording options"
+        >
+          <CaretDown aria-hidden size={12} weight="bold" />
+        </button>
+        {menuOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-full mt-1 w-60 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-1 z-50"
+          >
+            <RecordModeItem
+              onClick={() => start(true)}
+              title="Record whiteboard"
+              subtitle="This tab — the canvas and call audio"
+            />
+            <RecordModeItem
+              onClick={() => start(false)}
+              title="Record screen or window…"
+              subtitle="Pick any screen, window, or tab"
+            />
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -425,6 +480,27 @@ export default function RecordButton({
       <span className="tabular-nums">
         {uploadPct > 0 ? `${uploadPct}%` : "Saving…"}
       </span>
+    </button>
+  );
+}
+
+function RecordModeItem({
+  onClick,
+  title,
+  subtitle,
+}: {
+  onClick: () => void;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <button
+      role="menuitem"
+      onClick={onClick}
+      className="w-full text-left rounded-md px-2 py-1.5 hover:bg-[var(--hover)]"
+    >
+      <div className="text-sm text-[var(--text)]">{title}</div>
+      <div className="text-xs text-[var(--text-muted)]">{subtitle}</div>
     </button>
   );
 }

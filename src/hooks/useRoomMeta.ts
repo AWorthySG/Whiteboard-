@@ -3,6 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 
+// Lesson timer shared across all participants. durationMs === null means
+// no timer is set (widget hidden for students). While running, remaining
+// time is derived from endsAt; while paused it's frozen in remainingMs.
+export type TimerState = {
+  running: boolean;
+  endsAt: number | null; // epoch ms
+  remainingMs: number | null;
+  durationMs: number | null;
+};
+
+export const TIMER_OFF: TimerState = {
+  running: false,
+  endsAt: null,
+  remainingMs: null,
+  durationMs: null,
+};
+
 export type RoomMeta = {
   title: string;
   leaderMode: boolean;
@@ -12,6 +29,7 @@ export type RoomMeta = {
   // to 'hand' on canvas mount. Persists across reloads (lives in
   // room_metadata) so the student keeps drawing even on a refresh.
   drawGrantUserId: string | null;
+  timer: TimerState;
 };
 
 const DEFAULT: RoomMeta = {
@@ -19,6 +37,7 @@ const DEFAULT: RoomMeta = {
   leaderMode: false,
   leaderUserId: null,
   drawGrantUserId: null,
+  timer: TIMER_OFF,
 };
 
 type Row = {
@@ -26,6 +45,10 @@ type Row = {
   leader_mode: boolean | null;
   leader_user_id: string | null;
   draw_grant_user_id: string | null;
+  timer_running: boolean | null;
+  timer_ends_at: string | null;
+  timer_remaining_ms: number | null;
+  timer_duration_ms: number | null;
 };
 
 export function useRoomMeta(roomId: string): {
@@ -33,6 +56,7 @@ export function useRoomMeta(roomId: string): {
   setTitle: (title: string) => Promise<void>;
   setLeaderMode: (on: boolean, leaderUserId: string | null) => Promise<void>;
   setDrawGrant: (userId: string | null) => Promise<void>;
+  setTimer: (timer: TimerState) => Promise<void>;
 } {
   const [meta, setMeta] = useState<RoomMeta>(DEFAULT);
 
@@ -56,6 +80,14 @@ export function useRoomMeta(roomId: string): {
         leaderMode: row?.leader_mode ?? false,
         leaderUserId: row?.leader_user_id ?? null,
         drawGrantUserId: row?.draw_grant_user_id ?? null,
+        timer: {
+          running: row?.timer_running ?? false,
+          endsAt: row?.timer_ends_at
+            ? new Date(row.timer_ends_at).getTime()
+            : null,
+          remainingMs: row?.timer_remaining_ms ?? null,
+          durationMs: row?.timer_duration_ms ?? null,
+        },
       });
     };
     void fetchMeta();
@@ -128,5 +160,27 @@ export function useRoomMeta(roomId: string): {
     [roomId],
   );
 
-  return { meta, setTitle, setLeaderMode, setDrawGrant };
+  const setTimer = useCallback(
+    async (timer: TimerState) => {
+      setMeta((m) => ({ ...m, timer }));
+      const supabase = getSupabase();
+      if (!supabase) return;
+      await supabase.from("room_metadata").upsert(
+        {
+          room_id: roomId,
+          timer_running: timer.running,
+          timer_ends_at: timer.endsAt
+            ? new Date(timer.endsAt).toISOString()
+            : null,
+          timer_remaining_ms: timer.remainingMs,
+          timer_duration_ms: timer.durationMs,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "room_id" },
+      );
+    },
+    [roomId],
+  );
+
+  return { meta, setTitle, setLeaderMode, setDrawGrant, setTimer };
 }

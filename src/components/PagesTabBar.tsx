@@ -12,7 +12,15 @@ import { useToast } from "./Toast";
 
 type Template = "blank" | "grid" | "lined" | "music" | "coords" | "dots";
 
-export default function PagesTabBar({ editor }: { editor: Editor | null }) {
+export default function PagesTabBar({
+  editor,
+  onImportPdf,
+}: {
+  editor: Editor | null;
+  // Opens a PDF picker and imports each page as its own background page
+  // (wired from WhiteboardCanvas, which owns the upload pipeline).
+  onImportPdf?: () => void;
+}) {
   // Force re-render when tldraw's page state changes.
   const [, setTick] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -177,6 +185,20 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
             <TemplateBtn onClick={() => addPage("music")} emoji="🎵">
               Music staves
             </TemplateBtn>
+            {onImportPdf && (
+              <>
+                <div className="my-1 border-t border-[color:var(--border-subtle)]" />
+                <TemplateBtn
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onImportPdf();
+                  }}
+                  emoji="📑"
+                >
+                  Import PDF as pages…
+                </TemplateBtn>
+              </>
+            )}
           </div>
         )}
       </div>

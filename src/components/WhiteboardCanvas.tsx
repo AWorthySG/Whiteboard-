@@ -20,6 +20,7 @@ import {
   Tldraw,
   TldrawUiMenuItem,
   TLUiOverrides,
+  atom,
   getHashForString,
   uniqueId,
   useTools,
@@ -175,6 +176,7 @@ export default function WhiteboardCanvas({
   leaderMode,
   leaderUserId,
   drawGrantUserId,
+  hideStudentAnnotations,
   onToggleLeader,
   exportRef,
   addPageRef,
@@ -192,6 +194,11 @@ export default function WhiteboardCanvas({
   leaderMode: boolean;
   leaderUserId: string | null;
   drawGrantUserId: string | null;
+  /** Host-only view filter. When true, every shape drawn by a non-host
+   *  (meta.annotation === true) is hidden from THIS client's canvas via
+   *  getShapeVisibility — not deleted, not synced. Lets the tutor clear
+   *  student scribbles to show a clean board, then bring them back. */
+  hideStudentAnnotations: boolean;
   onToggleLeader: () => void | Promise<void>;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
   addPageRef?: MutableRefObject<(() => void) | null>;
@@ -229,6 +236,18 @@ export default function WhiteboardCanvas({
   const [progress, setProgress] = useState<Progress>(null);
   const [equationOpen, setEquationOpen] = useState(false);
   const reportProgress = useCallback<ProgressFn>((p) => setProgress(p), []);
+
+  // tldraw signal backing getShapeVisibility. We can't drive shape
+  // visibility from a React prop directly — getShapeVisibility is read
+  // inside tldraw's reactive layer, so it has to read a tldraw atom to
+  // re-run when the toggle flips. The effect below mirrors the incoming
+  // prop into the atom.
+  const [hideAnnotationsAtom] = useState(() =>
+    atom("wb_hide_annotations", false),
+  );
+  useEffect(() => {
+    hideAnnotationsAtom.set(hideStudentAnnotations);
+  }, [hideStudentAnnotations, hideAnnotationsAtom]);
 
   const assetStore = useMemo(
     () => makeAssetStore({ roomId, userId, userName }, reportProgress),
@@ -269,6 +288,24 @@ export default function WhiteboardCanvas({
         toast.error(
           `Upload failed: ${(err as Error)?.message ?? "unknown error"}`,
         );
+      });
+    },
+    [uploadMeta, reportProgress, toast],
+  );
+
+  // Import a PDF as a sequence of pages: one tldraw page per PDF page,
+  // each with the rasterised page locked as a full-bleed background so
+  // the host can annotate directly on the worksheet.
+  const runPdfAsPages = useCallback(
+    (file: File) => {
+      insertPdfAsPageBackgrounds(
+        editorRef.current,
+        file,
+        uploadMeta,
+        reportProgress,
+      ).catch((err) => {
+        console.error("[whiteboard] PDF→pages import failed", err);
+        toast.error(`PDF import failed: ${(err as Error).message}`);
       });
     },
     [uploadMeta, reportProgress, toast],
@@ -594,9 +631,40 @@ export default function WhiteboardCanvas({
             Background: CanvasWatermark,
           }}
           inferDarkMode={false}
+          // Host-only "hide student work" filter. Reads the tldraw atom
+          // (kept in sync with the hideStudentAnnotations prop) so the
+          // canvas re-renders when the toggle flips. Returns 'hidden'
+          // for shapes a student drew (meta.annotation === true);
+          // everything else inherits normal visibility. Per-client only
+          // — never deletes or syncs.
+          getShapeVisibility={(shape) =>
+            hideAnnotationsAtom.get() && shape.meta?.annotation === true
+              ? "hidden"
+              : "inherit"
+          }
           onMount={(editor) => {
             editorRef.current = editor;
             if (editorOutRef) editorOutRef.current = editor;
+            // Stamp authorship on every shape as it's created so the host
+            // can later hide student-drawn shapes. The originating client
+            // stamps first (before sync), so when a shape arrives on a
+            // remote client it already carries meta.annotation and we
+            // leave it untouched — this is what keeps a student's shape
+            // tagged annotation:true even on the host's screen.
+            editor.sideEffects.registerBeforeCreateHandler(
+              "shape",
+              (shape) => {
+                if (typeof shape.meta?.annotation === "boolean") return shape;
+                return {
+                  ...shape,
+                  meta: {
+                    ...shape.meta,
+                    annotation: !isHost,
+                    authorId: userId,
+                  },
+                };
+              },
+            );
             editor.user.updateUserPreferences({
               colorScheme: "light",
               animationSpeed: 0,
@@ -641,7 +709,12 @@ export default function WhiteboardCanvas({
           await insertEquationOntoCanvas(editorRef.current, dataUrl, w, h);
         }}
       />
-      <PagesTabBar editor={editorRef.current} />
+      <PagesTabBar
+        editor={editorRef.current}
+        onImportPdf={() =>
+          openFilePicker(runPdfAsPages, "application/pdf")
+        }
+      />
       <ZoomControls editor={editorRef.current} />
       <ReconnectBanner
         status={store.status}
@@ -769,10 +842,13 @@ function PenModeIndicator({ editor }: { editor: Editor | null }) {
   );
 }
 
-function openFilePicker(onPick: (file: File) => void) {
+function openFilePicker(
+  onPick: (file: File) => void,
+  accept = "application/pdf,image/*",
+) {
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = "application/pdf,image/*";
+  input.accept = accept;
   // Hidden but in the DOM — some browsers (notably mobile Safari)
   // silently refuse to open the native picker for a detached <input>.
   input.style.position = "fixed";
@@ -986,6 +1062,134 @@ async function insertPdfAsImages(
       });
 
       offset += (layout === "horizontal" ? w : h) + gap;
+    }
+  } finally {
+    onProgress(null);
+  }
+}
+
+// Import each PDF page as its OWN tldraw page, with the rasterised page
+// locked as a centered background. The host annotates over a worksheet
+// page-by-page instead of all pages spilling onto one canvas. Mirrors
+// insertPdfAsImages' rasterise+upload loop and PagesTabBar's locked
+// background-image convention.
+async function insertPdfAsPageBackgrounds(
+  editor: Editor | null,
+  file: File,
+  meta: UploadMeta,
+  onProgress: ProgressFn,
+) {
+  if (!editor) throw new Error("Whiteboard isn't ready yet");
+  const settings = getSettings();
+  const renderScale = settings.pdfScale;
+
+  onProgress({ label: `Reading ${file.name}…`, percent: 0 });
+
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+
+  const data = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data }).promise;
+  const totalPages = doc.numPages;
+  const base = file.name.replace(/\.pdf$/i, "");
+
+  // Upload the original PDF once so it also shows in the Documents
+  // drawer (best-effort — a failure here shouldn't block the import).
+  try {
+    await uploadAsset(file, { ...meta, originalName: file.name });
+  } catch (e) {
+    console.warn("[pdf] original-PDF upload failed", e);
+  }
+
+  let firstPageId: string | null = null;
+
+  try {
+    for (let i = 1; i <= totalPages; i++) {
+      const pageProgressBase = ((i - 1) / totalPages) * 100;
+      const pagePortion = 100 / totalPages;
+      onProgress({
+        label: `Rendering page ${i} of ${totalPages}…`,
+        percent: Math.round(pageProgressBase),
+      });
+
+      const page = await doc.getPage(i);
+      const viewport = page.getViewport({ scale: renderScale });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d")!;
+      await page.render({ canvasContext: ctx, viewport }).promise;
+
+      const blob: Blob = await new Promise((res) =>
+        canvas.toBlob((b) => res(b!), "image/png"),
+      );
+      const pngFile = new File([blob], `${base}-page-${i}.png`, {
+        type: "image/png",
+      });
+
+      const { url } = await uploadAsset(
+        pngFile,
+        { ...meta, originalName: pngFile.name, skipDocumentInsert: true },
+        (frac) => {
+          onProgress({
+            label: `Uploading page ${i} of ${totalPages}…`,
+            percent: Math.round(pageProgressBase + frac * pagePortion),
+          });
+        },
+      );
+
+      const w = viewport.width / renderScale;
+      const h = viewport.height / renderScale;
+      const assetId = AssetRecordType.createId(getHashForString(url));
+
+      // One new page per PDF page. The very first page reuses naming so
+      // a 1-page PDF still lands on a clearly-labelled page.
+      editor.createPage({ name: `${base} · p${i}` });
+      const pages = editor.getPages();
+      const newPage = pages[pages.length - 1];
+      if (!newPage) continue;
+      if (i === 1) firstPageId = newPage.id;
+      editor.setCurrentPage(newPage.id);
+
+      editor.createAssets([
+        {
+          id: assetId,
+          type: "image",
+          typeName: "asset",
+          props: {
+            name: pngFile.name,
+            src: url,
+            w,
+            h,
+            mimeType: "image/png",
+            isAnimated: false,
+          },
+          meta: {},
+        },
+      ]);
+
+      // Centered on the origin + locked, matching the template
+      // backgrounds in PagesTabBar so users draw on top, not move it.
+      editor.createShape({
+        id: `shape:${uniqueId()}` as never,
+        type: "image",
+        x: -w / 2,
+        y: -h / 2,
+        isLocked: true,
+        props: { assetId, w, h },
+      });
+      const last = editor.getCurrentPageShapes().slice(-1)[0];
+      if (last) editor.sendToBack([last.id]);
+    }
+    // Land the host on the first imported page and frame it.
+    if (firstPageId) {
+      editor.setCurrentPage(firstPageId as never);
+      try {
+        editor.zoomToFit();
+      } catch {
+        // zoomToFit can throw before the camera is ready on some
+        // browsers — non-fatal, the page is still created.
+      }
     }
   } finally {
     onProgress(null);

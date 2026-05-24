@@ -11,6 +11,7 @@ import {
   Note,
   Upload,
   Eye,
+  EyeSlash,
 } from "@phosphor-icons/react";
 
 // Vertical tool rail on the left edge of the canvas (Phase 4 of the
@@ -28,6 +29,8 @@ export default function LeftRail({
   editor,
   isHost,
   leaderMode,
+  annotationsHidden,
+  onToggleAnnotations,
   onToggleLeader,
   onUpload,
   onEquation,
@@ -35,6 +38,8 @@ export default function LeftRail({
   editor: Editor | null;
   isHost: boolean;
   leaderMode: boolean;
+  annotationsHidden: boolean;
+  onToggleAnnotations: () => void;
   onToggleLeader: () => void | Promise<void>;
   onUpload: () => void;
   onEquation: () => void;
@@ -131,6 +136,21 @@ export default function LeftRail({
       {isHost && (
         <>
           <Divider />
+          <RailBtn
+            active={annotationsHidden}
+            activeTone="amber"
+            onClick={onToggleAnnotations}
+            label={
+              annotationsHidden
+                ? "Show student drawings"
+                : "Hide student drawings"
+            }
+          >
+            <EyeSlash
+              size={18}
+              weight={annotationsHidden ? "fill" : "regular"}
+            />
+          </RailBtn>
           <RailBtn
             active={leaderMode}
             activeTone="amber"

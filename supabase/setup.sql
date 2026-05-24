@@ -82,7 +82,13 @@ create table if not exists public.room_metadata (
   updated_at timestamptz default now(),
   leader_mode boolean not null default false,
   leader_user_id text,
-  draw_grant_user_id text
+  draw_grant_user_id text,
+  -- Lesson timer (synced to all participants via realtime). See
+  -- migration 20260524173814_room_timer.sql for the state model.
+  timer_running boolean not null default false,
+  timer_ends_at timestamptz,
+  timer_remaining_ms integer,
+  timer_duration_ms integer
 );
 alter table public.room_metadata enable row level security;
 drop policy if exists "Public read room_metadata" on public.room_metadata;
