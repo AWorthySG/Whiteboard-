@@ -23,7 +23,9 @@ import {
   atom,
   getHashForString,
   uniqueId,
+  useEditor,
   useTools,
+  useValue,
 } from "tldraw";
 import dynamic from "next/dynamic";
 import { Pencil, Toolbox } from "@phosphor-icons/react";
@@ -35,6 +37,7 @@ import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
 import ZoomControls from "./ZoomControls";
 import ColorPickerRow from "./ColorPickerRow";
+import StrokeSizePicker from "./StrokeSizePicker";
 
 const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
 
@@ -808,6 +811,7 @@ function CanvasFloatingPanel({
         </div>
       )}
       <PenModeIndicator editor={editor} />
+      <StrokeSizePicker editor={editor} />
       <ColorPickerRow editor={editor} />
       <button
         onClick={onToggleTools}
@@ -1343,10 +1347,38 @@ function SlimToolbar() {
 }
 
 function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
+  // useEditor() works here because CustomToolbarButtons is rendered inside
+  // the tldraw component tree (via SlimToolbar → DefaultToolbar).
+  const editor = useEditor();
+  // useValue creates a reactive subscription — buttons go grey when there's
+  // nothing left to undo/redo so the user gets clear feedback.
+  const canUndo = useValue("canUndo", () => editor.getCanUndo(), [editor]);
+  const canRedo  = useValue("canRedo",  () => editor.getCanRedo(),  [editor]);
+
   // Use tldraw's own button classes so the size + hit area match the
   // surrounding tool icons across themes.
   return (
     <>
+      <button
+        type="button"
+        className="tlui-button tlui-button__icon"
+        onClick={() => editor.undo()}
+        disabled={!canUndo}
+        title="Undo (⌘Z)"
+        aria-label="Undo"
+      >
+        <UndoSvg />
+      </button>
+      <button
+        type="button"
+        className="tlui-button tlui-button__icon"
+        onClick={() => editor.redo()}
+        disabled={!canRedo}
+        title="Redo (⌘⇧Z)"
+        aria-label="Redo"
+      >
+        <RedoSvg />
+      </button>
       <button
         type="button"
         className="tlui-button tlui-button__icon"
@@ -1386,6 +1418,24 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
         </button>
       )}
     </>
+  );
+}
+
+function UndoSvg() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7v6h6" />
+      <path d="M3 13a9 9 0 1 0 2.83-6.36L3 9" />
+    </svg>
+  );
+}
+
+function RedoSvg() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 7v6h-6" />
+      <path d="M21 13a9 9 0 1 1-2.83-6.36L21 9" />
+    </svg>
   );
 }
 
