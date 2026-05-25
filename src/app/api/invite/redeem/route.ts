@@ -65,7 +65,18 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
-  const supabase = createClient(supabaseUrl, supabaseKey, {
+  // Service role key is required: the upsert sets status="admitted" which
+  // triggers an UPDATE path gated by an RLS policy that requires auth.
+  // Anonymous callers can't satisfy that policy, so fall back would
+  // silently 500. Fail loudly here instead so misconfiguration is obvious.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY not configured" },
+      { status: 500 },
+    );
+  }
+  const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
 

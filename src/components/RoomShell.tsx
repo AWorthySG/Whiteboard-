@@ -27,6 +27,7 @@ const RecordingIndicator = dynamic(() => import("./RecordingIndicator"), {
 });
 const SubNav = dynamic(() => import("./SubNav"), { ssr: false });
 const LeftRail = dynamic(() => import("./LeftRail"), { ssr: false });
+const LessonTimer = dynamic(() => import("./LessonTimer"), { ssr: false });
 const InvitePanel = dynamic(() => import("./InvitePanel"), { ssr: false });
 const OnboardingHint = dynamic(() => import("./OnboardingHint"), { ssr: false });
 const PresenceBadge = dynamic(() => import("./PresenceBadge"), { ssr: false });
@@ -126,7 +127,13 @@ export default function RoomShell({
       window.localStorage.setItem(VIDEO_WIDTH_KEY, String(n));
     } catch {}
   };
-  const { meta, setTitle, setLeaderMode, setDrawGrant } = useRoomMeta(roomId);
+  const { meta, setTitle, setLeaderMode, setDrawGrant, setTimer } =
+    useRoomMeta(roomId);
+  // Host-local view toggle: hide every student-drawn shape from the
+  // host's own canvas without deleting it (per-client visibility, see
+  // WhiteboardCanvas getShapeVisibility). Not synced — it's a private
+  // "let me see my clean board" control for the tutor.
+  const [annotationsHidden, setAnnotationsHidden] = useState(false);
   const toast = useToast();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
@@ -425,7 +432,7 @@ export default function RoomShell({
 
   const room = (
     <div className="h-app w-screen flex flex-col">
-      <header className="flex items-start md:items-center gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
+      <header className="flex items-start lg:items-center gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
         <Link
           href="/"
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
@@ -624,7 +631,7 @@ export default function RoomShell({
               Row 2: Export | Invite | Hide/Show video | Settings
             Display-name input only appears at xl (≥1280px) — it's
             available in the Settings panel on smaller screens. */}
-        <div className="ml-auto hidden md:flex flex-col items-end gap-1.5">
+        <div className="ml-auto hidden lg:flex flex-col items-end gap-1.5">
           {/* Row 1 — Display name + Record. Documents / Homework /
               Recordings moved to the SubNav tab strip below the
               header (Phase 3), so this row is now just the host's
@@ -733,7 +740,7 @@ export default function RoomShell({
         </div>
 
         {/* Mobile controls */}
-        <div className="ml-auto flex md:hidden items-center gap-1 shrink-0">
+        <div className="ml-auto flex lg:hidden items-center gap-1 shrink-0">
           <IconBtn
             onClick={() => setVideoOpen((v) => !v)}
             label={videoOpen ? "Hide video" : "Show video"}
@@ -811,6 +818,8 @@ export default function RoomShell({
           editor={canvasEditorRef.current}
           isHost={isHost}
           leaderMode={meta.leaderMode}
+          annotationsHidden={annotationsHidden}
+          onToggleAnnotations={() => setAnnotationsHidden((v) => !v)}
           onToggleLeader={() => setLeaderMode(!meta.leaderMode, userId)}
           onUpload={() => canvasOpenUploadRef.current?.()}
           onEquation={() => canvasOpenEquationRef.current?.()}
@@ -876,6 +885,7 @@ export default function RoomShell({
             leaderMode={meta.leaderMode}
             leaderUserId={meta.leaderUserId}
             drawGrantUserId={meta.drawGrantUserId}
+            hideStudentAnnotations={annotationsHidden}
             onToggleLeader={async () => {
               await setLeaderMode(!meta.leaderMode, userId);
             }}
@@ -887,6 +897,11 @@ export default function RoomShell({
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}
             onPagesChange={setPagesState}
+          />
+          <LessonTimer
+            timer={meta.timer}
+            isHost={isHost}
+            onChange={setTimer}
           />
         </div>
 

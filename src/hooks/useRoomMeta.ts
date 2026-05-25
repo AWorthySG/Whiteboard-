@@ -3,6 +3,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 
+// Lesson timer shared across all participants. durationMs === null means
+// no timer is set (widget hidden for students). While running, remaining
+// time is derived from endsAt; while paused it's frozen in remainingMs.
+export type TimerState = {
+  running: boolean;
+  endsAt: number | null; // epoch ms
+  remainingMs: number | null;
+  durationMs: number | null;
+};
+
+export const TIMER_OFF: TimerState = {
+  running: false,
+  endsAt: null,
+  remainingMs: null,
+  durationMs: null,
+};
+
 export type RoomMeta = {
   title: string;
   leaderMode: boolean;
@@ -12,6 +29,7 @@ export type RoomMeta = {
   // to 'hand' on canvas mount. Persists across reloads (lives in
   // room_metadata) so the student keeps drawing even on a refresh.
   drawGrantUserId: string | null;
+  timer: TimerState;
 };
 
 const DEFAULT: RoomMeta = {
@@ -19,6 +37,7 @@ const DEFAULT: RoomMeta = {
   leaderMode: false,
   leaderUserId: null,
   drawGrantUserId: null,
+  timer: TIMER_OFF,
 };
 
 type Row = {
@@ -26,6 +45,10 @@ type Row = {
   leader_mode: boolean | null;
   leader_user_id: string | null;
   draw_grant_user_id: string | null;
+  timer_running: boolean | null;
+  timer_ends_at: string | null;
+  timer_remaining_ms: number | null;
+  timer_duration_ms: number | null;
 };
 
 export function useRoomMeta(roomId: string): {
@@ -33,6 +56,7 @@ export function useRoomMeta(roomId: string): {
   setTitle: (title: string) => Promise<void>;
   setLeaderMode: (on: boolean, leaderUserId: string | null) => Promise<void>;
   setDrawGrant: (userId: string | null) => Promise<void>;
+  setTimer: (timer: TimerState) => Promise<void>;
 } {
   const [meta, setMeta] = useState<RoomMeta>(DEFAULT);
 
@@ -46,7 +70,7 @@ export function useRoomMeta(roomId: string): {
     const fetchMeta = async () => {
       const { data } = await supabase
         .from("room_metadata")
-        .select("title, leader_mode, leader_user_id, draw_grant_user_id")
+        .select("title, leader_mode, leader_user_id, draw_grant_user_id, timer_running, timer_ends_at, timer_remaining_ms, timer_duration_ms")
         .eq("room_id", roomId)
         .maybeSingle();
       if (cancelled) return;
@@ -56,6 +80,14 @@ export function useRoomMeta(roomId: string): {
         leaderMode: row?.leader_mode ?? false,
         leaderUserId: row?.leader_user_id ?? null,
         drawGrantUserId: row?.draw_grant_user_id ?? null,
+        timer: {
+          running: row?.timer_running ?? false,
+          endsAt: row?.timer_ends_at
+            ? new Date(row.timer_ends_at).getTime()
+            : null,
+          remainingMs: row?.timer_remaining_ms ?? null,
+          durationMs: row?.timer_duration_ms ?? null,
+        },
       });
     };
     void fetchMeta();
@@ -85,10 +117,11 @@ export function useRoomMeta(roomId: string): {
       setMeta((m) => ({ ...m, title }));
       const supabase = getSupabase();
       if (!supabase) return;
-      await supabase.from("room_metadata").upsert(
+      const { error } = await supabase.from("room_metadata").upsert(
         { room_id: roomId, title, updated_at: new Date().toISOString() },
         { onConflict: "room_id" },
       );
+      if (error) console.error("[useRoomMeta] setTitle failed:", error.message);
     },
     [roomId],
   );
@@ -98,7 +131,7 @@ export function useRoomMeta(roomId: string): {
       setMeta((m) => ({ ...m, leaderMode: on, leaderUserId }));
       const supabase = getSupabase();
       if (!supabase) return;
-      await supabase.from("room_metadata").upsert(
+      const { error } = await supabase.from("room_metadata").upsert(
         {
           room_id: roomId,
           leader_mode: on,
@@ -107,6 +140,7 @@ export function useRoomMeta(roomId: string): {
         },
         { onConflict: "room_id" },
       );
+      if (error) console.error("[useRoomMeta] setLeaderMode failed:", error.message);
     },
     [roomId],
   );
@@ -116,7 +150,7 @@ export function useRoomMeta(roomId: string): {
       setMeta((m) => ({ ...m, drawGrantUserId: userId }));
       const supabase = getSupabase();
       if (!supabase) return;
-      await supabase.from("room_metadata").upsert(
+      const { error } = await supabase.from("room_metadata").upsert(
         {
           room_id: roomId,
           draw_grant_user_id: userId,
@@ -124,9 +158,33 @@ export function useRoomMeta(roomId: string): {
         },
         { onConflict: "room_id" },
       );
+      if (error) console.error("[useRoomMeta] setDrawGrant failed:", error.message);
     },
     [roomId],
   );
 
-  return { meta, setTitle, setLeaderMode, setDrawGrant };
+  const setTimer = useCallback(
+    async (timer: TimerState) => {
+      setMeta((m) => ({ ...m, timer }));
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { error } = await supabase.from("room_metadata").upsert(
+        {
+          room_id: roomId,
+          timer_running: timer.running,
+          timer_ends_at: timer.endsAt
+            ? new Date(timer.endsAt).toISOString()
+            : null,
+          timer_remaining_ms: timer.remainingMs,
+          timer_duration_ms: timer.durationMs,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "room_id" },
+      );
+      if (error) console.error("[useRoomMeta] setTimer failed:", error.message);
+    },
+    [roomId],
+  );
+
+  return { meta, setTitle, setLeaderMode, setDrawGrant, setTimer };
 }

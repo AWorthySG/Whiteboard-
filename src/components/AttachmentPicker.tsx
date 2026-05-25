@@ -9,6 +9,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
+import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
 import { useToast } from "./Toast";
 
 export type Attachment = {
@@ -85,6 +86,12 @@ export default function AttachmentPicker({
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
     if (!file) return;
+    try {
+      validateFileForUpload(file);
+    } catch (err) {
+      toast.error((err as Error).message);
+      return;
+    }
     setUploading(true);
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -101,7 +108,7 @@ export default function AttachmentPicker({
           headers: {
             Authorization: `Bearer ${supabaseKey}`,
             apikey: supabaseKey,
-            "Content-Type": file.type || "application/octet-stream",
+            "Content-Type": getSafeMimeType(file),
             "x-upsert": "false",
           },
           body: file,

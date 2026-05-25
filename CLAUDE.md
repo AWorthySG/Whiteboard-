@@ -27,6 +27,7 @@ All four services are auto-deployed:
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://ipctffwruitjeirdgyhy.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_TjAAsr0aepCPESt92FUAeA_pcSwS07s
+SUPABASE_SERVICE_ROLE_KEY=<secret — server-side only, never in client bundle>
 NEXT_PUBLIC_LIVEKIT_URL=wss://live-whiteboard-a-worthy-3vxt4yg7.livekit.cloud
 LIVEKIT_API_KEY=<secret>
 LIVEKIT_API_SECRET=<secret>
@@ -43,8 +44,10 @@ put WORKER_SHARED_SECRET` from inside `sync-worker/`. Tokens are
 
 The Supabase **anon** key is what the client uses for everything: auth
 sign-in/sign-up, file uploads (browser POSTs directly to the Storage REST
-endpoint, no Vercel hop), and DB inserts. The `service_role` key is **not**
-needed anywhere in this codebase.
+endpoint, no Vercel hop), and DB inserts. The `service_role` key is used
+server-side only by `/api/invite/redeem` to bypass the RLS UPDATE policy
+on `join_requests` (the anon key can INSERT but not UPDATE existing rows).
+**Never expose it to the client bundle.**
 
 ## Routes
 
@@ -268,6 +271,7 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 ## Module-level stores (`src/lib/`)
 
 - `captionsStore.ts` — singleton store for live caption lines. `pushCaption()` writes; `subscribeToCaptions()` / `getCaptionsSnapshot()` are consumed by `CaptionsHost` via `useSyncExternalStore`. The store lives outside React because caption updates arrive 5-10×/sec during active speech, and putting that churn into RoomShell state was forcing a full-tree re-render on every interim. Moving it out also frees ~10-30ms of frame budget per interim, which directly improves pen latency while someone is speaking.
+- `fileValidation.ts` — centralised upload allow-list used by every upload path (WhiteboardCanvas, DocumentsDrawer, AttachmentPicker). `validateFileForUpload(file)` throws with a user-facing message for disallowed types; `getSafeMimeType(file)` returns a safe `Content-Type` for the Storage PUT (falls back to `application/octet-stream` rather than echoing untrusted browser MIME). **SVG is intentionally absent**: `image/svg+xml` files served from the public Supabase CDN and opened via `target=_blank` execute embedded `<script>` tags — stored XSS. Do not add SVG back without serving it through a sanitising proxy.
 
 ## Theming
 
@@ -310,6 +314,7 @@ commit `45a340e` (15+ classes swept).
   3. Per-stroke local rendering is unconditionally optimistic — tldraw renders the line as you draw before sync ack. Network RTT does not gate the visible stroke.
 - **Captions on iOS**: all iOS browsers — Safari, Firefox, Chrome, Edge — are WKWebView wrappers and have no reliable `webkitSpeechRecognition`. The host's own voice can't be transcribed from an iPad or iPhone. `CaptionsManager` detects this on captions-enable and fires a one-time toast pointing the user to desktop or Android Chrome. Other participants on supported browsers still see their own captions broadcast; the iOS user receives them. Don't try to "fix" this with a polyfill — the platform doesn't expose the API.
 - **Captions performance**: caption state is held in `src/lib/captionsStore.ts`, NOT in RoomShell. Interim captions arrive 5-10× per second during active speech; if you put them into a top-level useState, every interim re-renders the whole room tree (header, drawers, etc.) and visibly degrades both perceived caption latency AND pen latency. New caption-adjacent UI should subscribe to the store via `useSyncExternalStore` (see `CaptionsHost.tsx`), not pass `captionLines` as props.
+- **Upload validation is centralised** — all upload entry points (canvas drag-drop, Documents drawer, AttachmentPicker) call `validateFileForUpload` from `src/lib/fileValidation.ts` before the XHR fires. SVG is blocked at this layer (stored XSS risk via public CDN). Do not add a new upload path without importing and calling `validateFileForUpload` first, and use `getSafeMimeType` for the `Content-Type` header — never echo `file.type` directly to Supabase Storage.
 - **Non-host default tool is hand**: in `WhiteboardCanvas.onMount` we call `editor.setCurrentTool("hand")` when `!isHost`. With `touch-action: none` on the canvas, a single-finger swipe goes to tldraw's gesture pipeline — defaulting students to the hand tool means a swipe pans rather than drawing a stray line. The host stays on `draw`. The student can still switch tools if they want to annotate.
 - **Toolbar active state**: globals.css forces a brand-blue background + white icon for the selected tool button (`[aria-pressed="true"]` / `[data-state="selected"]`). tldraw's default light-mode highlight was too subtle.
 - **Leader mode UI**: when on, the host sees a yellow "LEADING VIEW" pill top-right of the canvas, AND the eye icon in the toolbar gets a filled amber background with white icon (vs. a thin amber outline before). Guests being followed see the existing "Following host" pill.
@@ -318,7 +323,7 @@ commit `45a340e` (15+ classes swept).
 - **Supabase "Confirm email" must be OFF** for password sign-up to work — we use synthetic `@a-worthy.local` emails that can't receive mail. Set in Supabase Dashboard → Authentication → Providers → Email → Confirm email → toggle OFF.
 - **Guests don't sign up**. Anyone with a room link can join: they land on `/r/<roomId>`, see the `GuestNameEntry` form (or skip it if they have a remembered name), then KnockGate creates a `join_requests` row and waits for the host to Admit. The host sees an `AdmissionPanel` floating top-right + a toast for every new knocker.
 - **Admission is persistent per (room, user_id)**. KnockGate now reads-then-conditionally-inserts: if a row already exists for this device it preserves the status (admitted → straight in, pending → still waiting, denied → stays denied). An older version unconditionally upserted 'pending', which clobbered admitted rows on every visit and effectively required re-admission every time. If you re-introduce an upsert here, use `ignoreDuplicates: true` or read first — never overwrite without intent.
-- **Magic invite links** (`/api/invite/mint` + `/api/invite/redeem`). Host-only feature in InvitePanel: generates an HS256 JWT signed with `WORKER_SHARED_SECRET` containing `{ kind: "invite", roomId, exp }`. Default 90-day expiry. Mint is gated by Supabase session — the caller must present a Bearer token that resolves to the `rooms.host_user_id` for this room (so localStorage-only hosts can't mint until they claim the room to their account in Settings). Redeem is anonymous + token-gated: any guest opening `/r/<roomId>?invite=<token>` has the token verified, then their `join_requests` row is upserted to admitted. KnockGate detects the `invite` URL param and calls redeem before the normal knock flow. Invite tokens deliberately OMIT the `userId` claim so the Cloudflare worker's `verifySyncToken` (which requires both `roomId` and `userId`) won't accept them as sync tokens — leaking an invite link only grants the right to redeem into the knock flow, not direct whiteboard sync. There's no server-side revocation list; rotate `WORKER_SHARED_SECRET` to invalidate all outstanding invites.
+- **Magic invite links** (`/api/invite/mint` + `/api/invite/redeem`). Host-only feature in InvitePanel: generates an HS256 JWT signed with `WORKER_SHARED_SECRET` containing `{ kind: "invite", roomId, exp }`. Default 90-day expiry. Mint is gated by Supabase session — the caller must present a Bearer token that resolves to the `rooms.host_user_id` for this room (so localStorage-only hosts can't mint until they claim the room to their account in Settings). Redeem is anonymous + token-gated: any guest opening `/r/<roomId>?invite=<token>` has the token verified, then their `join_requests` row is upserted to admitted. KnockGate detects the `invite` URL param and calls redeem before the normal knock flow. Invite tokens deliberately OMIT the `userId` claim so the Cloudflare worker's `verifySyncToken` (which requires both `roomId` and `userId`) won't accept them as sync tokens — leaking an invite link only grants the right to redeem into the knock flow, not direct whiteboard sync. There's no server-side revocation list; rotate `WORKER_SHARED_SECRET` to invalidate all outstanding invites. **`SUPABASE_SERVICE_ROLE_KEY` must be set in Vercel** — the redeem route uses it to bypass the RLS UPDATE policy; if the var is missing the route hard-fails with 500 (deliberately, not a silent fallback).
 - **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) is disabled in our `components` override, so we render our own `ZoomControls` bottom-left (was bottom-right; moved so the video panel doesn't cover it).
 - **PWA orientation lock**: `public/manifest.webmanifest` sets `"orientation": "portrait"`. This is honoured for installed PWAs on Android Chrome; iOS Safari ignores it for non-installed sessions.
 - **PWA icons**: the manifest lists five PNG sizes (152/167/180/192/512) plus a maskable variant and an SVG. iOS doesn't read the manifest list reliably on first install — `src/app/layout.tsx` adds explicit `<link rel="apple-touch-icon" sizes="...">` tags for 152/167/180 so Safari picks the right one. Regenerate the smaller PNGs from `public/icon.svg` whenever the source art changes (sharp can do this in ~10 lines; see commit `7f81a18` for the original pass).
@@ -328,6 +333,9 @@ commit `45a340e` (15+ classes swept).
 - **No horizontal scroll**: `html, body { overflow-x: hidden; max-width: 100vw; }` in `globals.css` keeps the room shell from sliding sideways even if a child overflows. tldraw's canvas still pans freely because it sets its own touch-action and is inside an `inset-0` container.
 - **Header is two rows on md+**: row 1 = Documents / Homework / Recordings / Record; row 2 = Export / Invite / Hide-video / Settings. Mobile collapses both rows into the existing kebab/hamburger menu.
 - **`/auth/callback` is a no-op stub** now that magic-link auth is gone. Don't remove it — it's wrapped in `<Suspense>` and harmless if hit, and password reset / OAuth could re-use it later.
+- **Annotation stamp and draw-grant students**: `WhiteboardCanvas.onMount` stamps every new shape with `meta.annotation = !isHostRef.current && userId !== drawGrantUserIdRef.current`. The draw-grant exclusion means shapes drawn by a student the host has promoted to draw are NOT tagged as annotations and will NOT be hidden by "Hide student work". If you change the stamping logic, preserve this exclusion — the whole point of draw-grant is to have the student's work visible alongside the host's.
+- **RecordButton paused-state stop**: the screen-share track's `ended` event now checks `state === "recording" || state === "paused"` before calling `stop()`. If you see a UI deadlock where the recorder appears stuck after the user stops sharing mid-pause, re-check this guard.
+- **LessonTimer expiry**: the 250 ms tick interval self-clears when `computeRemaining(timer) <= 0`. Nobody writes `timer_running=false` to the DB when the client clock hits zero (the timer just shows "Time's up"), so without the self-clear the interval would fire indefinitely. `addMinute` is capped at 480 minutes remaining so values stay well below the PostgreSQL `INTEGER` overflow boundary.
 - **Free tiers**: Supabase Storage 1 GB, LiveKit 10k participant-min/month. Watch the Recordings drawer for big files eating Supabase Storage.
 
 ## Common commands
@@ -375,7 +383,15 @@ default stroke profile if the patch isn't applied.
     and on DB-insert failure call `supabase.storage.from(bucket).remove([path])`
     so orphans don't accumulate. For uploads sourced from `AttachmentPicker`,
     check `att.freshUploadPath` before removing — picked existing documents are
-    referenced by other rows and must not be deleted.
+    referenced by other rows and must not be deleted. **Every new upload path must
+    call `validateFileForUpload(file)` from `src/lib/fileValidation.ts` before the
+    XHR fires, and use `getSafeMimeType(file)` for the `Content-Type` header.**
+    Never add SVG to the allow-list — see the fileValidation.ts note above.
+14. **`SUPABASE_SERVICE_ROLE_KEY` is server-side only.** It must live in Vercel env
+    vars and never be referenced from client components or exposed in the browser.
+    Currently only `/api/invite/redeem` uses it. Any future server route that needs
+    to bypass RLS should follow the same pattern: hard-fail with 500 if the var is
+    absent rather than silently degrading to the anon key.
 11. **The tldraw patch survives upgrades only if you re-apply it.** When you bump
     tldraw, `npm install` will warn that `patches/tldraw+OLD.patch` no longer applies.
     Open `node_modules/tldraw/dist-{cjs,esm}/lib/shapes/draw/getPath.{js,mjs}` in the

@@ -12,7 +12,15 @@ import { useToast } from "./Toast";
 
 type Template = "blank" | "grid" | "lined" | "music" | "coords" | "dots";
 
-export default function PagesTabBar({ editor }: { editor: Editor | null }) {
+export default function PagesTabBar({
+  editor,
+  onImportPdf,
+}: {
+  editor: Editor | null;
+  // Opens a PDF picker and imports each page as its own background page
+  // (wired from WhiteboardCanvas, which owns the upload pipeline).
+  onImportPdf?: () => void;
+}) {
   // Force re-render when tldraw's page state changes.
   const [, setTick] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -56,11 +64,9 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
     setMenuOpen(false);
     try {
       const num = pages.length + 1;
-      editor.createPage({ name: `Page ${num}` });
-      // Navigate to the new page (the one just created is the last in list now).
-      const newPages = editor.getPages();
-      const newPage = newPages[newPages.length - 1];
-      if (newPage) editor.setCurrentPage(newPage.id);
+      const newPageId = `page:${uniqueId()}`;
+      editor.createPage({ id: newPageId as never, name: `Page ${num}` });
+      editor.setCurrentPage(newPageId as never);
       if (template !== "blank") {
         applyTemplate(editor, template).catch((e) => {
           toast.error(`Template failed: ${(e as Error).message}`);
@@ -177,6 +183,20 @@ export default function PagesTabBar({ editor }: { editor: Editor | null }) {
             <TemplateBtn onClick={() => addPage("music")} emoji="🎵">
               Music staves
             </TemplateBtn>
+            {onImportPdf && (
+              <>
+                <div className="my-1 border-t border-[color:var(--border-subtle)]" />
+                <TemplateBtn
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onImportPdf();
+                  }}
+                  emoji="📑"
+                >
+                  Import PDF as pages…
+                </TemplateBtn>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -234,17 +254,18 @@ async function applyTemplate(editor: Editor, template: Template) {
       meta: {},
     },
   ]);
+  // Capture the ID upfront so sendToBack always targets this shape, not
+  // whatever slice(-1)[0] returns (could be a concurrent remote shape).
+  const bgShapeId = `shape:${uniqueId()}` as never;
   editor.createShape({
-    id: `shape:${uniqueId()}` as never,
+    id: bgShapeId,
     type: "image",
     x: -w / 2,
     y: -h / 2,
     isLocked: true,
     props: { assetId, w, h },
   });
-  // Send template to back so users draw on top of it.
-  const last = editor.getCurrentPageShapes().slice(-1)[0];
-  if (last) editor.sendToBack([last.id]);
+  editor.sendToBack([bgShapeId]);
 }
 
 function renderTemplateSvg(template: Template, w: number, h: number): string {
