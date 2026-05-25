@@ -268,6 +268,31 @@ export default function RoomShell({
     return id;
   }, []);
 
+  const downloadAllPagesPdf = useCallback(async () => {
+    const editor = canvasEditorRef.current;
+    if (!editor) { toast.error("Canvas not ready"); return; }
+    toast.info("Building PDF… this may take a moment");
+    try {
+      const { exportLessonPdf } = await import("@/lib/exportLessonPdf");
+      const { url, name: pdfName } = await exportLessonPdf({
+        editor,
+        roomId,
+        roomTitle: meta.title,
+        hostName: name || "Host",
+        hostUserId: userId,
+      });
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = pdfName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("PDF downloaded");
+    } catch (e) {
+      toast.error(`PDF failed: ${(e as Error).message}`);
+    }
+  }, [roomId, meta.title, name, userId, toast]);
+
   const paletteCommands = useMemo<Command[]>(() => {
     const cmds: Command[] = [
       {
@@ -320,6 +345,13 @@ export default function RoomShell({
       },
     ];
     if (isHost) {
+      cmds.push({
+        id: "download-pdf-now",
+        label: "Download all pages as PDF",
+        hint: "Exports every whiteboard page to a PDF without leaving the room.",
+        group: "Canvas",
+        perform: () => void downloadAllPagesPdf(),
+      });
       cmds.push({
         id: "toggle-leader",
         label: meta.leaderMode ? "Stop leading the view" : "Lead the view",
