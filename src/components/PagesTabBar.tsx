@@ -64,11 +64,9 @@ export default function PagesTabBar({
     setMenuOpen(false);
     try {
       const num = pages.length + 1;
-      editor.createPage({ name: `Page ${num}` });
-      // Navigate to the new page (the one just created is the last in list now).
-      const newPages = editor.getPages();
-      const newPage = newPages[newPages.length - 1];
-      if (newPage) editor.setCurrentPage(newPage.id);
+      const newPageId = `page:${uniqueId()}`;
+      editor.createPage({ id: newPageId as never, name: `Page ${num}` });
+      editor.setCurrentPage(newPageId as never);
       if (template !== "blank") {
         applyTemplate(editor, template).catch((e) => {
           toast.error(`Template failed: ${(e as Error).message}`);

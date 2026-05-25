@@ -492,10 +492,9 @@ export default function WhiteboardCanvas({
       const editor = editorRef.current;
       if (!editor) return;
       const num = editor.getPages().length + 1;
-      editor.createPage({ name: `Page ${num}` });
-      const pages = editor.getPages();
-      const newPage = pages[pages.length - 1];
-      if (newPage) editor.setCurrentPage(newPage.id);
+      const newPageId = `page:${uniqueId()}`;
+      editor.createPage({ id: newPageId as never, name: `Page ${num}` });
+      editor.setCurrentPage(newPageId as never);
     };
     return () => {
       if (addPageRef.current) addPageRef.current = null;
@@ -1206,14 +1205,13 @@ async function insertPdfAsPageBackgrounds(
       const h = viewport.height / renderScale;
       const assetId = AssetRecordType.createId(getHashForString(url));
 
-      // One new page per PDF page. The very first page reuses naming so
-      // a 1-page PDF still lands on a clearly-labelled page.
-      editor.createPage({ name: `${base} · p${i}` });
-      const pages = editor.getPages();
-      const newPage = pages[pages.length - 1];
-      if (!newPage) continue;
-      if (i === 1) firstPageId = newPage.id;
-      editor.setCurrentPage(newPage.id);
+      // Pre-generate the page ID so setCurrentPage always targets the page
+      // we just created, not whatever happens to be last after a concurrent
+      // remote page creation arrives during the async upload loop.
+      const newPageId = `page:${uniqueId()}`;
+      editor.createPage({ id: newPageId as never, name: `${base} · p${i}` });
+      if (i === 1) firstPageId = newPageId;
+      editor.setCurrentPage(newPageId as never);
 
       editor.createAssets([
         {
