@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CaretRight, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
+import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
@@ -172,6 +173,7 @@ export default function DocumentsDrawer({
       document.body.removeChild(input);
       if (!file) return;
       try {
+        validateFileForUpload(file);
         setUploading(true);
         // Upload straight from the browser to Supabase Storage — bypasses
         // the Next.js /api/uploads proxy, saves a hop, and stops Vercel
@@ -188,7 +190,7 @@ export default function DocumentsDrawer({
             headers: {
               Authorization: `Bearer ${key}`,
               apikey: key,
-              "Content-Type": file.type || "application/octet-stream",
+              "Content-Type": getSafeMimeType(file),
               "x-upsert": "false",
             },
             body: file,

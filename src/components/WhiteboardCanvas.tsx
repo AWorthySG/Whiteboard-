@@ -29,6 +29,7 @@ import dynamic from "next/dynamic";
 import { Pencil, Toolbox } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
+import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
@@ -41,32 +42,6 @@ const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
 
 const PDFJS_VERSION = "4.10.38";
-
-// Allowlisted file extensions and MIME prefixes for uploads. Prevents
-// HTML/JS files being stored in the public bucket with an executable
-// Content-Type. The browser's file picker already filters by `accept`,
-// but that's bypassable — we enforce here too before the XHR fires.
-const ALLOWED_EXTENSIONS = new Set([
-  "pdf", "png", "jpg", "jpeg", "gif", "webp", "svg",
-]);
-const ALLOWED_MIME_PREFIXES = ["image/", "application/pdf"];
-
-function validateFileForUpload(file: File): void {
-  const ext = (file.name.split(".").pop() ?? "").toLowerCase();
-  if (!ALLOWED_EXTENSIONS.has(ext)) {
-    throw new Error(
-      `".${ext}" files aren't allowed — please upload a PDF or image.`,
-    );
-  }
-  if (
-    file.type &&
-    !ALLOWED_MIME_PREFIXES.some((p) => file.type.startsWith(p))
-  ) {
-    throw new Error(
-      `File type "${file.type}" isn't allowed — please upload a PDF or image.`,
-    );
-  }
-}
 
 type UploadMeta = {
   roomId: string;
@@ -115,14 +90,7 @@ function uploadAsset(
     xhr.open("POST", endpoint);
     xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
     xhr.setRequestHeader("apikey", supabaseKey);
-    // Use only validated MIME types. If the browser-reported type is not
-    // in our allowlist, fall back to application/octet-stream so we
-    // never store an HTML or JS content-type in the public bucket.
-    const safeMime =
-      file.type && ALLOWED_MIME_PREFIXES.some((p) => file.type.startsWith(p))
-        ? file.type
-        : "application/octet-stream";
-    xhr.setRequestHeader("Content-Type", safeMime);
+    xhr.setRequestHeader("Content-Type", getSafeMimeType(file));
     xhr.setRequestHeader("x-upsert", "false");
     xhr.upload.onprogress = (e) => {
       if (!e.lengthComputable || !onUploadProgress) return;
@@ -269,6 +237,8 @@ export default function WhiteboardCanvas({
   // the host claims their room mid-session without a full remount.
   const isHostRef = useRef(isHost);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+  const drawGrantUserIdRef = useRef(drawGrantUserId);
+  useEffect(() => { drawGrantUserIdRef.current = drawGrantUserId; }, [drawGrantUserId]);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState<Progress>(null);
   const [equationOpen, setEquationOpen] = useState(false);
@@ -285,6 +255,14 @@ export default function WhiteboardCanvas({
   useEffect(() => {
     hideAnnotationsAtom.set(hideStudentAnnotations);
   }, [hideStudentAnnotations, hideAnnotationsAtom]);
+
+  const shapeVisibility = useCallback(
+    (shape: { meta?: Record<string, unknown> }) =>
+      hideAnnotationsAtom.get() && shape.meta?.annotation === true
+        ? "hidden"
+        : "inherit",
+    [hideAnnotationsAtom],
+  );
 
   const assetStore = useMemo(
     () => makeAssetStore({ roomId, userId, userName }, reportProgress),
@@ -673,11 +651,7 @@ export default function WhiteboardCanvas({
           // for shapes a student drew (meta.annotation === true);
           // everything else inherits normal visibility. Per-client only
           // — never deletes or syncs.
-          getShapeVisibility={(shape) =>
-            hideAnnotationsAtom.get() && shape.meta?.annotation === true
-              ? "hidden"
-              : "inherit"
-          }
+          getShapeVisibility={shapeVisibility}
           onMount={(editor) => {
             editorRef.current = editor;
             if (editorOutRef) editorOutRef.current = editor;
@@ -687,23 +661,28 @@ export default function WhiteboardCanvas({
             // remote client it already carries meta.annotation and we
             // leave it untouched — this is what keeps a student's shape
             // tagged annotation:true even on the host's screen.
-            editor.sideEffects.registerBeforeCreateHandler(
-              "shape",
-              (shape) => {
-                if (typeof shape.meta?.annotation === "boolean") return shape;
-                return {
-                  ...shape,
-                  meta: {
-                    ...shape.meta,
-                    // Read from ref so the handler stays accurate even if
-                    // the host claims their room mid-session (isHost prop
-                    // changes but onMount only runs once).
-                    annotation: !isHostRef.current,
-                    authorId: userId,
-                  },
-                };
-              },
-            );
+            const deregisterCreateHandler =
+              editor.sideEffects.registerBeforeCreateHandler(
+                "shape",
+                (shape) => {
+                  if (typeof shape.meta?.annotation === "boolean") return shape;
+                  return {
+                    ...shape,
+                    meta: {
+                      ...shape.meta,
+                      // Read from refs so the handler stays accurate even if
+                      // the host claims their room mid-session (isHost prop
+                      // changes but onMount only runs once). Draw-grant student
+                      // shapes are intentionally NOT tagged annotation:true so
+                      // "Hide student work" doesn't hide the invited solver's work.
+                      annotation:
+                        !isHostRef.current &&
+                        userId !== drawGrantUserIdRef.current,
+                      authorId: userId,
+                    },
+                  };
+                },
+              );
             editor.user.updateUserPreferences({
               colorScheme: "light",
               animationSpeed: 0,
@@ -729,6 +708,7 @@ export default function WhiteboardCanvas({
             if (appSettings.penOnly) {
               editor.updateInstanceState({ isPenMode: true });
             }
+            return () => deregisterCreateHandler();
           }}
         />
       </CanvasActionsContext.Provider>

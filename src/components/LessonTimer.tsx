@@ -35,9 +35,15 @@ export default function LessonTimer({
 
   useEffect(() => {
     if (!timer.running) return;
-    const id = window.setInterval(() => setTick((n) => n + 1), 250);
+    const id = window.setInterval(() => {
+      setTick((n) => n + 1);
+      // Stop ticking once the countdown reaches zero — nobody writes
+      // timer_running=false to the DB when the client-side counter hits 0,
+      // so without this guard the interval fires indefinitely.
+      if (computeRemaining(timer) <= 0) clearInterval(id);
+    }, 250);
     return () => clearInterval(id);
-  }, [timer.running]);
+  }, [timer.running, timer.endsAt]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -101,18 +107,25 @@ export default function LessonTimer({
       durationMs: timer.durationMs,
     });
 
+  // Hard cap matching the custom-input 480-min ceiling — also keeps values
+  // well below PostgreSQL INTEGER overflow (~596 h / 2,147,483,647 ms).
+  const MAX_TIMER_MS = 480 * 60_000;
+
   const addMinute = () => {
+    const current = computeRemaining(timer);
+    if (current >= MAX_TIMER_MS) return;
+    const addMs = Math.min(60_000, MAX_TIMER_MS - current);
     if (timer.running) {
       void onChange({
         ...timer,
-        endsAt: (timer.endsAt ?? Date.now()) + 60_000,
-        durationMs: (timer.durationMs ?? 0) + 60_000,
+        endsAt: (timer.endsAt ?? Date.now()) + addMs,
+        durationMs: Math.min(MAX_TIMER_MS, (timer.durationMs ?? 0) + addMs),
       });
     } else {
       void onChange({
         ...timer,
-        remainingMs: Math.max(0, (timer.remainingMs ?? 0)) + 60_000,
-        durationMs: (timer.durationMs ?? 0) + 60_000,
+        remainingMs: Math.min(MAX_TIMER_MS, Math.max(0, (timer.remainingMs ?? 0)) + addMs),
+        durationMs: Math.min(MAX_TIMER_MS, (timer.durationMs ?? 0) + addMs),
       });
     }
   };

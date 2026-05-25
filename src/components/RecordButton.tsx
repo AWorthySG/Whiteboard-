@@ -336,18 +336,19 @@ export default function RecordButton({
       };
 
       display.getVideoTracks()[0]?.addEventListener("ended", () => {
-        if (recorderRef.current?.state === "recording") stop();
+        const s = recorderRef.current?.state;
+        if (s === "recording" || s === "paused") stop();
       });
 
+      elapsedRef.current = 0;
+      setElapsed(0);
       recorder.start(1000);
       recorderRef.current = recorder;
       startedAtRef.current = Date.now();
-      elapsedRef.current = 0;
       // Generate the id once, here, so the upload path and the
       // parent-side frame capture both label data with the same id.
       recordingIdRef.current = crypto.randomUUID();
       setState("recording");
-      setElapsed(0);
       onRecordingStarted?.(recordingIdRef.current);
     } catch (err) {
       console.error("[record] start failed", err);
