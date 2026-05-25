@@ -948,6 +948,7 @@ function CanvasFloatingPanel({
           Bring everyone here
         </button>
       )}
+      {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <PenModeIndicator editor={editor} />
       <StrokeSizePicker editor={editor} />
@@ -1720,6 +1721,47 @@ function SyncStatusDot({ status }: { status: string }) {
       />
       {isError ? "Sync error" : "Connecting…"}
     </div>
+  );
+}
+
+// Laser-pointer toggle for non-host participants. Lets a student point
+// at something on the board without accidentally drawing — switches to
+// the laser tool (K) and back to hand on a second tap. Shown in the
+// floating panel only when the student isn't using the draw tool
+// (i.e. doesn't have draw grant and is in hand/pan mode).
+function PointerModeButton({ editor }: { editor: Editor | null }) {
+  const [tool, setTool] = useState<string>("hand");
+  useEffect(() => {
+    if (!editor) return;
+    const sync = () => setTool(editor.getCurrentToolId());
+    sync();
+    const unsub = editor.store.listen(sync, { scope: "session" });
+    return () => unsub();
+  }, [editor]);
+
+  if (!editor) return null;
+  // If student has draw access their tool won't be "hand", so this
+  // button isn't needed. Only show in hand or laser mode.
+  if (tool !== "hand" && tool !== "laser") return null;
+
+  const isPointing = tool === "laser";
+  const toggle = () => editor.setCurrentTool(isPointing ? "hand" : "laser");
+
+  return (
+    <button
+      onClick={toggle}
+      className={`rounded-md px-2.5 py-1 text-[10px] font-medium border shadow-lg flex items-center gap-1.5 ${
+        isPointing
+          ? "bg-red-500 text-white border-red-600 hover:bg-red-600"
+          : "bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] hover:bg-[var(--hover)]"
+      }`}
+      title={isPointing ? "Stop pointing (back to pan mode)" : "Point at the board (laser pointer)  (K)"}
+      aria-label={isPointing ? "Stop pointer" : "Point at board"}
+      aria-pressed={isPointing}
+    >
+      <span aria-hidden className={`w-2 h-2 rounded-full ${isPointing ? "bg-white animate-pulse" : "bg-[var(--text-dim)]"}`} />
+      {isPointing ? "Pointing" : "Point at board"}
+    </button>
   );
 }
 
