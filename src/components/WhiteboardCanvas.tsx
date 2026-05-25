@@ -28,7 +28,7 @@ import {
   useValue,
 } from "tldraw";
 import dynamic from "next/dynamic";
-import { Pencil, Toolbox } from "@phosphor-icons/react";
+import { Camera, Keyboard, MagnifyingGlass, Pencil, Toolbox } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
@@ -36,7 +36,9 @@ import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
 import ZoomControls from "./ZoomControls";
+import CanvasSearch from "./CanvasSearch";
 import ColorPickerRow from "./ColorPickerRow";
+import ShortcutsModal from "./ShortcutsModal";
 import StrokeSizePicker from "./StrokeSizePicker";
 
 const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
@@ -245,6 +247,8 @@ export default function WhiteboardCanvas({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState<Progress>(null);
   const [equationOpen, setEquationOpen] = useState(false);
+  const [searchOpen, setSearchOpen]     = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const reportProgress = useCallback<ProgressFn>((p) => setProgress(p), []);
 
   // tldraw signal backing getShapeVisibility. We can't drive shape
@@ -606,11 +610,79 @@ export default function WhiteboardCanvas({
     };
   }, [uploadMeta, reportProgress, toast]);
 
+  // Paste images from clipboard (screenshots, copied web images) onto the
+  // canvas. We intercept in capture phase so our pipeline (validate + upload
+  // to Supabase) runs instead of tldraw's default handler. Non-image pastes
+  // (tldraw shapes, text) are left alone — we only preventDefault when we
+  // actually find an image item.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable)
+      ) return;
+      if (!editorRef.current) return;
+
+      const items = Array.from(e.clipboardData?.items ?? []);
+      const imageItem = items.find(
+        (it) => it.kind === "file" &&
+                it.type.startsWith("image/") &&
+                it.type !== "image/svg+xml",
+      );
+      if (!imageItem) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const blob = imageItem.getAsFile();
+      if (!blob) return;
+
+      const extMap: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/png":  "png",
+        "image/gif":  "gif",
+        "image/webp": "webp",
+      };
+      const ext  = extMap[imageItem.type] ?? "png";
+      const file = new File([blob], `paste-${Date.now()}.${ext}`, { type: imageItem.type });
+
+      insertFileOntoCanvas(editorRef.current, file, uploadMeta, reportProgress).catch(
+        (err: Error) => toast.error(`Paste failed: ${err.message}`),
+      );
+    };
+
+    window.addEventListener("paste", onPaste, true);
+    return () => window.removeEventListener("paste", onPaste, true);
+  }, [uploadMeta, reportProgress, toast]);
+
+  // ⌘F / Ctrl+F — open canvas text search. Escape closes it.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "f" && (e.metaKey || e.ctrlKey)) {
+        const active = document.activeElement;
+        if (
+          active instanceof HTMLInputElement ||
+          active instanceof HTMLTextAreaElement ||
+          (active instanceof HTMLElement && active.isContentEditable)
+        ) return;
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+      if (e.key === "Escape") setSearchOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   const canvasActions = useMemo<CanvasActionsCtx>(
     () => ({
       onEquation: () => setEquationOpen(true),
       onUpload: () => openFilePicker(runUpload),
       onToggleLeader,
+      onSearch: () => setSearchOpen(true),
+      onShortcuts: () => setShortcutsOpen(true),
       isHost,
       leaderMode,
     }),
@@ -731,6 +803,15 @@ export default function WhiteboardCanvas({
           await insertEquationOntoCanvas(editorRef.current, dataUrl, w, h);
         }}
       />
+      {searchOpen && editorRef.current && (
+        <CanvasSearch
+          editor={editorRef.current}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
+      {shortcutsOpen && (
+        <ShortcutsModal onClose={() => setShortcutsOpen(false)} />
+      )}
       <PagesTabBar
         editor={editorRef.current}
         onImportPdf={
@@ -1323,6 +1404,8 @@ type CanvasActionsCtx = {
   onEquation: () => void;
   onUpload: () => void;
   onToggleLeader: () => void | Promise<void>;
+  onSearch: () => void;
+  onShortcuts: () => void;
   isHost: boolean;
   leaderMode: boolean;
 };
@@ -1388,6 +1471,25 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
       >
         <ToolbarUploadSvg />
       </button>
+      <SnapshotButton editor={editor} />
+      <button
+        type="button"
+        className="tlui-button tlui-button__icon"
+        onClick={actions.onSearch}
+        title="Search canvas text (⌘F)"
+        aria-label="Search canvas"
+      >
+        <MagnifyingGlass size={20} aria-hidden />
+      </button>
+      <button
+        type="button"
+        className="tlui-button tlui-button__icon"
+        onClick={actions.onShortcuts}
+        title="Keyboard shortcuts"
+        aria-label="Keyboard shortcuts"
+      >
+        <Keyboard size={20} aria-hidden />
+      </button>
       <button
         type="button"
         className="tlui-button tlui-button__icon"
@@ -1418,6 +1520,58 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
         </button>
       )}
     </>
+  );
+}
+
+// Snapshot button lives as its own component so it can hold local
+// `snapping` state without polluting CustomToolbarButtons.
+function SnapshotButton({ editor }: { editor: Editor }) {
+  const [snapping, setSnapping] = useState(false);
+  const toast = useToast();
+
+  const handleClick = async () => {
+    if (snapping) return;
+    const ids = [...editor.getCurrentPageShapeIds()];
+    if (ids.length === 0) {
+      toast.error("Canvas is empty — nothing to export.");
+      return;
+    }
+    setSnapping(true);
+    try {
+      const { exportToBlob } = await import("tldraw");
+      const blob = await exportToBlob({
+        editor,
+        ids,
+        format: "png",
+        opts: { background: true, padding: 32, scale: 2 },
+      });
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement("a");
+      a.href     = url;
+      a.download = `whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Canvas saved as PNG");
+    } catch (err) {
+      toast.error(`Export failed: ${(err as Error).message}`);
+    } finally {
+      setSnapping(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="tlui-button tlui-button__icon"
+      onClick={handleClick}
+      disabled={snapping}
+      title="Quick snapshot — save canvas as PNG"
+      aria-label="Save canvas as PNG"
+    >
+      <Camera size={20} aria-hidden />
+    </button>
   );
 }
 
