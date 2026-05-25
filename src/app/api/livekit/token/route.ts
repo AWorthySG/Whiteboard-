@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   const at = new AccessToken(apiKey, apiSecret, {
     identity,
     name: name || "Guest",
-    ttl: "2h",
+    ttl: "10h",
   });
   at.addGrant({
     room,

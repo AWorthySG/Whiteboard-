@@ -64,6 +64,10 @@ export default function VideoPanel({
   // Track whether the user chose to join audio-only — separate from
   // the setting so we can flip it per-call without persisting.
   const [audioOnlyMode, setAudioOnlyMode] = useState(settings.audioOnly);
+  // Distinguish user-initiated leave from an unexpected drop so we can
+  // auto-reconnect on drops instead of silently showing the rejoin screen.
+  const intentionalLeaveRef = useRef(false);
+  const [dropped, setDropped] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +94,17 @@ export default function VideoPanel({
     };
   }, [roomId, userName, userId]);
 
+  // Auto-reconnect after an unexpected drop. 3-second delay gives the
+  // network a moment to recover before we hammer the server.
+  useEffect(() => {
+    if (!dropped || inCall) return;
+    const t = window.setTimeout(() => {
+      setDropped(false);
+      setInCall(true);
+    }, 3000);
+    return () => window.clearTimeout(t);
+  }, [dropped, inCall]);
+
   if (error) {
     return (
       <div role="alert" className="p-4 text-sm text-danger-700">
@@ -111,6 +126,27 @@ export default function VideoPanel({
   }
 
   if (!inCall) {
+    if (dropped) {
+      return (
+        <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
+          <p className="text-sm text-[var(--text-muted)]">
+            Call dropped. Reconnecting…
+          </p>
+          <button
+            onClick={() => { setDropped(false); setInCall(true); }}
+            className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
+          >
+            Reconnect now
+          </button>
+          <button
+            onClick={() => setDropped(false)}
+            className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
+          >
+            Stay on whiteboard
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
         <p className="text-sm text-[var(--text-muted)]">
@@ -150,7 +186,16 @@ export default function VideoPanel({
       audio={initialMic}
       data-lk-theme="default"
       style={{ height: "100%" }}
-      onDisconnected={() => setInCall(false)}
+      onDisconnected={() => {
+        if (intentionalLeaveRef.current) {
+          intentionalLeaveRef.current = false;
+          setDropped(false);
+          setInCall(false);
+        } else {
+          setDropped(true);
+          setInCall(false);
+        }
+      }}
       options={{
         // Release the local microphone hardware when the user mutes,
         // so the system mic indicator turns off.
@@ -170,7 +215,11 @@ export default function VideoPanel({
             onCaption={onCaption}
           />
         )}
-        <RoomCoordinatorBar isHost={isHost} userName={userName} />
+        <RoomCoordinatorBar
+          isHost={isHost}
+          userName={userName}
+          onBeforeLeave={() => { intentionalLeaveRef.current = true; }}
+        />
       </div>
     </LiveKitRoom>
   );
@@ -256,9 +305,11 @@ const REACTIONS = ["👍", "❓", "🎉"] as const;
 function RoomCoordinatorBar({
   isHost,
   userName,
+  onBeforeLeave,
 }: {
   isHost: boolean;
   userName: string;
+  onBeforeLeave: () => void;
 }) {
   const room = useRoomContext();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } =
@@ -371,6 +422,7 @@ function RoomCoordinatorBar({
   }, []);
 
   const onLeave = () => {
+    onBeforeLeave();
     void room.disconnect();
   };
 
