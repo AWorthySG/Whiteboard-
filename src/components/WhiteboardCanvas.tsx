@@ -28,10 +28,11 @@ import {
   useValue,
 } from "tldraw";
 import dynamic from "next/dynamic";
-import { Camera, Keyboard, MagnifyingGlass, Pencil, Toolbox } from "@phosphor-icons/react";
+import { ArrowsOut, Camera, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
+import { getSupabase } from "@/lib/supabase";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
@@ -245,6 +246,10 @@ export default function WhiteboardCanvas({
   const drawGrantUserIdRef = useRef(drawGrantUserId);
   useEffect(() => { drawGrantUserIdRef.current = drawGrantUserId; }, [drawGrantUserId]);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  // Supabase Realtime channel used by "Bring everyone here" to push the
+  // host's current viewport to all guests in one broadcast.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const broadcastChannelRef = useRef<any>(null);
   const [progress, setProgress] = useState<Progress>(null);
   const [equationOpen, setEquationOpen] = useState(false);
   const [searchOpen, setSearchOpen]     = useState(false);
@@ -676,6 +681,37 @@ export default function WhiteboardCanvas({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // Subscribe to "Bring everyone here" viewport broadcasts.
+  // Guests zoom to the host's bounds when the broadcast arrives;
+  // the host ignores their own broadcast (isHostRef guards it).
+  useEffect(() => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const channel = supabase
+      .channel(`vp-${roomId}`)
+      .on("broadcast", { event: "vp" }, (msg: { payload: { x: number; y: number; w: number; h: number } }) => {
+        if (isHostRef.current) return;
+        const editor = editorRef.current;
+        if (!editor || !msg.payload) return;
+        const { x, y, w, h } = msg.payload;
+        editor.zoomToBounds({ x, y, w, h }, { inset: 24, animation: { duration: 400 } });
+      })
+      .subscribe();
+    broadcastChannelRef.current = channel;
+    return () => {
+      void supabase.removeChannel(channel);
+      broadcastChannelRef.current = null;
+    };
+  }, [roomId]);
+
+  const broadcastViewport = useCallback(() => {
+    const editor = editorRef.current;
+    const channel = broadcastChannelRef.current;
+    if (!editor || !channel) return;
+    const b = editor.getViewportPageBounds();
+    void channel.send({ type: "broadcast", event: "vp", payload: { x: b.x, y: b.y, w: b.w, h: b.h } });
+  }, []);
+
   const canvasActions = useMemo<CanvasActionsCtx>(
     () => ({
       onEquation: () => setEquationOpen(true),
@@ -789,12 +825,15 @@ export default function WhiteboardCanvas({
       </CanvasActionsContext.Provider>
       <CanvasFloatingPanel
         editor={editorRef.current}
+        isHost={isHost}
         leaderMode={leaderMode}
         leaderUserId={leaderUserId}
         drawGrantUserId={drawGrantUserId}
         userId={userId}
+        syncStatus={store.status}
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
+        onBringEveryone={broadcastViewport}
       />
       <EquationModal
         open={equationOpen}
@@ -841,20 +880,26 @@ export default function WhiteboardCanvas({
 // SlimToolbar.
 function CanvasFloatingPanel({
   editor,
+  isHost,
   leaderMode,
   leaderUserId,
   drawGrantUserId,
   userId,
+  syncStatus,
   toolsCollapsed,
   onToggleTools,
+  onBringEveryone,
 }: {
   editor: Editor | null;
+  isHost: boolean;
   leaderMode: boolean;
   leaderUserId: string | null;
   drawGrantUserId: string | null;
   userId: string;
+  syncStatus: string;
   toolsCollapsed: boolean;
   onToggleTools: () => void;
+  onBringEveryone: () => void;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
@@ -891,6 +936,19 @@ function CanvasFloatingPanel({
           You can draw
         </div>
       )}
+      <SyncStatusDot status={syncStatus} />
+      {isHost && (
+        <button
+          onClick={onBringEveryone}
+          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] shadow-lg flex items-center gap-1.5 hover:bg-[var(--hover)]"
+          title="Zoom every student's canvas to match your current view"
+          aria-label="Bring everyone here"
+        >
+          <ArrowsOut size={12} aria-hidden />
+          Bring everyone here
+        </button>
+      )}
+      {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <PenModeIndicator editor={editor} />
       <StrokeSizePicker editor={editor} />
       <ColorPickerRow editor={editor} />
@@ -1634,6 +1692,76 @@ function CanvasWatermark() {
         }}
       />
     </div>
+  );
+}
+
+// Small colored dot in the floating panel reflecting whiteboard sync health.
+// Hidden when fully connected so it doesn't distract during a normal lesson.
+function SyncStatusDot({ status }: { status: string }) {
+  if (status === "synced-remote") return null;
+  const isError = status === "error";
+  const isLoading = status === "loading";
+  const label = isError ? "Sync error — changes may not save" : isLoading ? "Connecting to whiteboard…" : "Working offline — reconnecting";
+  return (
+    <div
+      className={`rounded-md px-2.5 py-1 text-[10px] font-medium border shadow-lg flex items-center gap-1.5 ${
+        isError
+          ? "bg-red-50 text-red-800 border-red-400"
+          : "bg-amber-50 text-amber-800 border-amber-400"
+      }`}
+      title={label}
+      role="status"
+      aria-label={label}
+    >
+      <span
+        className={`w-2 h-2 rounded-full ${
+          isError ? "bg-red-500" : "bg-amber-400 animate-pulse"
+        }`}
+      />
+      {isError ? "Sync error" : "Connecting…"}
+    </div>
+  );
+}
+
+// Student-only "clear my work" button. Counts shapes the current user
+// drew on this page (meta.authorId) and offers a one-tap delete. Only
+// visible when there's actually something to clear.
+function ClearAnnotationsButton({ editor, userId }: { editor: Editor | null; userId: string }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => {
+      setCount(
+        editor.getCurrentPageShapes().filter(
+          (s) => (s.meta as Record<string, unknown>)?.authorId === userId,
+        ).length,
+      );
+    };
+    update();
+    const unsub = editor.store.listen(update, { scope: "all" });
+    return () => unsub();
+  }, [editor, userId]);
+
+  if (!editor || count === 0) return null;
+
+  const clear = () => {
+    const ids = editor
+      .getCurrentPageShapes()
+      .filter((s) => (s.meta as Record<string, unknown>)?.authorId === userId)
+      .map((s) => s.id);
+    if (ids.length) editor.deleteShapes(ids);
+  };
+
+  return (
+    <button
+      onClick={clear}
+      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
+      title={`Remove your ${count} shape${count === 1 ? "" : "s"} from this page`}
+      aria-label="Clear my drawings from this page"
+    >
+      <TrashSimple size={12} aria-hidden />
+      Clear my work
+    </button>
   );
 }
 

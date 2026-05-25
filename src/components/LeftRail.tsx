@@ -73,6 +73,7 @@ export default function LeftRail({
         active={active === "select"}
         onClick={() => select("select")}
         label="Select"
+        shortcut="V"
       >
         <Cursor size={18} weight={active === "select" ? "fill" : "regular"} />
       </RailBtn>
@@ -80,6 +81,7 @@ export default function LeftRail({
         active={active === "hand"}
         onClick={() => select("hand")}
         label="Hand (pan canvas)"
+        shortcut="H"
       >
         <Hand size={18} weight={active === "hand" ? "fill" : "regular"} />
       </RailBtn>
@@ -90,6 +92,7 @@ export default function LeftRail({
         active={active === "draw"}
         onClick={() => select("draw")}
         label="Pen"
+        shortcut="D"
       >
         <PencilSimple
           size={18}
@@ -100,6 +103,7 @@ export default function LeftRail({
         active={active === "highlight"}
         onClick={() => select("highlight")}
         label="Highlighter"
+        shortcut="Q"
       >
         <Highlighter
           size={18}
@@ -110,6 +114,7 @@ export default function LeftRail({
         active={active === "eraser"}
         onClick={() => select("eraser")}
         label="Eraser"
+        shortcut="E"
       >
         <Eraser size={18} weight={active === "eraser" ? "fill" : "regular"} />
       </RailBtn>
@@ -120,6 +125,7 @@ export default function LeftRail({
         active={active === "note"}
         onClick={() => select("note")}
         label="Sticky note"
+        shortcut="N"
       >
         <Note
           size={18}
@@ -171,22 +177,25 @@ function RailBtn({
   activeTone = "accent",
   onClick,
   label,
+  shortcut,
 }: {
   children: React.ReactNode;
   active?: boolean;
   activeTone?: "accent" | "amber";
   onClick: () => void;
   label: string;
+  shortcut?: string;
 }) {
   const activeClasses =
     activeTone === "amber"
       ? "bg-amber-500 text-white"
       : "bg-[color:var(--accent)] text-white";
+  const tooltip = shortcut ? `${label}  (${shortcut})` : label;
   return (
     <button
       type="button"
       onClick={onClick}
-      title={label}
+      title={tooltip}
       aria-label={label}
       aria-pressed={!!active}
       className={`w-10 h-10 rounded-lg inline-flex items-center justify-center transition-colors ${
