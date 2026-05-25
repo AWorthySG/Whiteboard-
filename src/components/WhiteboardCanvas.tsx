@@ -951,8 +951,12 @@ function CanvasFloatingPanel({
       {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <PenModeIndicator editor={editor} />
-      <StrokeSizePicker editor={editor} />
-      <ColorPickerRow editor={editor} />
+      {/* On desktop (md+) these live in LeftRail for a unified control
+          strip. Keep them here only for phones where LeftRail is hidden. */}
+      <div className="md:hidden flex flex-col items-end gap-2">
+        <StrokeSizePicker editor={editor} />
+        <ColorPickerRow editor={editor} />
+      </div>
       <button
         onClick={onToggleTools}
         className="rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
