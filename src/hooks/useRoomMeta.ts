@@ -117,10 +117,11 @@ export function useRoomMeta(roomId: string): {
       setMeta((m) => ({ ...m, title }));
       const supabase = getSupabase();
       if (!supabase) return;
-      await supabase.from("room_metadata").upsert(
+      const { error } = await supabase.from("room_metadata").upsert(
         { room_id: roomId, title, updated_at: new Date().toISOString() },
         { onConflict: "room_id" },
       );
+      if (error) console.error("[useRoomMeta] setTitle failed:", error.message);
     },
     [roomId],
   );
@@ -130,7 +131,7 @@ export function useRoomMeta(roomId: string): {
       setMeta((m) => ({ ...m, leaderMode: on, leaderUserId }));
       const supabase = getSupabase();
       if (!supabase) return;
-      await supabase.from("room_metadata").upsert(
+      const { error } = await supabase.from("room_metadata").upsert(
         {
           room_id: roomId,
           leader_mode: on,
@@ -139,6 +140,7 @@ export function useRoomMeta(roomId: string): {
         },
         { onConflict: "room_id" },
       );
+      if (error) console.error("[useRoomMeta] setLeaderMode failed:", error.message);
     },
     [roomId],
   );
@@ -148,7 +150,7 @@ export function useRoomMeta(roomId: string): {
       setMeta((m) => ({ ...m, drawGrantUserId: userId }));
       const supabase = getSupabase();
       if (!supabase) return;
-      await supabase.from("room_metadata").upsert(
+      const { error } = await supabase.from("room_metadata").upsert(
         {
           room_id: roomId,
           draw_grant_user_id: userId,
@@ -156,6 +158,7 @@ export function useRoomMeta(roomId: string): {
         },
         { onConflict: "room_id" },
       );
+      if (error) console.error("[useRoomMeta] setDrawGrant failed:", error.message);
     },
     [roomId],
   );
@@ -165,7 +168,7 @@ export function useRoomMeta(roomId: string): {
       setMeta((m) => ({ ...m, timer }));
       const supabase = getSupabase();
       if (!supabase) return;
-      await supabase.from("room_metadata").upsert(
+      const { error } = await supabase.from("room_metadata").upsert(
         {
           room_id: roomId,
           timer_running: timer.running,
@@ -178,6 +181,7 @@ export function useRoomMeta(roomId: string): {
         },
         { onConflict: "room_id" },
       );
+      if (error) console.error("[useRoomMeta] setTimer failed:", error.message);
     },
     [roomId],
   );

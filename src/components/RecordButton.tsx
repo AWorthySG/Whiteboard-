@@ -84,6 +84,9 @@ export default function RecordButton({
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number>(0);
+  // Tracks non-paused recording seconds so durationSec in the DB row
+  // reflects actual content length, not wall-clock time including pauses.
+  const elapsedRef = useRef<number>(0);
   // Recording id is generated upfront (before any upload) so the
   // parent's frame capture can label its data with the same id from
   // the very first second — no waiting for the video upload to
@@ -104,10 +107,23 @@ export default function RecordButton({
   useEffect(() => {
     if (state !== "recording") return;
     const id = window.setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
+      setElapsed((s) => {
+        const next = s + 1;
+        elapsedRef.current = next;
+        return next;
+      });
     }, 1000);
     return () => clearInterval(id);
   }, [state]);
+
+  // Release active media tracks when the component unmounts mid-recording
+  // (e.g. React navigation) so the OS camera/mic indicator turns off.
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -223,6 +239,7 @@ export default function RecordButton({
           toast.error(
             `Recording couldn't be listed: ${dbErr.message}. The file was removed; please re-record.`,
           );
+          return null;
         } else {
           // Tell the parent the recording row exists — it can now
           // upload its companion whiteboard timeline.
@@ -293,9 +310,9 @@ export default function RecordButton({
       recorder.onstop = async () => {
         const finalMime = mimeType || "video/webm";
         const blob = new Blob(chunksRef.current, { type: finalMime });
-        const durationSec = Math.floor(
-          (Date.now() - startedAtRef.current) / 1000,
-        );
+        // Use the accumulated non-paused seconds rather than wall-clock
+        // start time so paused periods don't inflate the stored duration.
+        const durationSec = elapsedRef.current;
         chunksRef.current = [];
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -310,7 +327,10 @@ export default function RecordButton({
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(objectUrl);
+        // Safari fetches the blob URL asynchronously after click(); revoking
+        // immediately produces an empty download on Safari. 1 s is enough
+        // since the blob is in memory (no network fetch).
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 
         await uploadToCloud(blob, finalMime, durationSec);
       };
@@ -322,10 +342,12 @@ export default function RecordButton({
       recorder.start(1000);
       recorderRef.current = recorder;
       startedAtRef.current = Date.now();
+      elapsedRef.current = 0;
       // Generate the id once, here, so the upload path and the
       // parent-side frame capture both label data with the same id.
       recordingIdRef.current = crypto.randomUUID();
       setState("recording");
+      setElapsed(0);
       onRecordingStarted?.(recordingIdRef.current);
     } catch (err) {
       console.error("[record] start failed", err);

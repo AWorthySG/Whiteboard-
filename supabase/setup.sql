@@ -95,8 +95,13 @@ drop policy if exists "Public read room_metadata" on public.room_metadata;
 create policy "Public read room_metadata" on public.room_metadata for select using (true);
 drop policy if exists "Public upsert room_metadata" on public.room_metadata;
 create policy "Public upsert room_metadata" on public.room_metadata for insert with check (true);
+-- UPDATE restricted to authenticated users: students join as unauthenticated
+-- guests and must not be able to seize leader mode, draw grant, or the timer
+-- via the REST API. Authenticated hosts (signed-in users) can update freely.
 drop policy if exists "Public update room_metadata" on public.room_metadata;
-create policy "Public update room_metadata" on public.room_metadata for update using (true);
+drop policy if exists "Auth update room_metadata" on public.room_metadata;
+create policy "Auth update room_metadata" on public.room_metadata
+  for update to authenticated using (true);
 
 -- -----------------------------------------------------------------
 -- room_documents — uploads visible in the Documents drawer
@@ -238,8 +243,13 @@ drop policy if exists "Public read join_requests" on public.join_requests;
 create policy "Public read join_requests" on public.join_requests for select using (true);
 drop policy if exists "Public insert join_requests" on public.join_requests;
 create policy "Public insert join_requests" on public.join_requests for insert with check (true);
+-- UPDATE restricted to authenticated users: prevents unauthenticated guests
+-- from self-admitting via the REST API. /api/invite/redeem uses the
+-- service_role key (bypasses RLS) for magic-link auto-admission.
 drop policy if exists "Public update join_requests" on public.join_requests;
-create policy "Public update join_requests" on public.join_requests for update using (true);
+drop policy if exists "Auth update join_requests" on public.join_requests;
+create policy "Auth update join_requests" on public.join_requests
+  for update to authenticated using (true);
 
 -- -----------------------------------------------------------------
 -- Realtime publication — all app tables broadcast change events

@@ -42,6 +42,32 @@ const SYNC_URL =
 
 const PDFJS_VERSION = "4.10.38";
 
+// Allowlisted file extensions and MIME prefixes for uploads. Prevents
+// HTML/JS files being stored in the public bucket with an executable
+// Content-Type. The browser's file picker already filters by `accept`,
+// but that's bypassable — we enforce here too before the XHR fires.
+const ALLOWED_EXTENSIONS = new Set([
+  "pdf", "png", "jpg", "jpeg", "gif", "webp", "svg",
+]);
+const ALLOWED_MIME_PREFIXES = ["image/", "application/pdf"];
+
+function validateFileForUpload(file: File): void {
+  const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    throw new Error(
+      `".${ext}" files aren't allowed — please upload a PDF or image.`,
+    );
+  }
+  if (
+    file.type &&
+    !ALLOWED_MIME_PREFIXES.some((p) => file.type.startsWith(p))
+  ) {
+    throw new Error(
+      `File type "${file.type}" isn't allowed — please upload a PDF or image.`,
+    );
+  }
+}
+
 type UploadMeta = {
   roomId: string;
   userId: string;
@@ -82,15 +108,21 @@ function uploadAsset(
   const publicUrl = `${supabaseUrl}/storage/v1/object/public/whiteboard-assets/${path}`;
   const originalName = meta.originalName ?? file.name;
 
+  validateFileForUpload(file);
+
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", endpoint);
     xhr.setRequestHeader("Authorization", `Bearer ${supabaseKey}`);
     xhr.setRequestHeader("apikey", supabaseKey);
-    xhr.setRequestHeader(
-      "Content-Type",
-      file.type || "application/octet-stream",
-    );
+    // Use only validated MIME types. If the browser-reported type is not
+    // in our allowlist, fall back to application/octet-stream so we
+    // never store an HTML or JS content-type in the public bucket.
+    const safeMime =
+      file.type && ALLOWED_MIME_PREFIXES.some((p) => file.type.startsWith(p))
+        ? file.type
+        : "application/octet-stream";
+    xhr.setRequestHeader("Content-Type", safeMime);
     xhr.setRequestHeader("x-upsert", "false");
     xhr.upload.onprogress = (e) => {
       if (!e.lengthComputable || !onUploadProgress) return;
@@ -232,6 +264,11 @@ export default function WhiteboardCanvas({
   });
   const toast = useToast();
   const editorRef = useRef<Editor | null>(null);
+  // Keep a ref in sync with the isHost prop so the registerBeforeCreateHandler
+  // closure (set up once in onMount) always reads the current value even if
+  // the host claims their room mid-session without a full remount.
+  const isHostRef = useRef(isHost);
+  useEffect(() => { isHostRef.current = isHost; }, [isHost]);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [progress, setProgress] = useState<Progress>(null);
   const [equationOpen, setEquationOpen] = useState(false);
@@ -659,7 +696,10 @@ export default function WhiteboardCanvas({
                   ...shape,
                   meta: {
                     ...shape.meta,
-                    annotation: !isHost,
+                    // Read from ref so the handler stays accurate even if
+                    // the host claims their room mid-session (isHost prop
+                    // changes but onMount only runs once).
+                    annotation: !isHostRef.current,
                     authorId: userId,
                   },
                 };
@@ -711,8 +751,10 @@ export default function WhiteboardCanvas({
       />
       <PagesTabBar
         editor={editorRef.current}
-        onImportPdf={() =>
-          openFilePicker(runPdfAsPages, "application/pdf")
+        onImportPdf={
+          isHost
+            ? () => openFilePicker(runPdfAsPages, "application/pdf")
+            : undefined
         }
       />
       <ZoomControls editor={editorRef.current} />
@@ -849,16 +891,26 @@ function openFilePicker(
   const input = document.createElement("input");
   input.type = "file";
   input.accept = accept;
-  // Hidden but in the DOM — some browsers (notably mobile Safari)
-  // silently refuse to open the native picker for a detached <input>.
+  // Hidden but in the DOM — mobile Safari silently refuses to open the
+  // native picker for a detached <input>.
   input.style.position = "fixed";
   input.style.top = "-9999px";
   input.style.opacity = "0";
+
+  const cleanup = () => {
+    if (document.body.contains(input)) document.body.removeChild(input);
+  };
+
   input.onchange = () => {
     const file = input.files?.[0];
-    document.body.removeChild(input);
+    cleanup();
     if (file) onPick(file);
   };
+  // Modern browsers fire 'cancel' when the dialog is dismissed without a
+  // selection. Without this, the <input> leaks in the DOM and repeated
+  // cancels can block subsequent opens on iOS Safari.
+  input.addEventListener("cancel", cleanup);
+
   document.body.appendChild(input);
   input.click();
 }
@@ -1009,8 +1061,14 @@ async function insertPdfAsImages(
       const ctx = canvas.getContext("2d")!;
       await page.render({ canvasContext: ctx, viewport }).promise;
 
-      const blob: Blob = await new Promise((res) =>
-        canvas.toBlob((b) => res(b!), "image/png"),
+      const blob: Blob = await new Promise((res, rej) =>
+        canvas.toBlob(
+          (b) =>
+            b
+              ? res(b)
+              : rej(new Error("Canvas capture failed (tainted or zero-size)")),
+          "image/png",
+        ),
       );
       const pngFile = new File([blob], `${file.name}-page-${i}.png`, {
         type: "image/png",
@@ -1120,8 +1178,14 @@ async function insertPdfAsPageBackgrounds(
       const ctx = canvas.getContext("2d")!;
       await page.render({ canvasContext: ctx, viewport }).promise;
 
-      const blob: Blob = await new Promise((res) =>
-        canvas.toBlob((b) => res(b!), "image/png"),
+      const blob: Blob = await new Promise((res, rej) =>
+        canvas.toBlob(
+          (b) =>
+            b
+              ? res(b)
+              : rej(new Error("Canvas capture failed (tainted or zero-size)")),
+          "image/png",
+        ),
       );
       const pngFile = new File([blob], `${base}-page-${i}.png`, {
         type: "image/png",
@@ -1170,16 +1234,19 @@ async function insertPdfAsPageBackgrounds(
 
       // Centered on the origin + locked, matching the template
       // backgrounds in PagesTabBar so users draw on top, not move it.
+      // Capture the ID upfront so sendToBack always targets the shape we
+      // just created rather than slice(-1)[0] which could be a
+      // concurrently-arrived remote shape.
+      const bgShapeId = `shape:${uniqueId()}` as never;
       editor.createShape({
-        id: `shape:${uniqueId()}` as never,
+        id: bgShapeId,
         type: "image",
         x: -w / 2,
         y: -h / 2,
         isLocked: true,
         props: { assetId, w, h },
       });
-      const last = editor.getCurrentPageShapes().slice(-1)[0];
-      if (last) editor.sendToBack([last.id]);
+      editor.sendToBack([bgShapeId]);
     }
     // Land the host on the first imported page and frame it.
     if (firstPageId) {

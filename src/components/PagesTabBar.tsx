@@ -256,17 +256,18 @@ async function applyTemplate(editor: Editor, template: Template) {
       meta: {},
     },
   ]);
+  // Capture the ID upfront so sendToBack always targets this shape, not
+  // whatever slice(-1)[0] returns (could be a concurrent remote shape).
+  const bgShapeId = `shape:${uniqueId()}` as never;
   editor.createShape({
-    id: `shape:${uniqueId()}` as never,
+    id: bgShapeId,
     type: "image",
     x: -w / 2,
     y: -h / 2,
     isLocked: true,
     props: { assetId, w, h },
   });
-  // Send template to back so users draw on top of it.
-  const last = editor.getCurrentPageShapes().slice(-1)[0];
-  if (last) editor.sendToBack([last.id]);
+  editor.sendToBack([bgShapeId]);
 }
 
 function renderTemplateSvg(template: Template, w: number, h: number): string {

@@ -66,23 +66,37 @@ export default function LessonTimer({
   };
 
   const startCustom = () => {
+    // Reject scientific notation ("1e10") — parseFloat accepts it but
+    // produces astronomically long timers. Only plain decimals allowed.
+    if (!/^\d+(\.\d+)?$/.test(customMin.trim())) return;
     const min = parseFloat(customMin);
-    if (!Number.isFinite(min) || min <= 0) return;
+    if (!Number.isFinite(min) || min <= 0 || min > 480) return;
     startWith(Math.round(min * 60_000));
   };
 
-  const pause = () =>
+  const pause = () => {
+    // Snapshot remaining time at click time rather than closing over the
+    // stale rendered value (which can be up to 250 ms old).
+    const snapMs =
+      timer.running && timer.endsAt != null
+        ? Math.max(0, timer.endsAt - Date.now())
+        : Math.max(0, timer.remainingMs ?? 0);
     void onChange({
       running: false,
       endsAt: null,
-      remainingMs: Math.max(0, remainingMs),
+      remainingMs: snapMs,
       durationMs: timer.durationMs,
     });
+  };
 
   const resume = () =>
     void onChange({
       running: true,
-      endsAt: Date.now() + Math.max(0, timer.remainingMs ?? 0),
+      // Use computeRemaining rather than timer.remainingMs directly:
+      // remainingMs is null while running, so after a failed pause write
+      // the paused row could have remainingMs=null, which would make
+      // Date.now()+0 expire the timer instantly on resume.
+      endsAt: Date.now() + Math.max(0, computeRemaining(timer)),
       remainingMs: null,
       durationMs: timer.durationMs,
     });
@@ -169,7 +183,7 @@ export default function LessonTimer({
   }
 
   // Active → countdown pill (+ host controls).
-  const total = timer.durationMs ?? 1;
+  const total = timer.durationMs || 1;
   const frac = Math.max(0, Math.min(1, remainingMs / total));
   const borderClass = finished
     ? "border-[color:var(--destructive)]"

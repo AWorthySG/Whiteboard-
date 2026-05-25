@@ -65,7 +65,11 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
-  const supabase = createClient(supabaseUrl, supabaseKey, {
+  // Prefer the service role key so the upsert bypasses the RLS UPDATE
+  // policy that now requires auth. The invite token has already been
+  // verified above — this is a trusted server-to-server write.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? supabaseKey;
+  const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
 
