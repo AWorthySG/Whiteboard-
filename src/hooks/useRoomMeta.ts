@@ -70,7 +70,7 @@ export function useRoomMeta(roomId: string): {
     const fetchMeta = async () => {
       const { data } = await supabase
         .from("room_metadata")
-        .select("title, leader_mode, leader_user_id, draw_grant_user_id")
+        .select("title, leader_mode, leader_user_id, draw_grant_user_id, timer_running, timer_ends_at, timer_remaining_ms, timer_duration_ms")
         .eq("room_id", roomId)
         .maybeSingle();
       if (cancelled) return;
