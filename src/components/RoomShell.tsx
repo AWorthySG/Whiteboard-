@@ -80,7 +80,13 @@ export default function RoomShell({
   // GuestNameEntry would flash for one frame on guests who already
   // have a name saved on this device.
   const [nameBootstrapped, setNameBootstrapped] = useState(false);
-  const [videoOpen, setVideoOpen] = useState(() => getSettings().showVideoOnEntry);
+  // callJoined: whether the video/audio call (LiveKit) is active — controls
+  // VideoPanel mounting. videoPanelVisible: whether the panel is shown in
+  // the layout (can be false while still in the call = audio-only mode).
+  const [callJoined, setCallJoined] = useState(() => getSettings().showVideoOnEntry);
+  const [videoPanelVisible, setVideoPanelVisible] = useState(() => getSettings().showVideoOnEntry);
+  const joinCall = useCallback(() => { setCallJoined(true); setVideoPanelVisible(true); }, []);
+  const leaveCall = useCallback(() => { setCallJoined(false); setVideoPanelVisible(false); }, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [hwOpen, setHwOpen] = useState(false);
@@ -327,9 +333,16 @@ export default function RoomShell({
       },
       {
         id: "toggle-video",
-        label: videoOpen ? "Hide video panel" : "Show video panel",
+        label: !callJoined
+          ? "Join call"
+          : videoPanelVisible
+            ? "Hide video panel"
+            : "Show video panel",
         group: "Room",
-        perform: () => setVideoOpen((v) => !v),
+        perform: () => {
+          if (!callJoined) joinCall();
+          else setVideoPanelVisible((v) => !v);
+        },
       },
       {
         id: "add-page",
@@ -381,7 +394,9 @@ export default function RoomShell({
     router,
     setLeaderMode,
     userId,
-    videoOpen,
+    callJoined,
+    videoPanelVisible,
+    joinCall,
     downloadAllPagesPdf,
   ]);
 
@@ -738,13 +753,44 @@ export default function RoomShell({
               )}
             </button>
             <button
-              onClick={() => setVideoOpen((v) => !v)}
-              className="touch-target text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
-              title={videoOpen ? "Hide video" : "Show video"}
-              aria-label={videoOpen ? "Hide video" : "Show video"}
+              onClick={() => {
+                if (!callJoined) joinCall();
+                else setVideoPanelVisible((v) => !v);
+              }}
+              className={`touch-target text-sm rounded-md px-2.5 lg:px-3 py-1 flex items-center gap-1.5 ${
+                callJoined
+                  ? "bg-brand-600 hover:bg-brand-500 text-white"
+                  : "border border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
+              }`}
+              title={
+                !callJoined
+                  ? "Join call"
+                  : videoPanelVisible
+                    ? "Hide video"
+                    : "Show video"
+              }
+              aria-label={
+                !callJoined
+                  ? "Join call"
+                  : videoPanelVisible
+                    ? "Hide video"
+                    : "Show video"
+              }
             >
-              {videoOpen ? <CamOffSvg /> : <CamSvg />}
-              <span className="hidden lg:inline">{videoOpen ? "Hide video" : "Show video"}</span>
+              {!callJoined ? (
+                <PhoneCallSvg />
+              ) : videoPanelVisible ? (
+                <CamOffSvg />
+              ) : (
+                <CamSvg />
+              )}
+              <span className="hidden lg:inline">
+                {!callJoined
+                  ? "Join call"
+                  : videoPanelVisible
+                    ? "Hide video"
+                    : "Show video"}
+              </span>
             </button>
             <IconBtn onClick={() => setSettingsOpen(true)} label="Settings">
               <GearSvg />
@@ -771,11 +817,26 @@ export default function RoomShell({
         {/* Mobile controls */}
         <div className="ml-auto flex lg:hidden items-center gap-1 shrink-0">
           <IconBtn
-            onClick={() => setVideoOpen((v) => !v)}
-            label={videoOpen ? "Hide video" : "Show video"}
-            active={videoOpen}
+            onClick={() => {
+              if (!callJoined) joinCall();
+              else setVideoPanelVisible((v) => !v);
+            }}
+            label={
+              !callJoined
+                ? "Join call"
+                : videoPanelVisible
+                  ? "Hide video"
+                  : "Show video"
+            }
+            active={callJoined}
           >
-            {videoOpen ? <CamOffSvg /> : <CamSvg />}
+            {!callJoined ? (
+              <PhoneCallSvg />
+            ) : videoPanelVisible ? (
+              <CamOffSvg />
+            ) : (
+              <CamSvg />
+            )}
           </IconBtn>
           <div className="relative" ref={menuRef}>
             <IconBtn
@@ -934,9 +995,13 @@ export default function RoomShell({
           />
         </div>
 
-        {videoOpen && (
+        {callJoined && (
+          // Always mounted when in call so audio continues even when panel is
+          // hidden. "hidden md:flex" shows on desktop; adding no md:flex class
+          // (videoPanelVisible=false) keeps it display:none everywhere while
+          // the LiveKit connection inside stays alive for audio.
           <aside
-            className="hidden md:flex shrink-0 border-l border-[color:var(--border-subtle)] bg-[var(--bg-elev-2)] flex-col relative"
+            className={`${videoPanelVisible ? "md:flex" : ""} hidden shrink-0 border-l border-[color:var(--border-subtle)] bg-[var(--bg-elev-2)] flex-col relative`}
             style={{ width: videoCompact ? VIDEO_WIDTH_COMPACT : videoPanelWidth }}
           >
             {!videoCompact && (
@@ -962,11 +1027,12 @@ export default function RoomShell({
               isHost={isHost}
               captionsEnabled={settings.captionsEnabled}
               onCaption={pushCaption}
+              onLeaveCall={leaveCall}
             />
           </aside>
         )}
 
-        {videoOpen && (
+        {callJoined && videoPanelVisible && (
           <div
             className="md:hidden shrink-0 border-t border-[color:var(--border)] bg-[var(--bg-elev-2)] shadow-2xl flex flex-col safe-pb"
             style={{ height: videoCompact ? "24dvh" : "42dvh" }}
@@ -984,7 +1050,7 @@ export default function RoomShell({
                   {videoCompact ? "Larger" : "Smaller"}
                 </button>
                 <button
-                  onClick={() => setVideoOpen(false)}
+                  onClick={() => setVideoPanelVisible(false)}
                   className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-0.5"
                 >
                   Hide
@@ -993,13 +1059,14 @@ export default function RoomShell({
             </div>
             <div className="flex-1 min-h-0">
               <VideoPanel
-              roomId={roomId}
-              userId={userId}
-              userName={name || "Guest"}
-              isHost={isHost}
-              captionsEnabled={settings.captionsEnabled}
-              onCaption={pushCaption}
-            />
+                roomId={roomId}
+                userId={userId}
+                userName={name || "Guest"}
+                isHost={isHost}
+                captionsEnabled={settings.captionsEnabled}
+                onCaption={pushCaption}
+                onLeaveCall={leaveCall}
+              />
             </div>
           </div>
         )}
@@ -1234,6 +1301,13 @@ function CamOffSvg() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M1 1l22 22" />
       <path d="M16 16v2a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2m5 0h4a2 2 0 0 1 2 2v4l4-3v9" />
+    </svg>
+  );
+}
+function PhoneCallSvg() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.06 6.06l1.27-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7a2 2 0 0 1 1.72 2.01z" />
     </svg>
   );
 }

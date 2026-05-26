@@ -37,6 +37,7 @@ export default function VideoPanel({
   isHost,
   captionsEnabled,
   onCaption,
+  onLeaveCall,
 }: {
   roomId: string;
   userId: string;
@@ -44,6 +45,9 @@ export default function VideoPanel({
   isHost: boolean;
   captionsEnabled?: boolean;
   onCaption?: (line: import("./CaptionsManager").CaptionLine) => void;
+  // Called when the user intentionally leaves the call from the control bar
+  // so RoomShell can unmount VideoPanel and show the whiteboard-only state.
+  onLeaveCall?: () => void;
 }) {
   const [settings] = useSettings();
   const [token, setToken] = useState<string | null>(null);
@@ -68,6 +72,9 @@ export default function VideoPanel({
   // auto-reconnect on drops instead of silently showing the rejoin screen.
   const intentionalLeaveRef = useRef(false);
   const [dropped, setDropped] = useState(false);
+  // Tracks whether the user has successfully been in the call at least once
+  // this session — used to show "Join the call" vs "You've left" messaging.
+  const hasJoinedBeforeRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +112,12 @@ export default function VideoPanel({
     return () => window.clearTimeout(t);
   }, [dropped, inCall]);
 
+  // Record that the user has been in the call at least once this session
+  // so we can distinguish "never joined" from "intentionally left".
+  useEffect(() => {
+    if (inCall) hasJoinedBeforeRef.current = true;
+  }, [inCall]);
+
   if (error) {
     return (
       <div role="alert" className="p-4 text-sm text-danger-700">
@@ -139,18 +152,56 @@ export default function VideoPanel({
             Reconnect now
           </button>
           <button
-            onClick={() => setDropped(false)}
+            onClick={() => { setDropped(false); onLeaveCall?.(); }}
             className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
           >
-            Stay on whiteboard
+            Stay on whiteboard only
           </button>
         </div>
       );
     }
+
+    // First entry (never joined yet): show a clear "join" prompt so users
+    // know they can use the whiteboard without the call.
+    if (!hasJoinedBeforeRef.current) {
+      return (
+        <div className="flex flex-col h-full items-center justify-center gap-3 p-6 text-center">
+          <p className="text-sm font-medium text-[var(--text)]">
+            Join the call
+          </p>
+          <p className="text-xs text-[var(--text-muted)] -mt-1">
+            You're on the whiteboard. Add audio &amp; video when you're ready.
+          </p>
+          <button
+            onClick={() => {
+              setAudioOnlyMode(false);
+              setInCall(true);
+            }}
+            className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
+          >
+            Join with video
+          </button>
+          <button
+            onClick={() => {
+              setAudioOnlyMode(true);
+              setInCall(true);
+            }}
+            className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
+          >
+            Audio only
+          </button>
+          <p className="text-xs text-[var(--text-dim)]">
+            Audio only saves bandwidth on phone data.
+          </p>
+        </div>
+      );
+    }
+
+    // User has joined before and intentionally left — offer to rejoin.
     return (
       <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
         <p className="text-sm text-[var(--text-muted)]">
-          You've left the call. You're still in the whiteboard.
+          You've left the call. The whiteboard is still active.
         </p>
         <button
           onClick={() => {
@@ -170,8 +221,14 @@ export default function VideoPanel({
         >
           Rejoin audio only
         </button>
-        <p className="text-xs text-[var(--text-dim)] mt-1">
-          Audio-only saves bandwidth on phone data.
+        <button
+          onClick={() => onLeaveCall?.()}
+          className="touch-target w-full max-w-[14rem] text-xs text-[var(--text-dim)] hover:text-[var(--text-muted)] py-1"
+        >
+          Close panel · stay on whiteboard
+        </button>
+        <p className="text-xs text-[var(--text-dim)]">
+          Audio only saves bandwidth on phone data.
         </p>
       </div>
     );
@@ -191,6 +248,9 @@ export default function VideoPanel({
           intentionalLeaveRef.current = false;
           setDropped(false);
           setInCall(false);
+          // Propagate to RoomShell so it can unmount VideoPanel and show
+          // the whiteboard-only state with a clear "Join call" button.
+          onLeaveCall?.();
         } else {
           setDropped(true);
           setInCall(false);
