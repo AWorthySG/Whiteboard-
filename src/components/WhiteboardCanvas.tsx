@@ -812,6 +812,26 @@ export default function WhiteboardCanvas({
                   };
                 },
               );
+            // Sticky notes are deliberately immune to the eraser — a note
+            // holds typed/important content, so it must be removed
+            // deliberately (select + the floating Delete pill, or
+            // Backspace), never wiped by a stray eraser stroke. We veto
+            // only deletions the LOCAL eraser triggers; the Delete pill,
+            // keyboard delete, and remote deletes (source === "remote")
+            // all pass through so clients never diverge.
+            const deregisterDeleteHandler =
+              editor.sideEffects.registerBeforeDeleteHandler(
+                "shape",
+                (shape, source) => {
+                  if (
+                    source === "user" &&
+                    shape.type === "note" &&
+                    editor.getCurrentToolId() === "eraser"
+                  ) {
+                    return false;
+                  }
+                },
+              );
             editor.user.updateUserPreferences({
               colorScheme: "light",
               animationSpeed: 0,
@@ -837,7 +857,10 @@ export default function WhiteboardCanvas({
             if (appSettings.penOnly) {
               editor.updateInstanceState({ isPenMode: true });
             }
-            return () => deregisterCreateHandler();
+            return () => {
+              deregisterCreateHandler();
+              deregisterDeleteHandler();
+            };
           }}
         />
       </CanvasActionsContext.Provider>
