@@ -503,3 +503,11 @@ default stroke profile if the patch isn't applied.
     `onLeaveCall` must always set BOTH `callJoined = false` AND
     `videoPanelVisible = false` — leaving the call with the aside still mounted
     would keep a dead LiveKit component in the tree.
+18. **`StrokeSizePicker` and `ColorPickerRow` ARE used inside `WhiteboardCanvas`.**
+    They render in the internal `CanvasFloatingPanel` (wrapped in `md:hidden` so
+    they only appear on phones — desktop uses the copies in `LeftRail`). The two
+    imports near the top of `WhiteboardCanvas.tsx` are therefore required. Do NOT
+    "clean up" these as unused imports: removing them produces a
+    `react/jsx-no-undef` build error that fails the Vercel deploy. If ESLint ever
+    reports them as unused, the real cause is upstream (a refactor removed the JSX
+    usage) — fix that, don't delete the import blindly.
