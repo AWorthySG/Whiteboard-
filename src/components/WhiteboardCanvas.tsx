@@ -1010,6 +1010,7 @@ function CanvasFloatingPanel({
           Bring everyone here
         </button>
       )}
+      <DeleteSelectionButton editor={editor} />
       {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <PenModeIndicator editor={editor} />
@@ -1918,6 +1919,42 @@ function ClearAnnotationsButton({ editor, userId }: { editor: Editor | null; use
     >
       <TrashSimple size={12} aria-hidden />
       Clear my work
+    </button>
+  );
+}
+
+// Touch-friendly delete for the current selection. tldraw's native
+// delete lives in QuickActions, which is nulled when the toolbar is
+// collapsed (phones) and hidden by CSS at md+ (tablet/desktop) — so on
+// a touch device the eraser was the only way to remove a sticky note.
+// This pill appears whenever something is selected and removes it in
+// one tap. Keyboard users still have Backspace/Delete.
+function DeleteSelectionButton({ editor }: { editor: Editor | null }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => setCount(editor.getSelectedShapeIds().length);
+    update();
+    const unsub = editor.store.listen(update, { scope: "session" });
+    return () => unsub();
+  }, [editor]);
+
+  if (!editor || count === 0) return null;
+
+  const del = () => {
+    const ids = editor.getSelectedShapeIds();
+    if (ids.length) editor.deleteShapes(ids);
+  };
+
+  return (
+    <button
+      onClick={del}
+      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
+      title={count > 1 ? `Delete ${count} selected shapes` : "Delete selected shape"}
+      aria-label="Delete selection"
+    >
+      <TrashSimple size={12} aria-hidden />
+      {count > 1 ? `Delete (${count})` : "Delete"}
     </button>
   );
 }

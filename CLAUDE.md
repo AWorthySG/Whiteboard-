@@ -312,6 +312,13 @@ CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floatin
                        - "Clear my work" (non-host): deletes all shapes where
                          meta.authorId === userId; pill shows count and auto-hides
                          when the page is clean
+                       - DeleteSelectionButton: appears whenever ≥1 shape is
+                         selected and deletes the selection in one tap (shows
+                         "Delete (n)" for multi-select). Shown on ALL breakpoints,
+                         not md:hidden — tldraw's native delete (QuickActions) is
+                         nulled when the toolbar is collapsed (phones) and hidden
+                         by CSS at md+ (iPad has no keyboard), so this is the only
+                         touch path to remove a sticky note without the eraser.
                        - PenModeIndicator: tap-to-dismiss pen-mode pill
                        - StrokeSizePicker + ColorPickerRow: md:hidden (in LeftRail).
                          On phones both sit behind a single collapsible "Stroke
