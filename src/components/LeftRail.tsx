@@ -121,7 +121,7 @@ export default function LeftRail({
 
   return (
     <aside
-      className="hidden md:flex w-14 shrink-0 flex-col items-center gap-1 py-2 bg-[var(--bg-elev)] border-r border-[color:var(--border)] overflow-y-auto"
+      className="hidden md:flex w-14 shrink-0 flex-col items-center gap-1 py-3 bg-[var(--bg-elev)] border-r border-[color:var(--border)] overflow-y-auto"
       aria-label="Drawing tools"
     >
       <RailBtn onClick={() => editor.undo()} label="Undo" shortcut="⌘Z" disabled={!canUndo}>
@@ -187,11 +187,15 @@ export default function LeftRail({
       )}
 
       {/* ── Drawing style controls ──────────────────────────────── */}
+      {/* Extra vertical space creates a clear section break between
+          "which tool am I using" and "what does it look like" — the
+          most important semantic gap in the rail. */}
+      <div className="mt-2" aria-hidden />
       <Divider />
 
       {/* Compact 2×2 stroke size picker */}
       <div
-        className="grid grid-cols-2 gap-0.5 px-1"
+        className="grid grid-cols-2 gap-1 px-1"
         role="toolbar"
         aria-label="Stroke size"
       >
@@ -202,7 +206,7 @@ export default function LeftRail({
             aria-label={s.label}
             aria-pressed={activeSize === s.value}
             title={s.label}
-            className={`w-[22px] h-[22px] rounded-md inline-flex items-center justify-center transition-colors ${
+            className={`w-[26px] h-[26px] rounded-md inline-flex items-center justify-center transition-colors ${
               activeSize === s.value
                 ? "bg-[var(--text)]"
                 : "hover:bg-[var(--hover)]"
@@ -222,7 +226,7 @@ export default function LeftRail({
 
       {/* Compact 2×4 color grid */}
       <div
-        className="grid grid-cols-2 gap-1 px-1"
+        className="grid grid-cols-2 gap-1.5 px-1"
         role="toolbar"
         aria-label="Color"
       >
@@ -233,7 +237,7 @@ export default function LeftRail({
             aria-label={c.label}
             aria-pressed={activeColor === c.name}
             title={c.label}
-            className={`w-[22px] h-[22px] rounded-full transition-transform ${
+            className={`w-[24px] h-[24px] rounded-full transition-transform ${
               activeColor === c.name
                 ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
                 : "hover:scale-105"
@@ -289,6 +293,6 @@ function RailBtn({
 
 function Divider() {
   return (
-    <span aria-hidden className="block w-7 h-px bg-[var(--border)] my-1" />
+    <span aria-hidden className="block w-7 h-px bg-[var(--border)] my-1.5" />
   );
 }

@@ -878,15 +878,34 @@ export default function WhiteboardCanvas({
       {shortcutsOpen && (
         <ShortcutsModal onClose={() => setShortcutsOpen(false)} />
       )}
-      <PagesTabBar
-        editor={editorRef.current}
-        onImportPdf={
-          isHost
-            ? () => openFilePicker(runPdfAsPages, "application/pdf")
-            : undefined
-        }
-      />
-      <ZoomControls editor={editorRef.current} />
+      {/* Mobile: zoom only, above tldraw's native bottom toolbar */}
+      <div className="md:hidden absolute bottom-20 left-3 z-[60]" style={{ pointerEvents: "auto" }}>
+        <ZoomControls editor={editorRef.current} />
+      </div>
+      {/* Desktop: zoom + pages in a single absolutely-positioned bottom band.
+          CSS grid (1fr auto 1fr) puts PagesTabBar in a true centre column and
+          ZoomControls at the start of the left column — both share the same
+          bottom-5 edge so they read as one coherent spatial zone. */}
+      <div
+        className="hidden md:grid absolute bottom-5 left-3 right-3 z-[60] items-end pointer-events-none"
+        style={{ gridTemplateColumns: "1fr auto 1fr" }}
+      >
+        <div className="pointer-events-auto flex items-center">
+          <ZoomControls editor={editorRef.current} />
+        </div>
+        <div className="pointer-events-auto">
+          <PagesTabBar
+            editor={editorRef.current}
+            onImportPdf={
+              isHost
+                ? () => openFilePicker(runPdfAsPages, "application/pdf")
+                : undefined
+            }
+          />
+        </div>
+        {/* Empty right column — balances the grid so PagesTabBar stays centred */}
+        <div aria-hidden />
+      </div>
       <ReconnectBanner
         status={store.status}
         connectionStatus={

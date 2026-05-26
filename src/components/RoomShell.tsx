@@ -997,12 +997,16 @@ export default function RoomShell({
 
         {callJoined && (
           // Always mounted when in call so audio continues even when panel is
-          // hidden. "hidden md:flex" shows on desktop; adding no md:flex class
-          // (videoPanelVisible=false) keeps it display:none everywhere while
-          // the LiveKit connection inside stays alive for audio.
+          // hidden. Width animates to 0 (overflow:hidden) so the canvas reflows
+          // smoothly rather than jumping. display:none is never used — the
+          // LiveKit connection inside stays alive throughout.
           <aside
-            className={`${videoPanelVisible ? "md:flex" : ""} hidden shrink-0 border-l border-[color:var(--border-subtle)] bg-[var(--bg-elev-2)] flex-col relative`}
-            style={{ width: videoCompact ? VIDEO_WIDTH_COMPACT : videoPanelWidth }}
+            className="hidden md:flex shrink-0 flex-col relative bg-[var(--bg-elev-2)] overflow-hidden"
+            style={{
+              width: videoPanelVisible ? (videoCompact ? VIDEO_WIDTH_COMPACT : videoPanelWidth) : 0,
+              borderLeft: videoPanelVisible ? "1px solid var(--border-subtle)" : "none",
+              transition: "width 220ms ease-in-out",
+            }}
           >
             {!videoCompact && (
               <VideoPanelResizer
