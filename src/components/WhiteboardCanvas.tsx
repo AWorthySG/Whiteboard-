@@ -857,7 +857,6 @@ export default function WhiteboardCanvas({
         leaderUserId={leaderUserId}
         drawGrantUserId={drawGrantUserId}
         userId={userId}
-        syncStatus={store.status}
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
         onBringEveryone={broadcastViewport}
@@ -931,7 +930,6 @@ function CanvasFloatingPanel({
   leaderUserId,
   drawGrantUserId,
   userId,
-  syncStatus,
   toolsCollapsed,
   onToggleTools,
   onBringEveryone,
@@ -942,7 +940,6 @@ function CanvasFloatingPanel({
   leaderUserId: string | null;
   drawGrantUserId: string | null;
   userId: string;
-  syncStatus: string;
   toolsCollapsed: boolean;
   onToggleTools: () => void;
   onBringEveryone: () => void;
@@ -982,7 +979,6 @@ function CanvasFloatingPanel({
           You can draw
         </div>
       )}
-      <SyncStatusDot status={syncStatus} />
       {isHost && (
         <button
           onClick={onBringEveryone}
@@ -1749,32 +1745,6 @@ function CanvasWatermark() {
 
 // Small colored dot in the floating panel reflecting whiteboard sync health.
 // Hidden when fully connected so it doesn't distract during a normal lesson.
-function SyncStatusDot({ status }: { status: string }) {
-  if (status === "synced-remote") return null;
-  const isError = status === "error";
-  const isLoading = status === "loading";
-  const label = isError ? "Sync error — changes may not save" : isLoading ? "Connecting to whiteboard…" : "Working offline — reconnecting";
-  return (
-    <div
-      className={`rounded-md px-2.5 py-1 text-[10px] font-medium border shadow-lg flex items-center gap-1.5 ${
-        isError
-          ? "bg-red-50 text-red-800 border-red-400"
-          : "bg-amber-50 text-amber-800 border-amber-400"
-      }`}
-      title={label}
-      role="status"
-      aria-label={label}
-    >
-      <span
-        className={`w-2 h-2 rounded-full ${
-          isError ? "bg-red-500" : "bg-amber-400 animate-pulse"
-        }`}
-      />
-      {isError ? "Sync error" : "Connecting…"}
-    </div>
-  );
-}
-
 // Laser-pointer toggle for non-host participants. Lets a student point
 // at something on the board without accidentally drawing — switches to
 // the laser tool (K) and back to hand on a second tap. Shown in the
