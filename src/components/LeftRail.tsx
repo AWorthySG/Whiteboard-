@@ -9,6 +9,9 @@ import {
   type TLDefaultSizeStyle,
 } from "tldraw";
 import {
+  Article,
+  ArrowClockwise,
+  ArrowCounterClockwise,
   Cursor,
   Hand,
   PencilSimple,
@@ -59,6 +62,7 @@ export default function LeftRail({
   onToggleLeader,
   onUpload,
   onEquation,
+  onAnswerSpace,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -68,6 +72,7 @@ export default function LeftRail({
   onToggleLeader: () => void | Promise<void>;
   onUpload: () => void;
   onEquation: () => void;
+  onAnswerSpace: () => void;
 }) {
   const [active, setActive] = useState<string>("draw");
   const [activeColor, setActiveColor] = useState<TLDefaultColorStyle>("black");
@@ -140,6 +145,11 @@ export default function LeftRail({
       <RailBtn onClick={onUpload} label="Upload document or image">
         <Upload size={18} />
       </RailBtn>
+      {isHost && (
+        <RailBtn onClick={onAnswerSpace} label="Insert answer lines">
+          <Article size={18} />
+        </RailBtn>
+      )}
 
       {isHost && (
         <>

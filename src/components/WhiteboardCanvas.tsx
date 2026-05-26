@@ -46,6 +46,7 @@ import ShortcutsModal from "./ShortcutsModal";
 import StrokeSizePicker from "./StrokeSizePicker";
 
 const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
+const AnswerSpaceModal = dynamic(() => import("./AnswerSpaceModal"), { ssr: false });
 
 const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
@@ -191,6 +192,7 @@ export default function WhiteboardCanvas({
   addPageRef,
   openEquationRef,
   openUploadRef,
+  openAnswerSpaceRef,
   onPagesChange,
   switchPageRef,
   pageThumbnailRef,
@@ -217,6 +219,7 @@ export default function WhiteboardCanvas({
   // existing addPageRef pattern.
   openEquationRef?: MutableRefObject<(() => void) | null>;
   openUploadRef?: MutableRefObject<(() => void) | null>;
+  openAnswerSpaceRef?: MutableRefObject<(() => void) | null>;
   /** Lets the parent shell reach the live Editor instance — used by
    *  the End Lesson modal to render every page into a PDF. Set on
    *  mount, cleared on unmount. */
@@ -255,6 +258,7 @@ export default function WhiteboardCanvas({
   const broadcastChannelRef = useRef<any>(null);
   const [progress, setProgress] = useState<Progress>(null);
   const [equationOpen, setEquationOpen] = useState(false);
+  const [answerSpaceOpen, setAnswerSpaceOpen] = useState(false);
   const [searchOpen, setSearchOpen]     = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const reportProgress = useCallback<ProgressFn>((p) => setProgress(p), []);
@@ -510,6 +514,13 @@ export default function WhiteboardCanvas({
       if (openUploadRef.current) openUploadRef.current = null;
     };
   }, [openUploadRef, runUpload]);
+  useEffect(() => {
+    if (!openAnswerSpaceRef) return;
+    openAnswerSpaceRef.current = () => setAnswerSpaceOpen(true);
+    return () => {
+      if (openAnswerSpaceRef.current) openAnswerSpaceRef.current = null;
+    };
+  }, [openAnswerSpaceRef]);
 
   // Expose a page-thumbnail renderer. Generates a low-res PNG data URL
   // of every shape on the requested page using tldraw's exportToImage,
@@ -719,6 +730,7 @@ export default function WhiteboardCanvas({
     () => ({
       onEquation: () => setEquationOpen(true),
       onUpload: () => openFilePicker(runUpload),
+      onAnswerSpace: () => setAnswerSpaceOpen(true),
       onToggleLeader,
       onSearch: () => setSearchOpen(true),
       onShortcuts: () => setShortcutsOpen(true),
@@ -844,6 +856,11 @@ export default function WhiteboardCanvas({
         onInsert={async (dataUrl, w, h) => {
           await insertEquationOntoCanvas(editorRef.current, dataUrl, w, h);
         }}
+      />
+      <AnswerSpaceModal
+        open={answerSpaceOpen}
+        onClose={() => setAnswerSpaceOpen(false)}
+        onInsert={(lines, width) => insertLinedSpaceOntoCanvas(editorRef.current, lines, width)}
       />
       {searchOpen && editorRef.current && (
         <CanvasSearch
@@ -1463,12 +1480,70 @@ async function insertBrandLogo(editor: Editor | null) {
   });
 }
 
+// Generate a ruled-paper SVG data URL for the answer-lines feature.
+// Creates a white rectangle with evenly-spaced horizontal grey lines,
+// a subtle border, and a faint red left-margin line — matching the look
+// of a standard lined notebook page. No scripts or external refs, so
+// it's safe as a data: URL even though SVG uploads are otherwise blocked.
+function makeLinedSpaceSvg(lines: number, w: number): { src: string; w: number; h: number } {
+  const spacing = 36; // ~9.5 mm at 96 dpi — generous writing room per line
+  const padTop = 16;
+  const padBottom = 16;
+  const h = padTop + lines * spacing + padBottom;
+  const x1 = 56;  // start after margin
+  const x2 = w - 16;
+
+  const lineElems = Array.from({ length: lines }, (_, i) => {
+    const y = padTop + (i + 1) * spacing;
+    return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#c8d0db" stroke-width="1"/>`;
+  }).join("");
+
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">` +
+    `<rect width="${w}" height="${h}" fill="white" rx="6" stroke="#dde2ea" stroke-width="1.5"/>` +
+    `<line x1="48" y1="0" x2="48" y2="${h}" stroke="#f4a0a0" stroke-width="1.2" opacity="0.6"/>` +
+    lineElems +
+    `</svg>`;
+
+  return {
+    src: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
+    w,
+    h,
+  };
+}
+
+function insertLinedSpaceOntoCanvas(editor: Editor | null, lines: number, width: number) {
+  if (!editor) return;
+  const { src, w, h } = makeLinedSpaceSvg(lines, width);
+  // Stable asset ID from the parameters — same config reuses the same
+  // asset record rather than duplicating it in the store.
+  const assetId = AssetRecordType.createId(getHashForString(`lined-${lines}-${width}`));
+  if (!editor.getAsset(assetId)) {
+    editor.createAssets([{
+      id: assetId,
+      type: "image",
+      typeName: "asset",
+      props: { name: `answer-lines-${lines}.svg`, src, w, h, mimeType: "image/svg+xml", isAnimated: false },
+      meta: {},
+    }]);
+  }
+  const center = editor.getViewportPageBounds().center;
+  editor.createShape({
+    id: `shape:${uniqueId()}` as never,
+    type: "image",
+    x: center.x - w / 2,
+    y: center.y - h / 2,
+    props: { assetId, w, h },
+  });
+}
+
 // Context lets SlimToolbar reach back into WhiteboardCanvas's state
 // (equation modal, leader toggle) — tldraw mounts the toolbar inside its
 // own tree so we can't close over WhiteboardCanvas locals directly.
 type CanvasActionsCtx = {
   onEquation: () => void;
   onUpload: () => void;
+  onAnswerSpace: () => void;
   onToggleLeader: () => void | Promise<void>;
   onSearch: () => void;
   onShortcuts: () => void;
@@ -1565,6 +1640,17 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
       >
         <span className="font-serif italic text-base leading-none">fx</span>
       </button>
+      {actions.isHost && (
+        <button
+          type="button"
+          className="tlui-button tlui-button__icon"
+          onClick={actions.onAnswerSpace}
+          title="Insert answer lines"
+          aria-label="Insert answer lines"
+        >
+          <AnswerLinesSvg />
+        </button>
+      )}
       {actions.isHost && (
         <button
           type="button"
@@ -1665,6 +1751,17 @@ function ToolbarUploadSvg() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function AnswerLinesSvg() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="7" y1="9" x2="17" y2="9" />
+      <line x1="7" y1="13" x2="17" y2="13" />
+      <line x1="7" y1="17" x2="17" y2="17" />
     </svg>
   );
 }

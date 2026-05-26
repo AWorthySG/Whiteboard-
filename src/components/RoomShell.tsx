@@ -141,6 +141,7 @@ export default function RoomShell({
   const canvasSwitchPageRef = useRef<((pageId: string) => void) | null>(null);
   const canvasOpenEquationRef = useRef<(() => void) | null>(null);
   const canvasOpenUploadRef = useRef<(() => void) | null>(null);
+  const canvasOpenAnswerSpaceRef = useRef<(() => void) | null>(null);
   const canvasPageThumbnailRef = useRef<
     ((pageId: string) => Promise<string | null>) | null
   >(null);
@@ -855,6 +856,7 @@ export default function RoomShell({
           onToggleLeader={() => setLeaderMode(!meta.leaderMode, userId)}
           onUpload={() => canvasOpenUploadRef.current?.()}
           onEquation={() => canvasOpenEquationRef.current?.()}
+          onAnswerSpace={() => canvasOpenAnswerSpaceRef.current?.()}
         />
         <div className="relative flex-1 min-w-0 min-h-0">
           {/* Recording state overlay — red inset border + REC badge.
@@ -925,6 +927,7 @@ export default function RoomShell({
             addPageRef={canvasAddPageRef}
             openEquationRef={canvasOpenEquationRef}
             openUploadRef={canvasOpenUploadRef}
+            openAnswerSpaceRef={canvasOpenAnswerSpaceRef}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}
