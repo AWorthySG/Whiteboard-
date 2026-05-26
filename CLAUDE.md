@@ -262,6 +262,12 @@ LeftRail.tsx           Vertical tool rail on the left edge of the canvas (md+ on
                        strip on desktop. Phones keep the SlimToolbar + floating panel.
                        Tool buttons show keyboard shortcuts in the browser tooltip
                        (Select V, Hand H, Pen D, Highlighter Q, Eraser E, Note N).
+                       The size + colour pickers are COLLAPSED behind a single
+                       "Stroke size & colour" toggle (styleOpen state, default
+                       closed) so the rail stays short. The toggle previews the
+                       active colour (swatch) with the active size as a centred dot,
+                       and a caret that flips when open; expanding it reveals the
+                       2×2 size grid and 2×4 colour grid.
 
 CanvasSearch.tsx       Full-text search overlay (⌘F / Ctrl+F). Floats at the top of
                        the canvas; keyboard-navigable result list (↑↓ Enter). Jumps

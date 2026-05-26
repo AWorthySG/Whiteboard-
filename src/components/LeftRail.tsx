@@ -20,6 +20,7 @@ import {
   Upload,
   Eye,
   EyeSlash,
+  CaretDown,
 } from "@phosphor-icons/react";
 
 // Vertical tool rail on the left edge of the canvas (Phase 4 of the
@@ -76,6 +77,7 @@ export default function LeftRail({
   const [activeSize, setActiveSize] = useState<TLDefaultSizeStyle>("s");
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(false);
 
   useEffect(() => {
     if (!editor) return;
@@ -118,6 +120,10 @@ export default function LeftRail({
     const ids = editor.getSelectedShapeIds();
     if (ids.length > 0) editor.setStyleForSelectedShapes(DefaultSizeStyle, value);
   };
+
+  const activeColorHex =
+    RAIL_COLORS.find((c) => c.name === activeColor)?.hex ?? "#1d1d1f";
+  const activeSizeDot = RAIL_SIZES.find((s) => s.value === activeSize)?.dot ?? 3;
 
   return (
     <aside
@@ -186,66 +192,99 @@ export default function LeftRail({
         </>
       )}
 
-      {/* ── Drawing style controls ──────────────────────────────── */}
+      {/* ── Drawing style controls (collapsible) ─────────────────── */}
       {/* Extra vertical space creates a clear section break between
           "which tool am I using" and "what does it look like" — the
-          most important semantic gap in the rail. */}
+          most important semantic gap in the rail. The size + colour
+          pickers are tucked behind a single toggle that previews the
+          active colour + size, so the rail stays short by default. */}
       <div className="mt-2" aria-hidden />
       <Divider />
 
-      {/* Compact 2×2 stroke size picker */}
-      <div
-        className="grid grid-cols-2 gap-1 px-1"
-        role="toolbar"
-        aria-label="Stroke size"
+      <button
+        type="button"
+        onClick={() => setStyleOpen((v) => !v)}
+        aria-expanded={styleOpen}
+        aria-label={styleOpen ? "Hide stroke size and colour" : "Show stroke size and colour"}
+        title="Stroke size & colour"
+        className="w-10 h-10 rounded-lg inline-flex flex-col items-center justify-center gap-0.5 transition-colors text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
       >
-        {RAIL_SIZES.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => pickSize(s.value)}
-            aria-label={s.label}
-            aria-pressed={activeSize === s.value}
-            title={s.label}
-            className={`w-[26px] h-[26px] rounded-md inline-flex items-center justify-center transition-colors ${
-              activeSize === s.value
-                ? "bg-[var(--text)]"
-                : "hover:bg-[var(--hover)]"
-            }`}
-          >
-            <span
-              className={`rounded-full block ${
-                activeSize === s.value ? "bg-[var(--bg)]" : "bg-[var(--text)]"
-              }`}
-              style={{ width: s.dot, height: s.dot }}
-            />
-          </button>
-        ))}
-      </div>
-
-      <Divider />
-
-      {/* Compact 2×4 color grid */}
-      <div
-        className="grid grid-cols-2 gap-1.5 px-1"
-        role="toolbar"
-        aria-label="Color"
-      >
-        {RAIL_COLORS.map((c) => (
-          <button
-            key={c.name}
-            onClick={() => pickColor(c.name)}
-            aria-label={c.label}
-            aria-pressed={activeColor === c.name}
-            title={c.label}
-            className={`w-[24px] h-[24px] rounded-full transition-transform ${
-              activeColor === c.name
-                ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
-                : "hover:scale-105"
-            }`}
-            style={{ backgroundColor: c.hex }}
+        <span className="relative inline-flex items-center justify-center">
+          <span
+            className="w-5 h-5 rounded-full ring-1 ring-[color:var(--border)]"
+            style={{ backgroundColor: activeColorHex }}
           />
-        ))}
-      </div>
+          <span
+            className="absolute rounded-full bg-[var(--bg)]"
+            style={{ width: activeSizeDot, height: activeSizeDot }}
+          />
+        </span>
+        <CaretDown
+          size={9}
+          weight="bold"
+          className={`transition-transform ${styleOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {styleOpen && (
+        <>
+          <Divider />
+
+          {/* Compact 2×2 stroke size picker */}
+          <div
+            className="grid grid-cols-2 gap-1 px-1"
+            role="toolbar"
+            aria-label="Stroke size"
+          >
+            {RAIL_SIZES.map((s) => (
+              <button
+                key={s.value}
+                onClick={() => pickSize(s.value)}
+                aria-label={s.label}
+                aria-pressed={activeSize === s.value}
+                title={s.label}
+                className={`w-[26px] h-[26px] rounded-md inline-flex items-center justify-center transition-colors ${
+                  activeSize === s.value
+                    ? "bg-[var(--text)]"
+                    : "hover:bg-[var(--hover)]"
+                }`}
+              >
+                <span
+                  className={`rounded-full block ${
+                    activeSize === s.value ? "bg-[var(--bg)]" : "bg-[var(--text)]"
+                  }`}
+                  style={{ width: s.dot, height: s.dot }}
+                />
+              </button>
+            ))}
+          </div>
+
+          <Divider />
+
+          {/* Compact 2×4 color grid */}
+          <div
+            className="grid grid-cols-2 gap-1.5 px-1"
+            role="toolbar"
+            aria-label="Color"
+          >
+            {RAIL_COLORS.map((c) => (
+              <button
+                key={c.name}
+                onClick={() => pickColor(c.name)}
+                aria-label={c.label}
+                aria-pressed={activeColor === c.name}
+                title={c.label}
+                className={`w-[24px] h-[24px] rounded-full transition-transform ${
+                  activeColor === c.name
+                    ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
+                    : "hover:scale-105"
+                }`}
+                style={{ backgroundColor: c.hex }}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </aside>
   );
 }
