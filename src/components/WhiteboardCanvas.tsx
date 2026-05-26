@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   AssetRecordType,
+  DefaultColorStyle,
   DefaultSizeStyle,
   DefaultToolbar,
   Editor,
@@ -20,6 +21,8 @@ import {
   Tldraw,
   TldrawUiMenuItem,
   TLUiOverrides,
+  TLDefaultColorStyle,
+  TLDefaultSizeStyle,
   atom,
   getHashForString,
   uniqueId,
@@ -954,9 +957,8 @@ function CanvasFloatingPanel({
       <PenModeIndicator editor={editor} />
       {/* On desktop (md+) these live in LeftRail for a unified control
           strip. Keep them here only for phones where LeftRail is hidden. */}
-      <div className="md:hidden flex flex-col items-end gap-2">
-        <StrokeSizePicker editor={editor} />
-        <ColorPickerRow editor={editor} />
+      <div className="md:hidden">
+        <CombinedStylePicker editor={editor} />
       </div>
       <button
         onClick={onToggleTools}
@@ -1725,6 +1727,128 @@ function SyncStatusDot({ status }: { status: string }) {
         }`}
       />
       {isError ? "Sync error" : "Connecting…"}
+    </div>
+  );
+}
+
+// Combined stroke-size + color picker for mobile. Replaces the two
+// separate floating panels so the canvas isn't covered by two stacked
+// cards. Collapsed state: one pill showing the active color swatch,
+// active size dot, and a caret. Expanded: a single card with all four
+// sizes on the top row and all eight colours on the bottom row.
+// Auto-collapses after any pick so the canvas is uncovered immediately.
+const MOBILE_COLORS: { name: TLDefaultColorStyle; hex: string; label: string }[] = [
+  { name: "black",      hex: "#1d1d1f", label: "Black"  },
+  { name: "grey",       hex: "#9fa8b2", label: "Grey"   },
+  { name: "blue",       hex: "#4263eb", label: "Blue"   },
+  { name: "light-blue", hex: "#4dabf7", label: "Sky"    },
+  { name: "green",      hex: "#099268", label: "Green"  },
+  { name: "yellow",     hex: "#f08c00", label: "Yellow" },
+  { name: "orange",     hex: "#e8590c", label: "Orange" },
+  { name: "red",        hex: "#e03131", label: "Red"    },
+];
+const MOBILE_SIZES: { value: TLDefaultSizeStyle; label: string; dot: number }[] = [
+  { value: "s",  label: "Thin",         dot: 3  },
+  { value: "m",  label: "Medium",       dot: 6  },
+  { value: "l",  label: "Thick",        dot: 10 },
+  { value: "xl", label: "Extra thick",  dot: 14 },
+];
+
+function CombinedStylePicker({ editor }: { editor: Editor | null }) {
+  const [activeColor, setActiveColor] = useState<TLDefaultColorStyle>("black");
+  const [activeSize,  setActiveSize]  = useState<TLDefaultSizeStyle>("s");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!editor) return;
+    const read = () => {
+      const c = editor.getStyleForNextShape(DefaultColorStyle);
+      if (c) setActiveColor(c as TLDefaultColorStyle);
+      const s = editor.getStyleForNextShape(DefaultSizeStyle);
+      if (s) setActiveSize(s as TLDefaultSizeStyle);
+    };
+    read();
+    const unsub = editor.store.listen(read, { scope: "session" });
+    return () => unsub();
+  }, [editor]);
+
+  if (!editor) return null;
+
+  const pickColor = (name: TLDefaultColorStyle) => {
+    setActiveColor(name);
+    editor.setStyleForNextShapes(DefaultColorStyle, name);
+    const ids = editor.getSelectedShapeIds();
+    if (ids.length) editor.setStyleForSelectedShapes(DefaultColorStyle, name);
+    setOpen(false);
+  };
+  const pickSize = (value: TLDefaultSizeStyle) => {
+    setActiveSize(value);
+    editor.setStyleForNextShapes(DefaultSizeStyle, value);
+    const ids = editor.getSelectedShapeIds();
+    if (ids.length) editor.setStyleForSelectedShapes(DefaultSizeStyle, value);
+    setOpen(false);
+  };
+
+  const activeHex = MOBILE_COLORS.find((c) => c.name === activeColor)?.hex ?? "#1d1d1f";
+  const activeDot = MOBILE_SIZES.find((s) => s.value === activeSize)?.dot ?? 3;
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2 py-1.5 hover:bg-[var(--hover)]"
+        aria-label="Open stroke style picker"
+        title="Stroke colour and size"
+      >
+        <span className="w-4 h-4 rounded-full ring-1 ring-[var(--border)] shrink-0" style={{ backgroundColor: activeHex }} />
+        <span className="rounded-full bg-[var(--text)] shrink-0" style={{ width: activeDot, height: activeDot }} />
+        <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden className="text-[var(--text-muted)]">
+          <path d="M1 2.5 L4 5.5 L7 2.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        </svg>
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border shadow-lg bg-[var(--bg-elev)] border-[color:var(--border)] p-2 flex flex-col gap-2 min-w-0">
+      {/* Size row */}
+      <div className="flex items-center gap-1" role="toolbar" aria-label="Stroke size">
+        {MOBILE_SIZES.map((s) => (
+          <button
+            key={s.value}
+            onClick={() => pickSize(s.value)}
+            aria-label={s.label}
+            aria-pressed={activeSize === s.value}
+            title={s.label}
+            className={`w-8 h-8 rounded-md inline-flex items-center justify-center transition-colors ${
+              activeSize === s.value ? "bg-[var(--text)]" : "hover:bg-[var(--hover)]"
+            }`}
+          >
+            <span
+              className={`rounded-full block ${activeSize === s.value ? "bg-[var(--bg)]" : "bg-[var(--text)]"}`}
+              style={{ width: s.dot, height: s.dot }}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="h-px bg-[var(--border-subtle)]" aria-hidden />
+      {/* Color row */}
+      <div className="flex flex-wrap gap-1.5" role="toolbar" aria-label="Colour">
+        {MOBILE_COLORS.map((c) => (
+          <button
+            key={c.name}
+            onClick={() => pickColor(c.name)}
+            aria-label={c.label}
+            title={c.label}
+            className={`w-6 h-6 rounded-full transition-transform ${
+              activeColor === c.name
+                ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
+                : "hover:scale-105"
+            }`}
+            style={{ backgroundColor: c.hex }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
