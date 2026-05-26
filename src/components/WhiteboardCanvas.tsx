@@ -41,9 +41,7 @@ import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
 import ZoomControls from "./ZoomControls";
 import CanvasSearch from "./CanvasSearch";
-import ColorPickerRow from "./ColorPickerRow";
 import ShortcutsModal from "./ShortcutsModal";
-import StrokeSizePicker from "./StrokeSizePicker";
 
 const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
 const AnswerSpaceModal = dynamic(() => import("./AnswerSpaceModal"), { ssr: false });
@@ -766,6 +764,11 @@ export default function WhiteboardCanvas({
             // still work; page navigation lives in our own PagesTabBar
             // at the bottom of the canvas.
             MenuPanel: null,
+            // Hide tldraw's bottom-left NavigationPanel (the "100% >"
+            // zoom pill). ZoomControls.tsx is our replacement — it has
+            // touch-friendly targets, themed styling, and a full preset
+            // menu, and is anchored so the video panel doesn't cover it.
+            NavigationPanel: null,
             // Hide tldraw's full style panel (color + opacity + fill +
             // dash + size). The color picker lives in our own toolbar.
             StylePanel: null,

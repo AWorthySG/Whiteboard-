@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   DefaultColorStyle,
   DefaultSizeStyle,
@@ -10,8 +11,6 @@ import {
 } from "tldraw";
 import {
   Article,
-  ArrowClockwise,
-  ArrowCounterClockwise,
   ArrowsOut,
   Cursor,
   Hand,
@@ -278,7 +277,9 @@ function Divider() {
 }
 
 // Collapsed menu combining leader-mode toggle + bring-everyone-here.
-// Opens a popover to the right of the rail on click; closes on outside click.
+// The aside has overflow-y-auto which clips absolutely-positioned children
+// on both axes in CSS. We use a portal + getBoundingClientRect to render
+// the popover in document.body so it's never clipped.
 function ViewControlMenu({
   leaderMode,
   onToggleLeader,
@@ -289,22 +290,36 @@ function ViewControlMenu({
   onBringEveryone: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      if (
+        !menuRef.current?.contains(e.target as Node) &&
+        !btnRef.current?.contains(e.target as Node)
+      ) setOpen(false);
     };
     window.addEventListener("mousedown", handler);
     return () => window.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.top, left: r.right + 8 });
+    }
+    setOpen((o) => !o);
+  };
+
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-label="Student view controls"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -318,10 +333,12 @@ function ViewControlMenu({
         <Eye size={18} weight={leaderMode ? "fill" : "regular"} />
       </button>
 
-      {open && (
+      {open && pos && createPortal(
         <div
+          ref={menuRef}
           role="menu"
-          className="absolute left-full top-0 ml-2 w-52 rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-xl p-1 z-50"
+          style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+          className="w-52 rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-xl p-1"
         >
           <button
             role="menuitem"
@@ -350,8 +367,9 @@ function ViewControlMenu({
             <ArrowsOut size={14} aria-hidden />
             Bring everyone here
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }
