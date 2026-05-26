@@ -382,6 +382,7 @@ export default function RoomShell({
     setLeaderMode,
     userId,
     videoOpen,
+    downloadAllPagesPdf,
   ]);
 
 
