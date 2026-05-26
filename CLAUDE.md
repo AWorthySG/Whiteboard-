@@ -126,6 +126,17 @@ RoomShell.tsx          Top-level room layout — header, canvas wrapper, side vi
                        The page list itself is mirrored up via the onPagesChange callback
                        (subscribed to editor.store) so the dropdown stays live across
                        renames + remote edits.
+                       Video/call state is split into two booleans:
+                       - `callJoined` — whether VideoPanel is mounted (LiveKit token
+                         fetched, connection active). Initialized from showVideoOnEntry.
+                       - `videoPanelVisible` — whether the aside/sheet is shown in the
+                         layout. When false but callJoined is true, the desktop aside
+                         renders with `display:none` so the LiveKit connection stays
+                         alive for audio (audio-only mode). The mobile sheet is
+                         conditionally rendered only when both are true.
+                       The header "Join call / Hide video / Show video" button reflects
+                       all three states. `joinCall()` sets both to true; `leaveCall()`
+                       (passed as VideoPanel's onLeaveCall) sets both to false.
 
 WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Uploads go BROWSER → SUPABASE STORAGE
                        directly (uploadAsset() POSTs to /storage/v1/object/whiteboard-assets/
@@ -140,6 +151,17 @@ VideoPanel.tsx         LiveKit room — token fetch, Tiles grid, CameraReleaseGu
                        track.stop() on disable so the macOS green light turns off),
                        RoomCoordinator (raise hand / mute-all via data channel),
                        ControlBar with leave enabled.
+                       Accepts an `onLeaveCall` prop; when the user intentionally
+                       leaves via the control bar, the LiveKit disconnect fires
+                       onLeaveCall so RoomShell can unmount the panel and show the
+                       whiteboard-only state. On first entry (before the user has
+                       ever joined the call this session) the panel shows "Join the
+                       call" with three options: Join with video / Audio only /
+                       Whiteboard only — skip the call. `hasJoinedBeforeRef` tracks
+                       whether the user has been in the call at all this session,
+                       distinguishing first-entry from after-leave so the copy stays
+                       accurate. Auto-reconnect on unexpected drops (3-second delay,
+                       fires onLeaveCall on the "Stay on whiteboard only" button).
 
 PagesTabBar.tsx        Bottom-center pill listing tldraw pages — switch / rename / delete.
                        Primary action is a labeled "+ New page" button (one-click blank
@@ -469,3 +491,15 @@ default stroke profile if the patch isn't applied.
     badge, toast, etc.) synchronously for an async operation — await the Promise
     and handle the rejection. The `navigator.clipboard.writeText()` pattern in
     `SettingsModal` is the canonical example.
+17. **VideoPanel call state — `callJoined` vs `videoPanelVisible`**: these two
+    booleans in RoomShell are distinct. `callJoined` gates VideoPanel mounting and
+    the LiveKit connection; `videoPanelVisible` controls the aside/sheet layout.
+    Don't collapse them back into a single `videoOpen` flag — that would break
+    audio-only mode (panel hidden, call connected). The desktop aside is always
+    mounted when `callJoined = true` (even when hidden), so the LiveKit connection
+    stays alive. The mobile sheet is unmounted when `videoPanelVisible = false`
+    because `display:none` on the aside already keeps the connection alive on
+    mobile too (the aside's VideoPanel is hidden but mounted).
+    `onLeaveCall` must always set BOTH `callJoined = false` AND
+    `videoPanelVisible = false` — leaving the call with the aside still mounted
+    would keep a dead LiveKit component in the tree.
