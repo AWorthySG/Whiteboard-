@@ -169,6 +169,13 @@ export default function SettingsModal({
                 ]}
               />
             </Field>
+
+            <Toggle
+              label="Add a writing space beside PDFs"
+              checked={settings.pdfWritingSpace}
+              onChange={(v) => setSettings({ pdfWritingSpace: v })}
+              hint="Places a blank ruled sheet (same size as the page) to the right of each uploaded PDF page for students to write on."
+            />
           </Section>
 
           <Section title="Call defaults">

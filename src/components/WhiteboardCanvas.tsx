@@ -1163,6 +1163,71 @@ function readImageDims(file: File): Promise<{ w: number; h: number }> {
   });
 }
 
+// Builds a blank ruled "answer sheet" SVG sized to (w × h) page units, so a
+// sheet placed beside an A4 PDF page (≈595×842 pt) is itself A4. White paper,
+// faint grey horizontal rules, a soft pink margin line, a light border. It's
+// a self-contained data: URL (no upload, no Supabase CDN — so the SVG-XSS
+// concern in fileValidation doesn't apply; it only renders inside tldraw).
+function makeLinedSheetDataUrl(w: number, h: number): string {
+  const lineGap = 36;
+  const marginX = Math.min(56, Math.round(w * 0.1));
+  let rules = "";
+  for (let y = Math.round(lineGap * 1.5); y < h - 8; y += lineGap) {
+    rules += `<line x1="${marginX}" y1="${y}" x2="${w - 16}" y2="${y}" stroke="#d7dee8" stroke-width="1"/>`;
+  }
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+    `<rect width="${w}" height="${h}" fill="#ffffff"/>` +
+    rules +
+    `<line x1="${marginX}" y1="0" x2="${marginX}" y2="${h}" stroke="#f2cccc" stroke-width="1.5"/>` +
+    `<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" fill="none" stroke="#dde3ec" stroke-width="1"/>` +
+    `</svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
+// Inserts a locked lined writing sheet at (x, y) sized (w × h). Returns the
+// shape id. Sheets of the same size share one asset (hash-keyed).
+function insertLinedSheet(
+  editor: Editor,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  sendBack = false,
+) {
+  const dataUrl = makeLinedSheetDataUrl(w, h);
+  const assetId = AssetRecordType.createId(getHashForString(dataUrl));
+  if (!editor.getAsset(assetId)) {
+    editor.createAssets([
+      {
+        id: assetId,
+        type: "image",
+        typeName: "asset",
+        props: {
+          name: "writing-space.svg",
+          src: dataUrl,
+          w,
+          h,
+          mimeType: "image/svg+xml",
+          isAnimated: false,
+        },
+        meta: {},
+      },
+    ]);
+  }
+  const shapeId = `shape:${uniqueId()}` as never;
+  editor.createShape({
+    id: shapeId,
+    type: "image",
+    x,
+    y,
+    isLocked: true,
+    props: { assetId, w, h },
+  });
+  if (sendBack) editor.sendToBack([shapeId]);
+  return shapeId;
+}
+
 async function insertPdfAsImages(
   editor: Editor,
   file: File,
@@ -1172,6 +1237,7 @@ async function insertPdfAsImages(
   const settings = getSettings();
   const renderScale = settings.pdfScale;
   const layout = settings.pdfLayout;
+  const writingSpace = settings.pdfWritingSpace;
 
   onProgress({ label: `Reading ${file.name}…`, percent: 0 });
 
@@ -1273,7 +1339,20 @@ async function insertPdfAsImages(
         props: { assetId, w, h },
       });
 
-      offset += (layout === "horizontal" ? w : h) + gap;
+      // Blank ruled answer sheet, same size as the page, placed directly to
+      // its right so students can write where the worksheet has no space.
+      if (writingSpace) {
+        insertLinedSheet(editor, x + w + gap, y, w, h);
+      }
+
+      // In horizontal layout the sheet sits where the next page would go, so
+      // advance past both. In vertical layout the sheet is a parallel right
+      // column and doesn't affect the vertical stride.
+      if (layout === "horizontal") {
+        offset += (w + gap) * (writingSpace ? 2 : 1);
+      } else {
+        offset += h + gap;
+      }
     }
   } finally {
     onProgress(null);
@@ -1294,6 +1373,7 @@ async function insertPdfAsPageBackgrounds(
   if (!editor) throw new Error("Whiteboard isn't ready yet");
   const settings = getSettings();
   const renderScale = settings.pdfScale;
+  const writingSpace = settings.pdfWritingSpace;
 
   onProgress({ label: `Reading ${file.name}…`, percent: 0 });
 
@@ -1400,6 +1480,12 @@ async function insertPdfAsPageBackgrounds(
         props: { assetId, w, h },
       });
       editor.sendToBack([bgShapeId]);
+
+      // Blank ruled answer sheet of the same size, just to the right of the
+      // page background, so each worksheet page has its own writing space.
+      if (writingSpace) {
+        insertLinedSheet(editor, w / 2 + 40, -h / 2, w, h, true);
+      }
     }
     // Land the host on the first imported page and frame it.
     if (firstPageId) {

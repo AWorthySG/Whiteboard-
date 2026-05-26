@@ -7,6 +7,10 @@ export type Theme = "dark" | "light";
 export type Settings = {
   pdfLayout: "vertical" | "horizontal";
   pdfScale: 1 | 2 | 3;
+  /** When on, every uploaded PDF page gets a blank ruled "answer sheet"
+   *  of the same size placed beside it, so students have somewhere to
+   *  write when a worksheet has no allocated answer space. */
+  pdfWritingSpace: boolean;
   showVideoOnEntry: boolean;
   autoJoinCall: boolean;
   defaultCamera: boolean;
@@ -29,6 +33,7 @@ export type Settings = {
 export const DEFAULT_SETTINGS: Settings = {
   pdfLayout: "vertical",
   pdfScale: 2,
+  pdfWritingSpace: true,
   showVideoOnEntry: true,
   autoJoinCall: true,
   defaultCamera: true,
