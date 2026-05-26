@@ -381,6 +381,11 @@ commit `45a340e` (15+ classes swept).
 - **RecordButton paused-state stop**: the screen-share track's `ended` event now checks `state === "recording" || state === "paused"` before calling `stop()`. If you see a UI deadlock where the recorder appears stuck after the user stops sharing mid-pause, re-check this guard.
 - **LessonTimer expiry**: the 250 ms tick interval self-clears when `computeRemaining(timer) <= 0`. Nobody writes `timer_running=false` to the DB when the client clock hits zero (the timer just shows "Time's up"), so without the self-clear the interval would fire indefinitely. `addMinute` is capped at 480 minutes remaining so values stay well below the PostgreSQL `INTEGER` overflow boundary.
 - **Free tiers**: Supabase Storage 1 GB, LiveKit 10k participant-min/month. Watch the Recordings drawer for big files eating Supabase Storage.
+- **ChatBubble draft restore**: `send()` clears `draft` before the Supabase insert, then re-sets it to the original text if the insert fails so the user doesn't silently lose a composed message. If you touch the send path, preserve this order — clearing first is correct UX (immediate feedback), but the error path must restore the value.
+- **SettingsModal clipboard**: the invite-URL copy button awaits `navigator.clipboard.writeText()` before showing the "Copied" badge, with a `.catch(() => {})` for denied access. Before the fix, the badge showed synchronously even when the browser rejected the write. Never show success feedback for async operations before the Promise resolves.
+- **HomeworkDrawer submission delete**: `removeSubmission()` checks `{ error }` from Supabase and surfaces failures as `toast.error`. Silent deletes fail invisibly and confuse both host and student — always handle the error on destructive DB operations.
+- **API routes JSON parse guard**: all four token/invite routes (`/api/sync-token`, `/api/livekit/token`, `/api/invite/mint`, `/api/invite/redeem`) wrap `req.json()` in `try/catch` and return a `{ error: "Invalid JSON" }` 400 on parse failure. Without the guard, a malformed body throws past the route handler and produces a generic 500. Any new API route that calls `req.json()` must include this guard — it matches the existing `/api/math` pattern.
+- **`paletteCommands` useMemo must include all callback deps**: RoomShell's command-palette list is built in a `useMemo`. When that memo closes over a `useCallback` such as `downloadAllPagesPdf`, the callback itself must appear in the dep array — not only its leaf inputs. Omitting it creates a stale closure: renaming the room mid-session would produce a PDF export with the old title. ESLint's `react-hooks/exhaustive-deps` warnings inside this memo are real bugs, not false positives. Exception: `toast` from `useToast()` is stable (memo'd in the context provider) and can safely be omitted.
 
 ## Common commands
 
@@ -454,3 +459,13 @@ default stroke profile if the patch isn't applied.
     attempt). When rotating: update Cloudflare first (`wrangler secret put`),
     then Vercel, then redeploy. Tokens currently in flight will keep working
     until their 15-minute TTL expires.
+15. **`useMemo` / `useCallback` dep completeness in RoomShell**: when a `useMemo`
+    (e.g. `paletteCommands`) closes over a `useCallback`, include the callback in
+    the dep array — stale-closure bugs from missing callback deps are silent and
+    hard to reproduce. ESLint `react-hooks/exhaustive-deps` warnings in that memo
+    are real bugs. `toast` from `useToast()` is the one known exception (stable
+    via its context `useMemo`).
+16. **Async UI state must await its Promise**: never show success feedback (copy
+    badge, toast, etc.) synchronously for an async operation — await the Promise
+    and handle the rejection. The `navigator.clipboard.writeText()` pattern in
+    `SettingsModal` is the canonical example.
