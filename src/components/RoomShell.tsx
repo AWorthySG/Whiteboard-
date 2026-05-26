@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CaretDown, File as FileIcon, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
-import { useSettings } from "@/hooks/useSettings";
+import { useSettings, getSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { trackRoomVisit, useRecentRooms } from "@/hooks/useRecentRooms";
@@ -80,7 +80,7 @@ export default function RoomShell({
   // GuestNameEntry would flash for one frame on guests who already
   // have a name saved on this device.
   const [nameBootstrapped, setNameBootstrapped] = useState(false);
-  const [videoOpen, setVideoOpen] = useState(true);
+  const [videoOpen, setVideoOpen] = useState(() => getSettings().showVideoOnEntry);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [hwOpen, setHwOpen] = useState(false);
@@ -384,10 +384,6 @@ export default function RoomShell({
     videoOpen,
   ]);
 
-  useEffect(() => {
-    setVideoOpen(settings.showVideoOnEntry);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (!name) {

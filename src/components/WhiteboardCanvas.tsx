@@ -16,6 +16,7 @@ import {
   DefaultSizeStyle,
   DefaultToolbar,
   Editor,
+  NoteShapeUtil,
   TLAssetStore,
   Tldraw,
   TldrawUiMenuItem,
@@ -173,6 +174,15 @@ function makeAssetStore(meta: UploadMeta, onProgress: ProgressFn): TLAssetStore 
     },
   };
 }
+
+// Override the default note shape to allow manual resizing.
+// tldraw's NoteShapeUtil ships with resizeMode:"none" which hides the
+// resize handles entirely. "scale" restores them and scales the sticky
+// note (and its text) proportionally when dragged.
+class ResizableNoteUtil extends NoteShapeUtil {
+  override options = { resizeMode: "scale" as const };
+}
+const CUSTOM_SHAPE_UTILS = [ResizableNoteUtil];
 
 export default function WhiteboardCanvas({
   roomId,
@@ -731,6 +741,7 @@ export default function WhiteboardCanvas({
         <Tldraw
           store={store}
           overrides={overrides}
+          shapeUtils={CUSTOM_SHAPE_UTILS}
           licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
           components={{
             // Hide the whole top-left stack (main menu, page selector,
