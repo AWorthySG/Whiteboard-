@@ -16,11 +16,17 @@ export async function POST(req: Request) {
     );
   }
 
-  const { room, name, userId } = (await req.json()) as {
-    room?: string;
-    name?: string;
-    userId?: string;
-  };
+  let parsed: { room?: string; name?: string; userId?: string };
+  try {
+    parsed = (await req.json()) as {
+      room?: string;
+      name?: string;
+      userId?: string;
+    };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const { room, name, userId } = parsed;
   if (!room) {
     return NextResponse.json({ error: "Missing room" }, { status: 400 });
   }

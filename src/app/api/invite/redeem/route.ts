@@ -25,12 +25,23 @@ export async function POST(req: Request) {
     );
   }
 
-  const { token, roomId, userId, userName } = (await req.json()) as {
+  let parsed: {
     token?: string;
     roomId?: string;
     userId?: string;
     userName?: string;
   };
+  try {
+    parsed = (await req.json()) as {
+      token?: string;
+      roomId?: string;
+      userId?: string;
+      userName?: string;
+    };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const { token, roomId, userId, userName } = parsed;
   if (!token || !roomId || !userId) {
     return NextResponse.json(
       { error: "Missing token, roomId, or userId" },

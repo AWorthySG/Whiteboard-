@@ -34,10 +34,16 @@ export async function POST(req: Request) {
   }
   const accessToken = auth.slice("Bearer ".length).trim();
 
-  const { roomId, expiresInDays } = (await req.json()) as {
-    roomId?: string;
-    expiresInDays?: number;
-  };
+  let parsed: { roomId?: string; expiresInDays?: number };
+  try {
+    parsed = (await req.json()) as {
+      roomId?: string;
+      expiresInDays?: number;
+    };
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  const { roomId, expiresInDays } = parsed;
   if (!roomId) {
     return NextResponse.json({ error: "Missing roomId" }, { status: 400 });
   }
