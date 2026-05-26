@@ -997,7 +997,7 @@ function PenModeIndicator({ editor }: { editor: Editor | null }) {
   return (
     <button
       onClick={turnOff}
-      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-sky-50 text-sky-900 border-sky-600 shadow-lg flex items-center gap-1.5 hover:bg-sky-100"
+      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] shadow-lg flex items-center gap-1.5 hover:bg-[var(--hover)]"
       title={
         appSettings.penOnly
           ? "Pen-only mode is on (Settings → Whiteboard). Tap to let your finger draw again."
@@ -1006,7 +1006,7 @@ function PenModeIndicator({ editor }: { editor: Editor | null }) {
     >
       <Pencil weight="fill" aria-hidden size={12} />
       Pen mode
-      <span className="text-[9px] text-sky-700/80 ml-1">tap to undo</span>
+      <span className="text-[9px] text-[var(--text-dim)] ml-1">tap to undo</span>
     </button>
   );
 }

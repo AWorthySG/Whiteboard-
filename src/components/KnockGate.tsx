@@ -35,6 +35,10 @@ export default function KnockGate({
 
     let cancelled = false;
     let requestId: string | null = null;
+    // Hoisted so the outer cleanup can reach them — the IIFE's own
+    // `return () => {}` goes to the Promise, not to React's cleanup.
+    let heartbeat: number | undefined;
+    let activeChannel: ReturnType<typeof supabase.channel> | null = null;
 
     (async () => {
       // 0. If the URL carries an `?invite=` token, redeem it first.
@@ -127,6 +131,7 @@ export default function KnockGate({
             if (next) setStatus(next);
           },
         );
+      activeChannel = channel;
       let reconnectAttempts = 0;
       const subscribeWithRetry = () => {
         channel.subscribe((channelStatus) => {
@@ -153,6 +158,7 @@ export default function KnockGate({
                   if (next) setStatus(next);
                 },
               );
+              activeChannel = channel;
               subscribeWithRetry();
             }, delay);
           } else if (channelStatus === "SUBSCRIBED") {
@@ -166,7 +172,7 @@ export default function KnockGate({
       // service blip), we'd otherwise sit on 'pending' forever even
       // after the host has admitted us. Poll every 8s as a safety net
       // and reconcile from the row directly.
-      const heartbeat = window.setInterval(async () => {
+      heartbeat = window.setInterval(async () => {
         if (cancelled || !requestId) return;
         const { data: row } = await supabase
           .from("join_requests")
@@ -176,12 +182,6 @@ export default function KnockGate({
         const next = (row as { status?: Status } | null)?.status;
         if (next) setStatus(next);
       }, 8000);
-
-      // Cleanup
-      return () => {
-        window.clearInterval(heartbeat);
-        supabase.removeChannel(channel);
-      };
     })();
 
     // Long-wait timer — 30s on 'pending' means either the host is
@@ -194,6 +194,8 @@ export default function KnockGate({
     return () => {
       cancelled = true;
       window.clearTimeout(longWaitTimer);
+      if (heartbeat !== undefined) window.clearInterval(heartbeat);
+      if (activeChannel) void supabase.removeChannel(activeChannel);
     };
   }, [roomId, userId, userName]);
 

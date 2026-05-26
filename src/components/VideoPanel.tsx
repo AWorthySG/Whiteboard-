@@ -318,6 +318,7 @@ function RoomCoordinatorBar({
   const [handUp, setHandUp] = useState(false);
   const [muteAllArmed, setMuteAllArmed] = useState(false);
   const muteAllArmedTimer = useRef<number | null>(null);
+  const reactionTimers = useRef<number[]>([]);
   const [raisedHands, setRaisedHands] = useState<
     Map<string, { name: string; up: boolean }>
   >(() => new Map());
@@ -325,6 +326,12 @@ function RoomCoordinatorBar({
   const [reactions, setReactions] = useState<
     { id: number; emoji: string; name: string }[]
   >([]);
+
+  useEffect(() => {
+    return () => {
+      reactionTimers.current.forEach((t) => window.clearTimeout(t));
+    };
+  }, []);
 
   const { send } = useDataChannel((msg) => {
     try {
@@ -343,10 +350,11 @@ function RoomCoordinatorBar({
         const id = Date.now() + Math.random();
         const display = { id, emoji: payload.emoji, name: payload.name || fromName };
         setReactions((prev) => [...prev, display]);
-        window.setTimeout(
+        const timer = window.setTimeout(
           () => setReactions((prev) => prev.filter((r) => r.id !== id)),
           2400,
         );
+        reactionTimers.current.push(timer);
       } else if (payload.type === "mute-request") {
         if (localParticipant.isMicrophoneEnabled) {
           void localParticipant.setMicrophoneEnabled(false);
