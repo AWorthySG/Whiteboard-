@@ -172,62 +172,13 @@ export default function LeftRail({
         </>
       )}
 
-      {/* ── Drawing style controls ──────────────────────────────── */}
       <Divider />
-
-      {/* Compact 2×2 stroke size picker */}
-      <div
-        className="grid grid-cols-2 gap-0.5 px-1"
-        role="toolbar"
-        aria-label="Stroke size"
-      >
-        {RAIL_SIZES.map((s) => (
-          <button
-            key={s.value}
-            onClick={() => pickSize(s.value)}
-            aria-label={s.label}
-            aria-pressed={activeSize === s.value}
-            title={s.label}
-            className={`w-[22px] h-[22px] rounded-md inline-flex items-center justify-center transition-colors ${
-              activeSize === s.value
-                ? "bg-[var(--text)]"
-                : "hover:bg-[var(--hover)]"
-            }`}
-          >
-            <span
-              className={`rounded-full block ${
-                activeSize === s.value ? "bg-[var(--bg)]" : "bg-[var(--text)]"
-              }`}
-              style={{ width: s.dot, height: s.dot }}
-            />
-          </button>
-        ))}
-      </div>
-
-      <Divider />
-
-      {/* Compact 2×4 color grid */}
-      <div
-        className="grid grid-cols-2 gap-1 px-1"
-        role="toolbar"
-        aria-label="Color"
-      >
-        {RAIL_COLORS.map((c) => (
-          <button
-            key={c.name}
-            onClick={() => pickColor(c.name)}
-            aria-label={c.label}
-            aria-pressed={activeColor === c.name}
-            title={c.label}
-            className={`w-[22px] h-[22px] rounded-full transition-transform ${
-              activeColor === c.name
-                ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
-                : "hover:scale-105"
-            }`}
-            style={{ backgroundColor: c.hex }}
-          />
-        ))}
-      </div>
+      <StylePickerMenu
+        activeColor={activeColor}
+        activeSize={activeSize}
+        pickColor={pickColor}
+        pickSize={pickSize}
+      />
     </aside>
   );
 }
@@ -273,6 +224,138 @@ function RailBtn({
 function Divider() {
   return (
     <span aria-hidden className="block w-7 h-px bg-[var(--border)] my-1" />
+  );
+}
+
+// Collapsed button showing active colour + size dot. Opens a portal popover
+// (rendered in document.body) with full size and colour pickers. Portal
+// avoids clipping by the aside's overflow-y-auto.
+function StylePickerMenu({
+  activeColor,
+  activeSize,
+  pickColor,
+  pickSize,
+}: {
+  activeColor: TLDefaultColorStyle;
+  activeSize: TLDefaultSizeStyle;
+  pickColor: (c: TLDefaultColorStyle) => void;
+  pickSize: (s: TLDefaultSizeStyle) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        !menuRef.current?.contains(e.target as Node) &&
+        !btnRef.current?.contains(e.target as Node)
+      ) setOpen(false);
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.top, left: r.right + 8 });
+    }
+    setOpen((o) => !o);
+  };
+
+  const hex = RAIL_COLORS.find((c) => c.name === activeColor)?.hex ?? "#1d1d1f";
+  const sizeDot = RAIL_SIZES.find((s) => s.value === activeSize)?.dot ?? 3;
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        aria-label="Stroke colour and size"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Stroke colour and size"
+        className={`w-10 h-10 rounded-lg inline-flex flex-col items-center justify-center gap-[3px] transition-colors ${
+          open ? "bg-[var(--hover)]" : "hover:bg-[var(--hover)]"
+        }`}
+      >
+        <span
+          className="w-5 h-5 rounded-full border border-[color:var(--border-strong)] flex-shrink-0"
+          style={{ backgroundColor: hex }}
+        />
+        <span
+          className="rounded-full bg-[var(--text)] flex-shrink-0"
+          style={{ width: sizeDot, height: sizeDot }}
+        />
+      </button>
+
+      {open && pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 9999 }}
+            className="w-40 rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-xl p-2.5 flex flex-col gap-2.5"
+          >
+            <div>
+              <p className="text-[10px] font-medium text-[var(--text-muted)] mb-1.5 uppercase tracking-wide">
+                Size
+              </p>
+              <div className="grid grid-cols-4 gap-1">
+                {RAIL_SIZES.map((s) => (
+                  <button
+                    key={s.value}
+                    onClick={() => { pickSize(s.value); setOpen(false); }}
+                    aria-label={s.label}
+                    aria-pressed={activeSize === s.value}
+                    title={s.label}
+                    className={`w-8 h-8 rounded-md inline-flex items-center justify-center transition-colors ${
+                      activeSize === s.value
+                        ? "bg-[var(--text)]"
+                        : "hover:bg-[var(--hover)]"
+                    }`}
+                  >
+                    <span
+                      className={`rounded-full block ${
+                        activeSize === s.value ? "bg-[var(--bg)]" : "bg-[var(--text)]"
+                      }`}
+                      style={{ width: s.dot, height: s.dot }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="border-t border-[color:var(--border-subtle)]" />
+            <div>
+              <p className="text-[10px] font-medium text-[var(--text-muted)] mb-1.5 uppercase tracking-wide">
+                Colour
+              </p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {RAIL_COLORS.map((c) => (
+                  <button
+                    key={c.name}
+                    onClick={() => { pickColor(c.name); setOpen(false); }}
+                    aria-label={c.label}
+                    aria-pressed={activeColor === c.name}
+                    title={c.label}
+                    className={`w-7 h-7 rounded-full transition-transform ${
+                      activeColor === c.name
+                        ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
+                        : "hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
