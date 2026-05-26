@@ -255,7 +255,11 @@ export default function HomeworkDrawer({
   const removeSubmission = async (id: string) => {
     const supabase = getSupabase();
     if (!supabase) return;
-    await supabase.from("homework_submissions").delete().eq("id", id);
+    const { error } = await supabase
+      .from("homework_submissions")
+      .delete()
+      .eq("id", id);
+    if (error) toast.error(`Couldn't remove submission: ${error.message}`);
   };
 
   if (!open) return null;

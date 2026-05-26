@@ -217,9 +217,10 @@ export default function SettingsModal({
                 />
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(inviteUrl);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 1200);
+                    navigator.clipboard.writeText(inviteUrl).then(() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1200);
+                    }).catch(() => {});
                   }}
                   className="rounded-md border border-[color:var(--border)] px-3 py-2 text-sm hover:bg-[var(--hover)]"
                 >

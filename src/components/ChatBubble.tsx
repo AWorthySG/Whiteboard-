@@ -116,12 +116,13 @@ export default function ChatBubble({
     const supabase = getSupabase();
     if (!supabase) return;
     setDraft("");
-    await supabase.from("room_messages").insert({
+    const { error } = await supabase.from("room_messages").insert({
       room_id: roomId,
       user_id: userId,
       user_name: userName,
       text: text.slice(0, 2000),
     });
+    if (error) setDraft(text);
   };
 
   return (
