@@ -98,6 +98,18 @@ html[data-theme="light"] .tl-canvas {
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+}
+
+/* Belt-and-suspenders: Firefox sometimes ignores touch-action on a
+   parent element and requires it on the descendant itself. Explicitly
+   set it on tldraw's inner containers and the raw <canvas> so no
+   browser can interpret two-finger gestures as native scroll/zoom. */
+.tldraw-shell .tl-container,
+.tldraw-shell .tl-canvas,
+.tldraw-shell canvas {
+  touch-action: none;
+  overflow: hidden;
 }
 
 /* Strengthen the active-tool indicator in the bottom toolbar. tldraw's
@@ -261,8 +273,12 @@ body {
   overscroll-behavior: none;
   /* Lock the page itself — only the tldraw canvas (which sets its
      own touch-action) should pan horizontally. Stops the whole room
-     shell from sliding sideways on phones if a child overflows. */
+     shell from sliding sideways on phones if a child overflows.
+     overflow-y: hidden prevents the body from scrolling vertically if
+     a wheel event escapes tldraw's preventDefault call (e.g. during
+     canvas load). */
   overflow-x: hidden;
+  overflow-y: hidden;
   max-width: 100vw;
 }
 

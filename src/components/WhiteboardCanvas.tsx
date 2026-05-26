@@ -625,6 +625,22 @@ export default function WhiteboardCanvas({
     };
   }, [uploadMeta, reportProgress, toast]);
 
+  // Block browser-level zoom from Ctrl+scroll and macOS trackpad pinch.
+  // Both send a WheelEvent with ctrlKey=true; touch-action:none already
+  // blocks native touch gestures, but wheel events are separate. We
+  // prevent the browser's default action (page zoom) while tldraw still
+  // receives the event and handles it as canvas zoom through its own
+  // wheel listener. { passive: false } is required to call preventDefault.
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const prevent = (e: WheelEvent) => {
+      if (e.ctrlKey) e.preventDefault();
+    };
+    el.addEventListener("wheel", prevent, { passive: false });
+    return () => el.removeEventListener("wheel", prevent);
+  }, []);
+
   // Paste images from clipboard (screenshots, copied web images) onto the
   // canvas. We intercept in capture phase so our pipeline (validate + upload
   // to Supabase) runs instead of tldraw's default handler. Non-image pastes
