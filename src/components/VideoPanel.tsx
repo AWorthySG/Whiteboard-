@@ -193,6 +193,12 @@ export default function VideoPanel({
           <p className="text-xs text-[var(--text-dim)]">
             Audio only saves bandwidth on phone data.
           </p>
+          <button
+            onClick={() => onLeaveCall?.()}
+            className="touch-target w-full max-w-[14rem] text-xs text-[var(--text-dim)] hover:text-[var(--text-muted)] py-1 underline underline-offset-2"
+          >
+            Whiteboard only — skip the call
+          </button>
         </div>
       );
     }
