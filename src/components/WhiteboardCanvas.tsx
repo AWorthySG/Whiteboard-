@@ -39,9 +39,7 @@ import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
 import ZoomControls from "./ZoomControls";
 import CanvasSearch from "./CanvasSearch";
-import ColorPickerRow from "./ColorPickerRow";
 import ShortcutsModal from "./ShortcutsModal";
-import StrokeSizePicker from "./StrokeSizePicker";
 
 const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
 
