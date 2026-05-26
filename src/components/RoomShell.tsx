@@ -142,6 +142,7 @@ export default function RoomShell({
   const canvasOpenEquationRef = useRef<(() => void) | null>(null);
   const canvasOpenUploadRef = useRef<(() => void) | null>(null);
   const canvasOpenAnswerSpaceRef = useRef<(() => void) | null>(null);
+  const canvasBringEveryoneRef = useRef<(() => void) | null>(null);
   const canvasPageThumbnailRef = useRef<
     ((pageId: string) => Promise<string | null>) | null
   >(null);
@@ -857,6 +858,7 @@ export default function RoomShell({
           onUpload={() => canvasOpenUploadRef.current?.()}
           onEquation={() => canvasOpenEquationRef.current?.()}
           onAnswerSpace={() => canvasOpenAnswerSpaceRef.current?.()}
+          onBringEveryone={() => canvasBringEveryoneRef.current?.()}
         />
         <div className="relative flex-1 min-w-0 min-h-0">
           {/* Recording state overlay — red inset border + REC badge.
@@ -928,6 +930,7 @@ export default function RoomShell({
             openEquationRef={canvasOpenEquationRef}
             openUploadRef={canvasOpenUploadRef}
             openAnswerSpaceRef={canvasOpenAnswerSpaceRef}
+            bringEveryoneRef={canvasBringEveryoneRef}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}

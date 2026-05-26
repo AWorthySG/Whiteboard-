@@ -193,6 +193,7 @@ export default function WhiteboardCanvas({
   openEquationRef,
   openUploadRef,
   openAnswerSpaceRef,
+  bringEveryoneRef,
   onPagesChange,
   switchPageRef,
   pageThumbnailRef,
@@ -220,6 +221,7 @@ export default function WhiteboardCanvas({
   openEquationRef?: MutableRefObject<(() => void) | null>;
   openUploadRef?: MutableRefObject<(() => void) | null>;
   openAnswerSpaceRef?: MutableRefObject<(() => void) | null>;
+  bringEveryoneRef?: MutableRefObject<(() => void) | null>;
   /** Lets the parent shell reach the live Editor instance — used by
    *  the End Lesson modal to render every page into a PDF. Set on
    *  mount, cleared on unmount. */
@@ -725,19 +727,29 @@ export default function WhiteboardCanvas({
     const b = editor.getViewportPageBounds();
     void channel.send({ type: "broadcast", event: "vp", payload: { x: b.x, y: b.y, w: b.w, h: b.h } });
   }, []);
+  // Expose broadcastViewport via ref so LeftRail (rendered outside this
+  // component tree) can trigger it without needing the editor directly.
+  useEffect(() => {
+    if (!bringEveryoneRef) return;
+    bringEveryoneRef.current = broadcastViewport;
+    return () => {
+      if (bringEveryoneRef.current) bringEveryoneRef.current = null;
+    };
+  }, [bringEveryoneRef, broadcastViewport]);
 
   const canvasActions = useMemo<CanvasActionsCtx>(
     () => ({
       onEquation: () => setEquationOpen(true),
       onUpload: () => openFilePicker(runUpload),
       onAnswerSpace: () => setAnswerSpaceOpen(true),
+      onBringEveryone: broadcastViewport,
       onToggleLeader,
       onSearch: () => setSearchOpen(true),
       onShortcuts: () => setShortcutsOpen(true),
       isHost,
       leaderMode,
     }),
-    [onToggleLeader, isHost, leaderMode, runUpload],
+    [onToggleLeader, broadcastViewport, isHost, leaderMode, runUpload],
   );
 
   return (
@@ -848,7 +860,6 @@ export default function WhiteboardCanvas({
         syncStatus={store.status}
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
-        onBringEveryone={broadcastViewport}
       />
       <EquationModal
         open={equationOpen}
@@ -908,7 +919,6 @@ function CanvasFloatingPanel({
   syncStatus,
   toolsCollapsed,
   onToggleTools,
-  onBringEveryone,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -919,7 +929,6 @@ function CanvasFloatingPanel({
   syncStatus: string;
   toolsCollapsed: boolean;
   onToggleTools: () => void;
-  onBringEveryone: () => void;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
@@ -957,17 +966,6 @@ function CanvasFloatingPanel({
         </div>
       )}
       <SyncStatusDot status={syncStatus} />
-      {isHost && (
-        <button
-          onClick={onBringEveryone}
-          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] shadow-lg flex items-center gap-1.5 hover:bg-[var(--hover)]"
-          title="Zoom every student's canvas to match your current view"
-          aria-label="Bring everyone here"
-        >
-          <ArrowsOut size={12} aria-hidden />
-          Bring everyone here
-        </button>
-      )}
       {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <DeleteSelectionButton editor={editor} toolsCollapsed={toolsCollapsed} />
@@ -1544,6 +1542,7 @@ type CanvasActionsCtx = {
   onEquation: () => void;
   onUpload: () => void;
   onAnswerSpace: () => void;
+  onBringEveryone: () => void;
   onToggleLeader: () => void | Promise<void>;
   onSearch: () => void;
   onShortcuts: () => void;
@@ -1649,6 +1648,17 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
           aria-label="Insert answer lines"
         >
           <AnswerLinesSvg />
+        </button>
+      )}
+      {actions.isHost && (
+        <button
+          type="button"
+          className="tlui-button tlui-button__icon"
+          onClick={actions.onBringEveryone}
+          title="Bring everyone to your view"
+          aria-label="Bring everyone here"
+        >
+          <ArrowsOut size={20} aria-hidden />
         </button>
       )}
       {actions.isHost && (

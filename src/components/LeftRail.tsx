@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   DefaultColorStyle,
   DefaultSizeStyle,
@@ -12,6 +12,7 @@ import {
   Article,
   ArrowClockwise,
   ArrowCounterClockwise,
+  ArrowsOut,
   Cursor,
   Hand,
   PencilSimple,
@@ -63,6 +64,7 @@ export default function LeftRail({
   onUpload,
   onEquation,
   onAnswerSpace,
+  onBringEveryone,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -73,6 +75,7 @@ export default function LeftRail({
   onUpload: () => void;
   onEquation: () => void;
   onAnswerSpace: () => void;
+  onBringEveryone: () => void;
 }) {
   const [active, setActive] = useState<string>("draw");
   const [activeColor, setActiveColor] = useState<TLDefaultColorStyle>("black");
@@ -162,14 +165,11 @@ export default function LeftRail({
           >
             <EyeSlash size={18} weight={annotationsHidden ? "fill" : "regular"} />
           </RailBtn>
-          <RailBtn
-            active={leaderMode}
-            activeTone="amber"
-            onClick={() => void onToggleLeader()}
-            label={leaderMode ? "Stop leading the view" : "Lead the view"}
-          >
-            <Eye size={18} weight={leaderMode ? "fill" : "regular"} />
-          </RailBtn>
+          <ViewControlMenu
+            leaderMode={leaderMode}
+            onToggleLeader={onToggleLeader}
+            onBringEveryone={onBringEveryone}
+          />
         </>
       )}
 
@@ -274,5 +274,84 @@ function RailBtn({
 function Divider() {
   return (
     <span aria-hidden className="block w-7 h-px bg-[var(--border)] my-1" />
+  );
+}
+
+// Collapsed menu combining leader-mode toggle + bring-everyone-here.
+// Opens a popover to the right of the rail on click; closes on outside click.
+function ViewControlMenu({
+  leaderMode,
+  onToggleLeader,
+  onBringEveryone,
+}: {
+  leaderMode: boolean;
+  onToggleLeader: () => void | Promise<void>;
+  onBringEveryone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Student view controls"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Student view controls"
+        className={`w-10 h-10 rounded-lg inline-flex items-center justify-center transition-colors ${
+          leaderMode
+            ? "bg-amber-500 text-white"
+            : "text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
+        }`}
+      >
+        <Eye size={18} weight={leaderMode ? "fill" : "regular"} />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-full top-0 ml-2 w-52 rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-xl p-1 z-50"
+        >
+          <button
+            role="menuitem"
+            onClick={() => { void onToggleLeader(); setOpen(false); }}
+            className={`w-full text-left rounded-md px-3 py-2 text-sm flex items-center justify-between gap-2 ${
+              leaderMode
+                ? "bg-amber-50 text-amber-900 hover:bg-amber-100"
+                : "text-[var(--text)] hover:bg-[var(--hover)]"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Eye size={14} weight={leaderMode ? "fill" : "regular"} aria-hidden />
+              {leaderMode ? "Stop leading view" : "Lead view"}
+            </span>
+            {leaderMode && (
+              <span className="text-[10px] font-semibold bg-amber-500 text-white rounded px-1.5 py-0.5 shrink-0">
+                ON
+              </span>
+            )}
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => { onBringEveryone(); setOpen(false); }}
+            className="w-full text-left rounded-md px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--hover)] flex items-center gap-2"
+          >
+            <ArrowsOut size={14} aria-hidden />
+            Bring everyone here
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
