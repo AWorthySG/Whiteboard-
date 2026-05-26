@@ -61,7 +61,6 @@ export default function LeftRail({
   onToggleAnnotations,
   onToggleLeader,
   onUpload,
-  onEquation,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -70,7 +69,6 @@ export default function LeftRail({
   onToggleAnnotations: () => void;
   onToggleLeader: () => void | Promise<void>;
   onUpload: () => void;
-  onEquation: () => void;
 }) {
   const [active, setActive] = useState<string>("draw");
   const [activeColor, setActiveColor] = useState<TLDefaultColorStyle>("black");
@@ -162,9 +160,6 @@ export default function LeftRail({
 
       <RailBtn active={active === "note"} onClick={() => select("note")} label="Sticky note" shortcut="N">
         <Note size={18} weight={active === "note" ? "fill" : "regular"} />
-      </RailBtn>
-      <RailBtn onClick={onEquation} label="Insert equation">
-        <span className="font-serif italic text-[15px] leading-none">fx</span>
       </RailBtn>
       <RailBtn onClick={onUpload} label="Upload document or image">
         <Upload size={18} />

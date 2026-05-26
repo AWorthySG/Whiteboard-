@@ -38,6 +38,7 @@ export default function VideoPanel({
   captionsEnabled,
   onCaption,
   onLeaveCall,
+  autoConnect,
 }: {
   roomId: string;
   userId: string;
@@ -48,17 +49,26 @@ export default function VideoPanel({
   // Called when the user intentionally leaves the call from the control bar
   // so RoomShell can unmount VideoPanel and show the whiteboard-only state.
   onLeaveCall?: () => void;
+  // Set by the welcome-screen choice in RoomShell. When provided, the panel
+  // connects immediately in the chosen mode and skips its own join prompt —
+  // the user already chose how to join, so we don't ask twice.
+  autoConnect?: "video" | "audio" | null;
 }) {
   const [settings] = useSettings();
   const [token, setToken] = useState<string | null>(null);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initialAutoJoin = useMemo(() => settings.autoJoinCall, []);
+  // An explicit welcome-screen choice (autoConnect) overrides the saved
+  // auto-join setting — the user has just told us how they want to join.
+  const initialAutoJoin = useMemo(
+    () => autoConnect != null || settings.autoJoinCall,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   // Camera respects the audio-only setting on first join — if the user
   // has audio-only enabled, never even ask for camera permission.
   const initialCamera = useMemo(
-    () => settings.defaultCamera && !settings.audioOnly,
+    () => settings.defaultCamera && !settings.audioOnly && autoConnect !== "audio",
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -67,7 +77,9 @@ export default function VideoPanel({
   const [inCall, setInCall] = useState(initialAutoJoin);
   // Track whether the user chose to join audio-only — separate from
   // the setting so we can flip it per-call without persisting.
-  const [audioOnlyMode, setAudioOnlyMode] = useState(settings.audioOnly);
+  const [audioOnlyMode, setAudioOnlyMode] = useState(() =>
+    autoConnect === "audio" ? true : settings.audioOnly,
+  );
   // Distinguish user-initiated leave from an unexpected drop so we can
   // auto-reconnect on drops instead of silently showing the rejoin screen.
   const intentionalLeaveRef = useRef(false);

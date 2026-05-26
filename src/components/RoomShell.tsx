@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CaretDown, File as FileIcon, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
-import { useSettings, getSettings } from "@/hooks/useSettings";
+import { useSettings } from "@/hooks/useSettings";
 import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { trackRoomVisit, useRecentRooms } from "@/hooks/useRecentRooms";
@@ -87,10 +87,28 @@ export default function RoomShell({
   // callJoined: whether the video/audio call (LiveKit) is active — controls
   // VideoPanel mounting. videoPanelVisible: whether the panel is shown in
   // the layout (can be false while still in the call = audio-only mode).
-  const [callJoined, setCallJoined] = useState(() => getSettings().showVideoOnEntry);
-  const [videoPanelVisible, setVideoPanelVisible] = useState(() => getSettings().showVideoOnEntry);
+  // Both start false — the welcome-screen choice (entryChoiceMade) decides
+  // whether to join with video, audio, or stay on the whiteboard only, so
+  // nobody is dropped into a call without choosing.
+  const [callJoined, setCallJoined] = useState(false);
+  const [videoPanelVisible, setVideoPanelVisible] = useState(false);
+  // The mode chosen at the welcome screen ("video"/"audio"), passed to
+  // VideoPanel so it connects directly without prompting again. Null until
+  // the user makes a call choice.
+  const [joinMode, setJoinMode] = useState<"video" | "audio" | null>(null);
+  // Whether the participant has answered the welcome-screen join prompt.
+  const [entryChoiceMade, setEntryChoiceMade] = useState(false);
   const joinCall = useCallback(() => { setCallJoined(true); setVideoPanelVisible(true); }, []);
-  const leaveCall = useCallback(() => { setCallJoined(false); setVideoPanelVisible(false); }, []);
+  const leaveCall = useCallback(() => { setCallJoined(false); setVideoPanelVisible(false); setJoinMode(null); }, []);
+  const chooseJoin = useCallback((mode: "video" | "audio") => {
+    setJoinMode(mode);
+    setCallJoined(true);
+    setVideoPanelVisible(true);
+    setEntryChoiceMade(true);
+  }, []);
+  const chooseWhiteboardOnly = useCallback(() => {
+    setEntryChoiceMade(true);
+  }, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
   const [hwOpen, setHwOpen] = useState(false);
@@ -196,7 +214,6 @@ export default function RoomShell({
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
   const canvasAddPageRef = useRef<(() => void) | null>(null);
   const canvasSwitchPageRef = useRef<((pageId: string) => void) | null>(null);
-  const canvasOpenEquationRef = useRef<(() => void) | null>(null);
   const canvasOpenUploadRef = useRef<(() => void) | null>(null);
   const canvasPageThumbnailRef = useRef<
     ((pageId: string) => Promise<string | null>) | null
@@ -533,10 +550,48 @@ export default function RoomShell({
 
   if (!userId) return null;
 
-  const headerTitle = meta.title || roomId;
+  const headerTitle = meta.title || "Untitled room";
 
   const room = (
     <div className="h-app w-screen flex flex-col">
+      {/* Welcome screen — let the participant choose how to join before
+          they're dropped into the room. Shown once per session. */}
+      {!entryChoiceMade && (
+        <div className="fixed inset-0 z-[14000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border-subtle)] shadow-2xl p-6 text-center">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Join {meta.title || "the room"}
+            </h2>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
+              How would you like to join?
+            </p>
+            <div className="mt-5 flex flex-col gap-2.5">
+              <button
+                onClick={() => chooseJoin("video")}
+                className="touch-target w-full rounded-lg bg-brand-600 hover:bg-brand-500 text-white px-4 py-2.5 text-sm font-medium"
+              >
+                Join with video
+              </button>
+              <button
+                onClick={() => chooseJoin("audio")}
+                className="touch-target w-full rounded-lg border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2.5 text-sm font-medium"
+              >
+                Join with audio only
+              </button>
+              <button
+                onClick={chooseWhiteboardOnly}
+                className="touch-target w-full rounded-lg border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2.5 text-sm font-medium"
+              >
+                Whiteboard only — don&apos;t join the call
+              </button>
+            </div>
+            <p className="text-xs text-[var(--text-dim)] mt-3">
+              You can join or leave the call anytime from the call button in
+              the header.
+            </p>
+          </div>
+        </div>
+      )}
       <header className="flex items-start lg:items-center gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
         <Link
           href="/"
@@ -696,12 +751,6 @@ export default function RoomShell({
               {headerTitle}
             </button>
           )}
-          {/* Room id chip — mono font + faint, matches the design's
-              'neat-comet-815' breadcrumb terminal. Tablet+ only;
-              phones don't have the horizontal room. */}
-          <span className="hidden lg:inline font-mono text-[11px] text-[var(--text-dim)] tabular-nums">
-            {roomId}
-          </span>
         </div>
 
         {isHost && (
@@ -975,7 +1024,6 @@ export default function RoomShell({
           onToggleAnnotations={() => setAnnotationsHidden((v) => !v)}
           onToggleLeader={() => setLeaderMode(!meta.leaderMode, userId)}
           onUpload={() => canvasOpenUploadRef.current?.()}
-          onEquation={() => canvasOpenEquationRef.current?.()}
         />
         <div className="relative flex-1 min-w-0 min-h-0">
           {/* Recording state overlay — red inset border + REC badge.
@@ -1044,7 +1092,6 @@ export default function RoomShell({
             }}
             exportRef={canvasExportRef}
             addPageRef={canvasAddPageRef}
-            openEquationRef={canvasOpenEquationRef}
             openUploadRef={canvasOpenUploadRef}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
@@ -1151,6 +1198,7 @@ export default function RoomShell({
               captionsEnabled={settings.captionsEnabled}
               onCaption={pushCaption}
               onLeaveCall={leaveCall}
+              autoConnect={joinMode}
             />
           </aside>
         )}
@@ -1189,6 +1237,7 @@ export default function RoomShell({
                 captionsEnabled={settings.captionsEnabled}
                 onCaption={pushCaption}
                 onLeaveCall={leaveCall}
+                autoConnect={joinMode}
               />
             </div>
           </div>
@@ -1275,7 +1324,7 @@ export default function RoomShell({
   if (!name.trim()) {
     return (
       <GuestNameEntry
-        roomTitle={meta.title || roomId}
+        roomTitle={meta.title || "this room"}
         onSubmit={(n) => {
           setName(n);
           try {

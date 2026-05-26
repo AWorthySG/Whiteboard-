@@ -53,12 +53,11 @@ on `join_requests` (the anon key can INSERT but not UPDATE existing rows).
 
 | Path | Purpose |
 | --- | --- |
-| `/` | Landing — sign-in chip, name/room form, recent rooms list |
+| `/` | Landing — sign-in chip, name/room form, recent rooms list. `generateRoomId()` makes a neutral 8-char code (e.g. `k3fmqp8r`) — no cutesy `bright-comet-815` adjective-noun names (removed per request), and ambiguous chars (l/1/i, o/0) are omitted so codes read aloud cleanly. |
 | `/r/[roomId]` | Room shell — canvas, video panel, all the drawers |
 | `/auth/callback` | Legacy Supabase auth return URL. Currently unused (username/password sign-in doesn't redirect) but kept as a no-op stub in case OAuth or password reset gets added later. |
 | `/api/livekit/token` | Mints LiveKit room JWT. Identity = `u-<userId>` for stable cross-tab dedup |
 | `/api/uploads` | **No longer in the hot path.** All upload paths (canvas, Documents drawer, Homework submissions) POST directly to Supabase Storage from the browser using the anon key, saving a Vercel function hop. The route file still exists as a fallback / for future server-side upload needs but isn't called by any current client code. |
-| `/api/math` | POST `{ latex, displayMode }` → server-side KaTeX → SVG data URL (KaTeX never enters the client bundle) |
 
 ## Database schema (Supabase Postgres)
 
@@ -126,17 +125,33 @@ RoomShell.tsx          Top-level room layout — header, canvas wrapper, side vi
                        The page list itself is mirrored up via the onPagesChange callback
                        (subscribed to editor.store) so the dropdown stays live across
                        renames + remote edits.
+                       On md+ the header is a SINGLE row; secondary actions
+                       (Export, captions, display name) live behind a "More" (⋯)
+                       overflow menu (deskMenuOpen). Inline: Record · Invite ·
+                       video toggle · Settings · End lesson.
+                       Welcome screen: an entry-choice modal (entryChoiceMade)
+                       shows once on room entry — Join with video / Join with
+                       audio only / Whiteboard only. callJoined + videoPanelVisible
+                       now START FALSE (no auto-join); the modal decides. The chosen
+                       mode is held in `joinMode` ("video"|"audio"|null) and passed
+                       to VideoPanel as `autoConnect` so it connects directly without
+                       prompting again. Whiteboard-only leaves callJoined false.
                        Video/call state is split into two booleans:
                        - `callJoined` — whether VideoPanel is mounted (LiveKit token
-                         fetched, connection active). Initialized from showVideoOnEntry.
+                         fetched, connection active).
                        - `videoPanelVisible` — whether the aside/sheet is shown in the
                          layout. When false but callJoined is true, the desktop aside
                          renders with `display:none` so the LiveKit connection stays
                          alive for audio (audio-only mode). The mobile sheet is
                          conditionally rendered only when both are true.
+                       Picture-in-picture: `videoPip` floats the desktop aside as a
+                       fixed-positioned draggable tile (pipPos) so the canvas reflows
+                       full-width while the LiveKit element keeps its React position
+                       (connection never torn down). Slimmer default width (300px).
                        The header "Join call / Hide video / Show video" button reflects
-                       all three states. `joinCall()` sets both to true; `leaveCall()`
-                       (passed as VideoPanel's onLeaveCall) sets both to false.
+                       all three states. `joinCall()` sets both visibility flags to
+                       true; `leaveCall()` (passed as VideoPanel's onLeaveCall) sets
+                       both to false AND resets joinMode to null.
 
 WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Uploads go BROWSER → SUPABASE STORAGE
                        directly (uploadAsset() POSTs to /storage/v1/object/whiteboard-assets/
@@ -146,6 +161,10 @@ WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Uploads go BROWSER → SUPAB
                        geometric shape tools (arrow/line/geo/text/frame) so R/O/A/L/T
                        can't accidentally switch tools mid-lesson. Exposes exportRef and
                        addPageRef MutableRefObjects to the parent shell.
+                       tldraw `components` override nulls MenuPanel, StylePanel AND
+                       NavigationPanel (the native zoom/minimap pill) — our custom
+                       ZoomControls is the single zoom UI. The insert-equation
+                       feature was removed (no EquationModal, no /api/math).
 
 VideoPanel.tsx         LiveKit room — token fetch, Tiles grid, CameraReleaseGuard (calls
                        track.stop() on disable so the macOS green light turns off),
@@ -154,10 +173,15 @@ VideoPanel.tsx         LiveKit room — token fetch, Tiles grid, CameraReleaseGu
                        Accepts an `onLeaveCall` prop; when the user intentionally
                        leaves via the control bar, the LiveKit disconnect fires
                        onLeaveCall so RoomShell can unmount the panel and show the
-                       whiteboard-only state. On first entry (before the user has
-                       ever joined the call this session) the panel shows "Join the
-                       call" with three options: Join with video / Audio only /
-                       Whiteboard only — skip the call. `hasJoinedBeforeRef` tracks
+                       whiteboard-only state. The `autoConnect` prop ("video" |
+                       "audio" | null) is set from RoomShell's welcome-screen choice
+                       (joinMode); when present the panel connects directly in that
+                       mode and skips its own join prompt (no double-ask). When null
+                       (e.g. re-joining via the header), it falls back to the
+                       settings-based auto-join. On re-entry after an intentional
+                       leave the panel shows "Join the call" with three options:
+                       Join with video / Audio only / Whiteboard only — skip the
+                       call. `hasJoinedBeforeRef` tracks
                        whether the user has been in the call at all this session,
                        distinguishing first-entry from after-leave so the copy stays
                        accurate. Auto-reconnect on unexpected drops (3-second delay,
@@ -184,11 +208,13 @@ AdmissionPanel.tsx     Host-only floating panel showing pending join_requests wi
                        join") the first time it sees each new pending request so
                        the host can't miss it.
 
-ZoomControls.tsx       Bottom-right pill: zoom out / current % (clickable for preset
+ZoomControls.tsx       Bottom-left pill: zoom out / current % (clickable for preset
                        menu) / zoom in. Preset menu has Fit to content, Reset to
                        100%, and 50/75/100/150/200%. Subscribes to editor.store
                        session scope so the % stays live. Works on phone, tablet,
-                       and desktop (touch targets sized for thumb taps).
+                       and desktop (touch targets sized for thumb taps). This is the
+                       ONLY zoom UI — tldraw's native NavigationPanel is nulled in the
+                       components override (don't re-add it; you'll get two zoom pills).
 
 CaptionsManager.tsx    Lives inside the LiveKitRoom context. Runs the browser-native
                        SpeechRecognition API (webkitSpeechRecognition) on the local
@@ -227,9 +253,6 @@ Toast.tsx              Stacked toast notifications (ToastProvider in root layout
 
 ChatBubble.tsx         Floating chat button + 320×440 popover. Persists to room_messages.
 
-EquationModal.tsx      LaTeX input + live debounced preview. POSTs /api/math and inserts
-                       the returned SVG data URL as an image asset.
-
 InvitePanel.tsx        QR code (lazy-loaded qrcode-svg) + copy link + native Web Share.
 
 DocumentsDrawer.tsx    Right-side drawer listing uploaded files. Has its own "Upload"
@@ -255,7 +278,7 @@ StrokeSizePicker.tsx   Four stroke-size options (s/m/l/xl) shown as dot swatches
 
 LeftRail.tsx           Vertical tool rail on the left edge of the canvas (md+ only).
                        Phase 4 design: contains the full tool set (select / hand /
-                       pen / highlighter / eraser / note / equation / upload) plus
+                       pen / highlighter / eraser / note / upload) plus
                        host-only toggles (hide annotations, lead view) AND the
                        drawing style controls (2×2 size grid, 2×4 color grid) below
                        a divider. This makes it the single unified drawing control
@@ -281,7 +304,6 @@ ShortcutsModal.tsx     Keyboard shortcuts cheatsheet modal (? or toolbar button)
 
 CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floating
                        column of status indicators and context-sensitive controls:
-                       - SyncStatusDot: amber/red when tldraw sync is not fully online
                        - "Bring everyone here" (host only): broadcasts viewport bounds
                          over Supabase Realtime channel vp-{roomId} so every guest
                          zooms to match in 400 ms
@@ -292,6 +314,11 @@ CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floatin
                          when the page is clean
                        - PenModeIndicator: tap-to-dismiss pen-mode pill
                        - StrokeSizePicker + ColorPickerRow: md:hidden (in LeftRail)
+                       - "Tools / Hide tools" toggle: md:hidden — it only collapses
+                         the mobile SlimToolbar; on desktop the LeftRail is the toolset
+                         and tldraw's toolbar is hidden anyway, so it's removed there.
+                       (SyncStatusDot was removed — ReconnectBanner is the single
+                       connection-status home.)
 
 SettingsModal.tsx      Profile, account (sign in / claim room / sign out), appearance
                        (theme), whiteboard (pen-only/palm-rejection), documents, call
@@ -393,7 +420,7 @@ commit `45a340e` (15+ classes swept).
 - **Guests don't sign up**. Anyone with a room link can join: they land on `/r/<roomId>`, see the `GuestNameEntry` form (or skip it if they have a remembered name), then KnockGate creates a `join_requests` row and waits for the host to Admit. The host sees an `AdmissionPanel` floating top-right + a toast for every new knocker.
 - **Admission is persistent per (room, user_id)**. KnockGate now reads-then-conditionally-inserts: if a row already exists for this device it preserves the status (admitted → straight in, pending → still waiting, denied → stays denied). An older version unconditionally upserted 'pending', which clobbered admitted rows on every visit and effectively required re-admission every time. If you re-introduce an upsert here, use `ignoreDuplicates: true` or read first — never overwrite without intent.
 - **Magic invite links** (`/api/invite/mint` + `/api/invite/redeem`). Host-only feature in InvitePanel: generates an HS256 JWT signed with `WORKER_SHARED_SECRET` containing `{ kind: "invite", roomId, exp }`. Default 90-day expiry. Mint is gated by Supabase session — the caller must present a Bearer token that resolves to the `rooms.host_user_id` for this room (so localStorage-only hosts can't mint until they claim the room to their account in Settings). Redeem is anonymous + token-gated: any guest opening `/r/<roomId>?invite=<token>` has the token verified, then their `join_requests` row is upserted to admitted. KnockGate detects the `invite` URL param and calls redeem before the normal knock flow. Invite tokens deliberately OMIT the `userId` claim so the Cloudflare worker's `verifySyncToken` (which requires both `roomId` and `userId`) won't accept them as sync tokens — leaking an invite link only grants the right to redeem into the knock flow, not direct whiteboard sync. There's no server-side revocation list; rotate `WORKER_SHARED_SECRET` to invalidate all outstanding invites. **`SUPABASE_SERVICE_ROLE_KEY` must be set in Vercel** — the redeem route uses it to bypass the RLS UPDATE policy; if the var is missing the route hard-fails with 500 (deliberately, not a silent fallback).
-- **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) is disabled in our `components` override, so we render our own `ZoomControls` bottom-left (was bottom-right; moved so the video panel doesn't cover it).
+- **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) AND its `NavigationPanel` (the native zoom/minimap pill) are both nulled in our `components` override, so we render our own `ZoomControls` bottom-left (was bottom-right; moved so the video panel doesn't cover it). If `NavigationPanel` is ever un-nulled you get TWO zoom pills stacked bottom-left — that was the "duplicate zoom panel" bug.
 - **PWA orientation lock**: `public/manifest.webmanifest` sets `"orientation": "portrait"`. This is honoured for installed PWAs on Android Chrome; iOS Safari ignores it for non-installed sessions.
 - **PWA icons**: the manifest lists five PNG sizes (152/167/180/192/512) plus a maskable variant and an SVG. iOS doesn't read the manifest list reliably on first install — `src/app/layout.tsx` adds explicit `<link rel="apple-touch-icon" sizes="...">` tags for 152/167/180 so Safari picks the right one. Regenerate the smaller PNGs from `public/icon.svg` whenever the source art changes (sharp can do this in ~10 lines; see commit `7f81a18` for the original pass).
 - **PWA install banner**: `PwaInstallBanner.tsx` listens for `beforeinstallprompt` (Android Chrome only — iOS Safari doesn't fire this) and persists dismissal in `wb_pwa_install_dismissed`. iOS users install via Share → Add to Home Screen.
@@ -408,11 +435,12 @@ commit `45a340e` (15+ classes swept).
 - **Desktop/mobile drawing controls split**: LeftRail owns the color and size pickers on desktop (md+). The same pickers inside CanvasFloatingPanel carry `md:hidden` so they're only visible on mobile. If you add a new drawing style control, add it to BOTH LeftRail AND CanvasFloatingPanel (with `md:hidden`), keeping parity between breakpoints.
 - **RecordButton paused-state stop**: the screen-share track's `ended` event now checks `state === "recording" || state === "paused"` before calling `stop()`. If you see a UI deadlock where the recorder appears stuck after the user stops sharing mid-pause, re-check this guard.
 - **LessonTimer expiry**: the 250 ms tick interval self-clears when `computeRemaining(timer) <= 0`. Nobody writes `timer_running=false` to the DB when the client clock hits zero (the timer just shows "Time's up"), so without the self-clear the interval would fire indefinitely. `addMinute` is capped at 480 minutes remaining so values stay well below the PostgreSQL `INTEGER` overflow boundary.
+- **LessonTimer clock**: the widget also shows a live current-time readout in Singapore time (GMT+8) via `Intl.DateTimeFormat({ timeZone: "Asia/Singapore" })`, ticked by its own always-on 1 s interval (`now` state). The clock is shown to everyone (host + students), even when no countdown is set — so the idle-state early-return for students was removed. On phones the clock is `hidden sm:block` while a countdown is ACTIVE so the running pill + host controls don't overflow a narrow viewport.
 - **Free tiers**: Supabase Storage 1 GB, LiveKit 10k participant-min/month. Watch the Recordings drawer for big files eating Supabase Storage.
 - **ChatBubble draft restore**: `send()` clears `draft` before the Supabase insert, then re-sets it to the original text if the insert fails so the user doesn't silently lose a composed message. If you touch the send path, preserve this order — clearing first is correct UX (immediate feedback), but the error path must restore the value.
 - **SettingsModal clipboard**: the invite-URL copy button awaits `navigator.clipboard.writeText()` before showing the "Copied" badge, with a `.catch(() => {})` for denied access. Before the fix, the badge showed synchronously even when the browser rejected the write. Never show success feedback for async operations before the Promise resolves.
 - **HomeworkDrawer submission delete**: `removeSubmission()` checks `{ error }` from Supabase and surfaces failures as `toast.error`. Silent deletes fail invisibly and confuse both host and student — always handle the error on destructive DB operations.
-- **API routes JSON parse guard**: all four token/invite routes (`/api/sync-token`, `/api/livekit/token`, `/api/invite/mint`, `/api/invite/redeem`) wrap `req.json()` in `try/catch` and return a `{ error: "Invalid JSON" }` 400 on parse failure. Without the guard, a malformed body throws past the route handler and produces a generic 500. Any new API route that calls `req.json()` must include this guard — it matches the existing `/api/math` pattern.
+- **API routes JSON parse guard**: all four token/invite routes (`/api/sync-token`, `/api/livekit/token`, `/api/invite/mint`, `/api/invite/redeem`) wrap `req.json()` in `try/catch` and return a `{ error: "Invalid JSON" }` 400 on parse failure. Without the guard, a malformed body throws past the route handler and produces a generic 500. Any new API route that calls `req.json()` must include this guard.
 - **`paletteCommands` useMemo must include all callback deps**: RoomShell's command-palette list is built in a `useMemo`. When that memo closes over a `useCallback` such as `downloadAllPagesPdf`, the callback itself must appear in the dep array — not only its leaf inputs. Omitting it creates a stale closure: renaming the room mid-session would produce a PDF export with the old title. ESLint's `react-hooks/exhaustive-deps` warnings inside this memo are real bugs, not false positives. Exception: `toast` from `useToast()` is stable (memo'd in the context provider) and can safely be omitted.
 
 ## Common commands
@@ -440,8 +468,8 @@ default stroke profile if the patch isn't applied.
    by the CSS-variable convention; one stray class breaks light mode contrast.
 2. **Always pair `bg-brand-600` with `text-white`** — see Theming section. Easy regression.
 3. **Don't add LiveKit tokens to client-side env.** Token minting must stay server-side.
-4. **Bundle budget**: keep heavy libraries (KaTeX, pdfjs, exportToBlob) lazy-loaded.
-   Server-side render where possible (KaTeX already is).
+4. **Bundle budget**: keep heavy libraries (pdfjs, exportToBlob) lazy-loaded.
+   Server-side render where possible.
 5. **Schema migrations**: write the SQL to `supabase/migrations/<timestamp>_<name>.sql` first,
    then apply via the Supabase MCP `apply_migration` tool with the same name. Update
    `supabase/setup.sql` (the consolidated fresh-project snapshot) in the same commit.
@@ -507,8 +535,17 @@ default stroke profile if the patch isn't applied.
     because `display:none` on the aside already keeps the connection alive on
     mobile too (the aside's VideoPanel is hidden but mounted).
     `onLeaveCall` must always set BOTH `callJoined = false` AND
-    `videoPanelVisible = false` — leaving the call with the aside still mounted
-    would keep a dead LiveKit component in the tree.
+    `videoPanelVisible = false` (and reset `joinMode = null`) — leaving the call
+    with the aside still mounted would keep a dead LiveKit component in the tree.
+    Both booleans now START FALSE; the welcome-screen entry modal
+    (`entryChoiceMade`) sets them. The chosen mode (`joinMode`) is passed to
+    VideoPanel as `autoConnect` so it connects directly without re-prompting.
+    Don't wire VideoPanel mounting back to the `showVideoOnEntry` setting —
+    the modal is the single entry decision now. There's also a PiP mode
+    (`videoPip` + `pipPos`): when on, the desktop aside is `position: fixed`
+    (out of flow) so the canvas reflows full-width while VideoPanel keeps its
+    React position — never move VideoPanel to a different parent or the
+    LiveKit connection remounts.
 18. **`StrokeSizePicker` and `ColorPickerRow` ARE used inside `WhiteboardCanvas`.**
     They render in the internal `CanvasFloatingPanel` (wrapped in `md:hidden` so
     they only appear on phones — desktop uses the copies in `LeftRail`). The two

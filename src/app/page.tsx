@@ -18,11 +18,14 @@ import PwaInstallBanner from "@/components/PwaInstallBanner";
 const SignInModal = dynamic(() => import("@/components/SignInModal"), { ssr: false });
 
 function generateRoomId() {
-  const adj = ["bright", "swift", "quiet", "warm", "bold", "calm", "lucky", "neat"];
-  const noun = ["otter", "comet", "river", "ember", "cloud", "harbor", "willow", "ridge"];
-  const pick = (xs: string[]) => xs[Math.floor(Math.random() * xs.length)];
-  const n = Math.floor(Math.random() * 900 + 100);
-  return `${pick(adj)}-${pick(noun)}-${n}`;
+  // Neutral short code (no cutesy adjective-noun names). Ambiguous
+  // characters (l/1/i, o/0) are omitted so codes are easy to read aloud.
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789";
+  let s = "";
+  for (let i = 0; i < 8; i++) {
+    s += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return s;
 }
 
 type ServerRoom = {

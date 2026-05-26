@@ -28,7 +28,6 @@ import {
   useTools,
   useValue,
 } from "tldraw";
-import dynamic from "next/dynamic";
 import { ArrowsOut, Camera, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
@@ -42,8 +41,6 @@ import CanvasSearch from "./CanvasSearch";
 import ColorPickerRow from "./ColorPickerRow";
 import ShortcutsModal from "./ShortcutsModal";
 import StrokeSizePicker from "./StrokeSizePicker";
-
-const EquationModal = dynamic(() => import("./EquationModal"), { ssr: false });
 
 const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
@@ -196,7 +193,6 @@ export default function WhiteboardCanvas({
   onToggleLeader,
   exportRef,
   addPageRef,
-  openEquationRef,
   openUploadRef,
   onPagesChange,
   switchPageRef,
@@ -219,10 +215,8 @@ export default function WhiteboardCanvas({
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
   addPageRef?: MutableRefObject<(() => void) | null>;
   // Lets the parent (RoomShell → LeftRail) trigger the in-canvas
-  // Equation modal + the document upload picker without having to
-  // lift either piece of state out of WhiteboardCanvas. Mirrors the
-  // existing addPageRef pattern.
-  openEquationRef?: MutableRefObject<(() => void) | null>;
+  // document upload picker without having to lift the state out of
+  // WhiteboardCanvas. Mirrors the existing addPageRef pattern.
   openUploadRef?: MutableRefObject<(() => void) | null>;
   /** Lets the parent shell reach the live Editor instance — used by
    *  the End Lesson modal to render every page into a PDF. Set on
@@ -261,7 +255,6 @@ export default function WhiteboardCanvas({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const broadcastChannelRef = useRef<any>(null);
   const [progress, setProgress] = useState<Progress>(null);
-  const [equationOpen, setEquationOpen] = useState(false);
   const [searchOpen, setSearchOpen]     = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const reportProgress = useCallback<ProgressFn>((p) => setProgress(p), []);
@@ -501,15 +494,8 @@ export default function WhiteboardCanvas({
     };
   }, [addPageRef]);
 
-  // Expose equation + upload triggers to the LeftRail (rendered by
-  // RoomShell, outside this component's tree). Mirrors addPageRef.
-  useEffect(() => {
-    if (!openEquationRef) return;
-    openEquationRef.current = () => setEquationOpen(true);
-    return () => {
-      if (openEquationRef.current) openEquationRef.current = null;
-    };
-  }, [openEquationRef]);
+  // Expose the upload trigger to the LeftRail (rendered by RoomShell,
+  // outside this component's tree). Mirrors addPageRef.
   useEffect(() => {
     if (!openUploadRef) return;
     openUploadRef.current = () => openFilePicker(runUpload);
@@ -740,7 +726,6 @@ export default function WhiteboardCanvas({
 
   const canvasActions = useMemo<CanvasActionsCtx>(
     () => ({
-      onEquation: () => setEquationOpen(true),
       onUpload: () => openFilePicker(runUpload),
       onToggleLeader,
       onSearch: () => setSearchOpen(true),
@@ -766,6 +751,9 @@ export default function WhiteboardCanvas({
             // still work; page navigation lives in our own PagesTabBar
             // at the bottom of the canvas.
             MenuPanel: null,
+            // Hide tldraw's native zoom / minimap navigation panel — our
+            // custom bottom-left ZoomControls is the single zoom UI.
+            NavigationPanel: null,
             // Hide tldraw's full style panel (color + opacity + fill +
             // dash + size). The color picker lives in our own toolbar.
             StylePanel: null,
@@ -860,13 +848,6 @@ export default function WhiteboardCanvas({
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
         onBringEveryone={broadcastViewport}
-      />
-      <EquationModal
-        open={equationOpen}
-        onClose={() => setEquationOpen(false)}
-        onInsert={async (dataUrl, w, h) => {
-          await insertEquationOntoCanvas(editorRef.current, dataUrl, w, h);
-        }}
       />
       {searchOpen && editorRef.current && (
         <CanvasSearch
@@ -999,9 +980,12 @@ function CanvasFloatingPanel({
         <StrokeSizePicker editor={editor} />
         <ColorPickerRow editor={editor} />
       </div>
+      {/* Toggles the mobile bottom toolbar (SlimToolbar). On desktop the
+          LeftRail is the toolset and tldraw's toolbar is hidden anyway, so
+          this control has no effect there — md:hidden removes it. */}
       <button
         onClick={onToggleTools}
-        className="rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
+        className="md:hidden rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
         title={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-label={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-pressed={!toolsCollapsed}
@@ -1432,42 +1416,6 @@ async function insertPdfAsPageBackgrounds(
   }
 }
 
-async function insertEquationOntoCanvas(
-  editor: Editor | null,
-  dataUrl: string,
-  width: number,
-  height: number,
-) {
-  if (!editor) return;
-  const assetId = AssetRecordType.createId(getHashForString(dataUrl));
-  if (!editor.getAsset(assetId)) {
-    editor.createAssets([
-      {
-        id: assetId,
-        type: "image",
-        typeName: "asset",
-        props: {
-          name: "equation.svg",
-          src: dataUrl,
-          w: width,
-          h: height,
-          mimeType: "image/svg+xml",
-          isAnimated: false,
-        },
-        meta: {},
-      },
-    ]);
-  }
-  const center = editor.getViewportPageBounds().center;
-  editor.createShape({
-    id: `shape:${uniqueId()}` as never,
-    type: "image",
-    x: center.x - width / 2,
-    y: center.y - height / 2,
-    props: { assetId, w: width, h: height },
-  });
-}
-
 async function insertBrandLogo(editor: Editor | null) {
   if (!editor) return;
   const url = `${window.location.origin}/icon.png`;
@@ -1504,10 +1452,9 @@ async function insertBrandLogo(editor: Editor | null) {
 }
 
 // Context lets SlimToolbar reach back into WhiteboardCanvas's state
-// (equation modal, leader toggle) — tldraw mounts the toolbar inside its
+// (leader toggle, etc.) — tldraw mounts the toolbar inside its
 // own tree so we can't close over WhiteboardCanvas locals directly.
 type CanvasActionsCtx = {
-  onEquation: () => void;
   onUpload: () => void;
   onToggleLeader: () => void | Promise<void>;
   onSearch: () => void;
@@ -1595,15 +1542,6 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
         aria-label="Keyboard shortcuts"
       >
         <Keyboard size={20} aria-hidden />
-      </button>
-      <button
-        type="button"
-        className="tlui-button tlui-button__icon"
-        onClick={actions.onEquation}
-        title="Insert equation"
-        aria-label="Insert equation"
-      >
-        <span className="font-serif italic text-base leading-none">fx</span>
       </button>
       {actions.isHost && (
         <button
