@@ -28,7 +28,7 @@ import {
   useValue,
 } from "tldraw";
 import dynamic from "next/dynamic";
-import { ArrowsOut, Camera, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
+import { ArrowsOut, Camera, Keyboard, MagnifyingGlass, Pencil, Toolbox, Trash, TrashSimple } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
@@ -950,6 +950,7 @@ function CanvasFloatingPanel({
       )}
       {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
+      <DeleteSelectionButton editor={editor} toolsCollapsed={toolsCollapsed} />
       <PenModeIndicator editor={editor} />
       {/* On desktop (md+) these live in LeftRail for a unified control
           strip. Keep them here only for phones where LeftRail is hidden. */}
@@ -1725,6 +1726,40 @@ function SyncStatusDot({ status }: { status: string }) {
       />
       {isError ? "Sync error" : "Connecting…"}
     </div>
+  );
+}
+
+// Delete-selection button. Appears whenever one or more shapes are
+// selected so mobile/tablet users can remove a misplaced sticky note
+// (or any other shape) without needing to find the hidden QuickActions
+// row. Shown whenever the tool bar is collapsed OR on narrow screens;
+// on desktop with the toolbar visible, tldraw's own QuickActions row
+// already provides delete.
+function DeleteSelectionButton({ editor, toolsCollapsed }: { editor: Editor | null; toolsCollapsed: boolean }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => setCount(editor.getSelectedShapeIds().length);
+    update();
+    const unsub = editor.store.listen(update, { scope: "session" });
+    return () => unsub();
+  }, [editor]);
+
+  if (!editor || count === 0) return null;
+  // On desktop with tools visible, QuickActions already offers delete.
+  // Only render this button when tools are hidden so we don't duplicate.
+  if (!toolsCollapsed) return null;
+
+  return (
+    <button
+      onClick={() => editor.deleteShapes(editor.getSelectedShapeIds())}
+      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
+      title={`Delete selected shape${count === 1 ? "" : "s"}`}
+      aria-label={`Delete ${count} selected shape${count === 1 ? "" : "s"}`}
+    >
+      <Trash size={12} aria-hidden />
+      Delete{count > 1 ? ` (${count})` : ""}
+    </button>
   );
 }
 
