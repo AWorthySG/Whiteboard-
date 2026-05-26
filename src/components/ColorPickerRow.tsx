@@ -18,7 +18,16 @@ const COLORS: { name: TLDefaultColorStyle; hex: string; label: string }[] = [
   { name: "red", hex: "#e03131", label: "Red" },
 ];
 
-export default function ColorPickerRow({ editor }: { editor: Editor | null }) {
+export default function ColorPickerRow({
+  editor,
+  embedded = false,
+}: {
+  editor: Editor | null;
+  // When true the picker is rendered inside another collapsible (the
+  // mobile "Stroke size & colour" toggle), so it always shows the full
+  // grid and never manages its own collapsed state.
+  embedded?: boolean;
+}) {
   const [active, setActive] = useState<TLDefaultColorStyle>("black");
   // Collapsed-by-default on phones (≤ md breakpoint). On collapsed the
   // picker shows just the active swatch with a small caret; tap to
@@ -26,6 +35,7 @@ export default function ColorPickerRow({ editor }: { editor: Editor | null }) {
   // covered any longer than it needs to be. Desktop users keep the
   // full row visible — it doesn't get in the way at that width.
   const [expanded, setExpanded] = useState<boolean>(() => {
+    if (embedded) return true;
     if (typeof window === "undefined") return true;
     return !window.matchMedia("(max-width: 767px)").matches;
   });
@@ -56,8 +66,10 @@ export default function ColorPickerRow({ editor }: { editor: Editor | null }) {
     }
     // Auto-collapse on phone after picking a colour so the canvas
     // isn't covered. On desktop we leave it open — there's no
-    // reason to hide it.
+    // reason to hide it. When embedded, the parent toggle owns
+    // collapsing, so we stay open.
     if (
+      !embedded &&
       typeof window !== "undefined" &&
       window.matchMedia("(max-width: 767px)").matches
     ) {
@@ -67,7 +79,7 @@ export default function ColorPickerRow({ editor }: { editor: Editor | null }) {
 
   const activeHex = COLORS.find((c) => c.name === active)?.hex ?? "#1d1d1f";
 
-  if (!expanded) {
+  if (!embedded && !expanded) {
     return (
       <button
         onClick={() => setExpanded(true)}
@@ -90,14 +102,16 @@ export default function ColorPickerRow({ editor }: { editor: Editor | null }) {
       role="toolbar"
       aria-label="Color"
     >
-      <button
-        onClick={() => setExpanded(false)}
-        className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)]"
-        aria-label="Hide colour palette"
-        title="Hide colour palette"
-      >
-        <X size={10} weight="bold" aria-hidden />
-      </button>
+      {!embedded && (
+        <button
+          onClick={() => setExpanded(false)}
+          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)]"
+          aria-label="Hide colour palette"
+          title="Hide colour palette"
+        >
+          <X size={10} weight="bold" aria-hidden />
+        </button>
+      )}
       <div className="flex flex-wrap gap-1.5 max-w-[152px]">
         {COLORS.map((c) => (
           <button

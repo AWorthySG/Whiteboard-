@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   AssetRecordType,
+  DefaultColorStyle,
   DefaultSizeStyle,
   DefaultToolbar,
   Editor,
@@ -21,6 +22,8 @@ import {
   Tldraw,
   TldrawUiMenuItem,
   TLUiOverrides,
+  type TLDefaultColorStyle,
+  type TLDefaultSizeStyle,
   atom,
   getHashForString,
   uniqueId,
@@ -28,7 +31,7 @@ import {
   useTools,
   useValue,
 } from "tldraw";
-import { ArrowsOut, Camera, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
+import { ArrowsOut, Camera, CaretDown, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
@@ -904,6 +907,21 @@ export default function WhiteboardCanvas({
 // when this client is being led by the host's camera. Upload, Pointer,
 // Equation and Lead-view now live in the bottom toolbar — see
 // SlimToolbar.
+// Active-color hex + active-size dot lookups for the collapsed
+// "Stroke size & colour" preview swatch on phones. Mirror the values in
+// ColorPickerRow / StrokeSizePicker so the preview matches the canvas.
+const STYLE_PREVIEW_COLOR_HEX: Record<string, string> = {
+  black: "#1d1d1f",
+  grey: "#9fa8b2",
+  blue: "#4263eb",
+  "light-blue": "#4dabf7",
+  green: "#099268",
+  yellow: "#f08c00",
+  orange: "#e8590c",
+  red: "#e03131",
+};
+const STYLE_PREVIEW_SIZE_DOT: Record<string, number> = { s: 3, m: 6, l: 10, xl: 14 };
+
 function CanvasFloatingPanel({
   editor,
   isHost,
@@ -928,6 +946,27 @@ function CanvasFloatingPanel({
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
   const hasDrawGrant = drawGrantUserId === userId;
+
+  // Phones-only: collapse the stroke-size + colour pickers behind a single
+  // preview toggle, mirroring the desktop LeftRail "Stroke size & colour"
+  // control. Default closed so the canvas isn't covered on entry.
+  const [styleOpen, setStyleOpen] = useState(false);
+  const [activeColor, setActiveColor] = useState<TLDefaultColorStyle>("black");
+  const [activeSize, setActiveSize] = useState<TLDefaultSizeStyle>("s");
+  useEffect(() => {
+    if (!editor) return;
+    const sync = () => {
+      const c = editor.getStyleForNextShape(DefaultColorStyle);
+      if (c) setActiveColor(c as TLDefaultColorStyle);
+      const s = editor.getStyleForNextShape(DefaultSizeStyle);
+      if (s) setActiveSize(s as TLDefaultSizeStyle);
+    };
+    sync();
+    const unsub = editor.store.listen(sync, { scope: "session" });
+    return () => unsub();
+  }, [editor]);
+  const activeColorHex = STYLE_PREVIEW_COLOR_HEX[activeColor] ?? "#1d1d1f";
+  const activeSizeDot = STYLE_PREVIEW_SIZE_DOT[activeSize] ?? 3;
   return (
     <div
       className="absolute top-3 right-3 flex flex-col items-end gap-2"
@@ -975,10 +1014,41 @@ function CanvasFloatingPanel({
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <PenModeIndicator editor={editor} />
       {/* On desktop (md+) these live in LeftRail for a unified control
-          strip. Keep them here only for phones where LeftRail is hidden. */}
+          strip. Keep them here only for phones where LeftRail is hidden.
+          Collapsed behind a single preview toggle (matching LeftRail's
+          "Stroke size & colour") so the canvas stays clear by default. */}
       <div className="md:hidden flex flex-col items-end gap-2">
-        <StrokeSizePicker editor={editor} />
-        <ColorPickerRow editor={editor} />
+        <button
+          type="button"
+          onClick={() => setStyleOpen((v) => !v)}
+          aria-expanded={styleOpen}
+          aria-label={styleOpen ? "Hide stroke size and colour" : "Show stroke size and colour"}
+          title="Stroke size & colour"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-1.5 py-1 hover:bg-[var(--hover)]"
+        >
+          <span className="relative inline-flex items-center justify-center">
+            <span
+              className="w-5 h-5 rounded-full ring-1 ring-[color:var(--border)]"
+              style={{ backgroundColor: activeColorHex }}
+            />
+            <span
+              className="absolute rounded-full bg-[var(--bg)]"
+              style={{ width: activeSizeDot, height: activeSizeDot }}
+            />
+          </span>
+          <CaretDown
+            size={10}
+            weight="bold"
+            aria-hidden
+            className={`text-[var(--text-muted)] transition-transform ${styleOpen ? "rotate-180" : ""}`}
+          />
+        </button>
+        {styleOpen && (
+          <>
+            <StrokeSizePicker editor={editor} />
+            <ColorPickerRow editor={editor} embedded />
+          </>
+        )}
       </div>
       {/* Toggles the mobile bottom toolbar (SlimToolbar). On desktop the
           LeftRail is the toolset and tldraw's toolbar is hidden anyway, so

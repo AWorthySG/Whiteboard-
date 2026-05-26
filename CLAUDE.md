@@ -313,7 +313,14 @@ CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floatin
                          meta.authorId === userId; pill shows count and auto-hides
                          when the page is clean
                        - PenModeIndicator: tap-to-dismiss pen-mode pill
-                       - StrokeSizePicker + ColorPickerRow: md:hidden (in LeftRail)
+                       - StrokeSizePicker + ColorPickerRow: md:hidden (in LeftRail).
+                         On phones both sit behind a single collapsible "Stroke
+                         size & colour" preview toggle (styleOpen state, default
+                         closed) that mirrors LeftRail — the preview shows the
+                         active colour swatch with the active size as a centred
+                         dot + a caret. ColorPickerRow takes an `embedded` prop
+                         here so it renders the full grid (no double-collapse)
+                         and skips its own auto-collapse-on-pick.
                        - "Tools / Hide tools" toggle: md:hidden — it only collapses
                          the mobile SlimToolbar; on desktop the LeftRail is the toolset
                          and tldraw's toolbar is hidden anyway, so it's removed there.
