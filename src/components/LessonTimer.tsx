@@ -7,6 +7,7 @@ import {
   Play,
   Plus,
   X,
+  Clock,
 } from "@phosphor-icons/react";
 import { TIMER_OFF, type TimerState } from "@/hooks/useRoomMeta";
 
@@ -30,6 +31,8 @@ export default function LessonTimer({
   const menuRef = useRef<HTMLDivElement | null>(null);
   // Drives the per-second re-render while a countdown is running.
   const [, setTick] = useState(0);
+  // Live wall-clock used for the always-visible Singapore (GMT+8) time.
+  const [now, setNow] = useState(() => Date.now());
 
   const active = timer.durationMs != null;
 
@@ -54,8 +57,29 @@ export default function LessonTimer({
     return () => window.removeEventListener("mousedown", onClick);
   }, [menuOpen]);
 
-  // Students only see the widget once the host has set a timer.
-  if (!active && !isHost) return null;
+  // Tick the wall clock once a second so the Singapore-time readout stays
+  // live. Runs independently of the countdown so everyone always sees it.
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Always-visible current time in Singapore (GMT+8). Shown to everyone,
+  // host or student, whether or not a countdown is running.
+  const clockPill = (
+    <div
+      className="flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1.5 text-xs text-[var(--text-muted)]"
+      title="Current time — Singapore (GMT+8)"
+    >
+      <Clock size={14} aria-hidden />
+      <span className="tabular-nums font-medium text-[var(--text)]">
+        {formatSGT(now)}
+      </span>
+      <span className="text-[10px] text-[var(--text-dim)] uppercase tracking-wide">
+        SGT
+      </span>
+    </div>
+  );
 
   const remainingMs = computeRemaining(timer);
   const finished = active && remainingMs <= 0;
@@ -135,24 +159,28 @@ export default function LessonTimer({
     void onChange(TIMER_OFF);
   };
 
-  // Idle + host → a compact opener that reveals the preset picker.
+  // Idle → everyone sees the live clock; the host also gets a compact
+  // opener that reveals the preset picker.
   if (!active) {
     return (
       <div
         ref={menuRef}
-        className="absolute top-3 left-1/2 -translate-x-1/2 z-[80]"
+        className="absolute top-3 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-1.5"
         style={{ pointerEvents: "auto" }}
       >
-        <button
-          onClick={() => setMenuOpen((o) => !o)}
-          className="rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
-          title="Start a lesson timer everyone can see"
-          aria-expanded={menuOpen}
-        >
-          <TimerIcon size={15} aria-hidden />
-          <span>Timer</span>
-        </button>
-        {menuOpen && (
+        {clockPill}
+        {isHost && (
+          <button
+            onClick={() => setMenuOpen((o) => !o)}
+            className="rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
+            title="Start a lesson timer everyone can see"
+            aria-expanded={menuOpen}
+          >
+            <TimerIcon size={15} aria-hidden />
+            <span>Timer</span>
+          </button>
+        )}
+        {isHost && menuOpen && (
           <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 w-60 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2.5 z-50">
             <div className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] mb-1.5">
               Start a timer
@@ -211,9 +239,15 @@ export default function LessonTimer({
 
   return (
     <div
-      className={`absolute top-3 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-2 rounded-full border shadow-lg px-3 py-1.5 bg-[var(--bg-elev)] ${borderClass}`}
+      className="absolute top-3 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-1.5"
       style={{ pointerEvents: "auto" }}
     >
+      {/* On phones the running-timer pill + host controls need the width,
+          so the clock hides there; it stays on tablet/desktop (sm+). */}
+      <div className="hidden sm:block">{clockPill}</div>
+      <div
+        className={`flex items-center gap-2 rounded-full border shadow-lg px-3 py-1.5 bg-[var(--bg-elev)] ${borderClass}`}
+      >
       <TimerIcon
         size={15}
         aria-hidden
@@ -266,6 +300,7 @@ export default function LessonTimer({
           </TimerCtrl>
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -297,6 +332,17 @@ function computeRemaining(timer: TimerState): number {
     return Math.max(0, timer.endsAt - Date.now());
   }
   return Math.max(0, timer.remainingMs ?? 0);
+}
+
+// Current wall-clock time in Singapore (GMT+8), e.g. "2:34 PM".
+const SGT_FORMAT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Singapore",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+function formatSGT(ms: number): string {
+  return SGT_FORMAT.format(new Date(ms));
 }
 
 function formatMs(ms: number): string {
