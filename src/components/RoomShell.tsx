@@ -61,10 +61,14 @@ if (typeof window !== "undefined") {
 
 const VIDEO_WIDTH_MIN = 200;
 const VIDEO_WIDTH_MAX = 600;
-const VIDEO_WIDTH_DEFAULT = 360;
+const VIDEO_WIDTH_DEFAULT = 300;
 const VIDEO_WIDTH_COMPACT = 220;
 const VIDEO_COMPACT_KEY = "wb_video_compact";
 const VIDEO_WIDTH_KEY = "wb_video_panel_width";
+// Floating picture-in-picture tile dimensions (desktop only).
+const PIP_W = 280;
+const PIP_H = 210;
+const VIDEO_PIP_KEY = "wb_video_pip";
 
 export default function RoomShell({
   roomId,
@@ -93,6 +97,7 @@ export default function RoomShell({
   const [recsOpen, setRecsOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deskMenuOpen, setDeskMenuOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [videoPanelWidth, setVideoPanelWidthState] = useState(VIDEO_WIDTH_DEFAULT);
@@ -133,6 +138,51 @@ export default function RoomShell({
       window.localStorage.setItem(VIDEO_WIDTH_KEY, String(n));
     } catch {}
   };
+
+  // Picture-in-picture: floats the call as a small draggable tile so the
+  // whiteboard reflows to full width. The aside stays mounted in the same
+  // React position (just fixed-positioned) so the LiveKit connection is
+  // never torn down — see CLAUDE.md note #17.
+  const [videoPip, setVideoPipState] = useState(false);
+  const [pipPos, setPipPos] = useState<{ x: number; y: number }>(() => {
+    if (typeof window === "undefined") return { x: 24, y: 24 };
+    return {
+      x: Math.max(8, window.innerWidth - PIP_W - 24),
+      y: Math.max(8, window.innerHeight - PIP_H - 24),
+    };
+  });
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(VIDEO_PIP_KEY) === "1")
+        setVideoPipState(true);
+    } catch {}
+  }, []);
+  const setVideoPip = (v: boolean) => {
+    setVideoPipState(v);
+    try {
+      window.localStorage.setItem(VIDEO_PIP_KEY, v ? "1" : "0");
+    } catch {}
+  };
+  const startPipDrag = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = pipPos.x;
+    const origY = pipPos.y;
+    const clamp = (n: number, max: number) => Math.max(8, Math.min(max, n));
+    const onMove = (ev: PointerEvent) => {
+      setPipPos({
+        x: clamp(origX + ev.clientX - startX, window.innerWidth - PIP_W - 8),
+        y: clamp(origY + ev.clientY - startY, window.innerHeight - PIP_H - 8),
+      });
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
   const { meta, setTitle, setLeaderMode, setDrawGrant, setTimer } =
     useRoomMeta(roomId);
   // Host-local view toggle: hide every student-drawn shape from the
@@ -142,6 +192,7 @@ export default function RoomShell({
   const [annotationsHidden, setAnnotationsHidden] = useState(false);
   const toast = useToast();
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const deskMenuRef = useRef<HTMLDivElement | null>(null);
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
   const canvasAddPageRef = useRef<(() => void) | null>(null);
   const canvasSwitchPageRef = useRef<((pageId: string) => void) | null>(null);
@@ -446,6 +497,16 @@ export default function RoomShell({
     return () => window.removeEventListener("mousedown", onClick);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!deskMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (!deskMenuRef.current?.contains(e.target as Node))
+        setDeskMenuOpen(false);
+    };
+    window.addEventListener("mousedown", onClick);
+    return () => window.removeEventListener("mousedown", onClick);
+  }, [deskMenuOpen]);
+
   const inviteUrl =
     typeof window !== "undefined" ? `${window.location.origin}/r/${roomId}` : "";
 
@@ -667,151 +728,153 @@ export default function RoomShell({
           }}
         />
 
-        {/* Desktop / tablet controls.
-            Split into TWO rows so the header doesn't feel crammed on
-            tablet portrait and the eye gets a clear primary (room
-            content) → secondary (room utilities) grouping:
-              Row 1: Documents | Homework | Recordings | Record
-              Row 2: Export | Invite | Hide/Show video | Settings
-            Display-name input only appears at xl (≥1280px) — it's
-            available in the Settings panel on smaller screens. */}
-        <div className="ml-auto hidden lg:flex flex-col items-end gap-1.5">
-          {/* Row 1 — Display name + Record. Documents / Homework /
-              Recordings moved to the SubNav tab strip below the
-              header (Phase 3), so this row is now just the host's
-              display name + the recording entry point. */}
-          <div className="flex items-center gap-1.5 lg:gap-2">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Display name"
-              className="hidden xl:block rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1 text-sm w-32 outline-none focus:border-brand-500"
+        {/* Desktop / tablet controls — a single row. Primary actions
+            (Record, Invite, video toggle, Settings, End lesson) stay
+            inline; secondary actions (display name, Export, captions)
+            move into the "More" overflow menu so the header is one row
+            instead of two. Documents / Homework / Recordings live in the
+            SubNav tab strip below the header (Phase 3). */}
+        <div className="ml-auto hidden lg:flex items-center gap-1.5 lg:gap-2">
+          {isHost && (
+            <RecordButton
+              roomId={roomId}
+              hostUserId={userId}
+              hostName={name || "Host"}
+              roomTitle={meta.title}
+              onRecordingStarted={whiteboardRecorder.start}
+              onRecordingFinished={whiteboardRecorder.finish}
+              onStateChange={onRecorderStateChange}
             />
-            {isHost && (
-              <RecordButton
-                roomId={roomId}
-                hostUserId={userId}
-                hostName={name || "Host"}
-                roomTitle={meta.title}
-                onRecordingStarted={whiteboardRecorder.start}
-                onRecordingFinished={whiteboardRecorder.finish}
-                onStateChange={onRecorderStateChange}
-              />
+          )}
+          <span aria-hidden className="w-px h-6 bg-[var(--border)] mx-0.5" />
+          <HeaderBtn
+            onClick={() => setInviteOpen(true)}
+            label="Invite"
+            icon={<ShareSvg />}
+          />
+          <button
+            onClick={() => {
+              if (!callJoined) joinCall();
+              else setVideoPanelVisible((v) => !v);
+            }}
+            className={`touch-target text-sm rounded-md px-2.5 lg:px-3 py-1 flex items-center gap-1.5 ${
+              callJoined
+                ? "bg-brand-600 hover:bg-brand-500 text-white"
+                : "border border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
+            }`}
+            title={
+              !callJoined
+                ? "Join call"
+                : videoPanelVisible
+                  ? "Hide video"
+                  : "Show video"
+            }
+            aria-label={
+              !callJoined
+                ? "Join call"
+                : videoPanelVisible
+                  ? "Hide video"
+                  : "Show video"
+            }
+          >
+            {!callJoined ? (
+              <PhoneCallSvg />
+            ) : videoPanelVisible ? (
+              <CamOffSvg />
+            ) : (
+              <CamSvg />
             )}
-          </div>
-          {/* Row 2 — meta actions. Captions / Video / Settings cluster
-              between dividers; Invite is the primary brand action; End
-              lesson is the destructive terminal action so it sits at
-              the far right where the user already looks for "leave". */}
-          <div className="flex items-center gap-1.5 lg:gap-2">
-            <HeaderBtn
-              onClick={exportCanvas}
-              label="Export"
-              title="Export the canvas as a PNG file"
-              icon={<DownloadSvg />}
-            />
-            <span
-              aria-hidden
-              className="w-px h-6 bg-[var(--border)] mx-0.5"
-            />
-            <HeaderBtn
-              onClick={() => setInviteOpen(true)}
-              label="Invite"
-              icon={<ShareSvg />}
-            />
-            <button
-              onClick={() =>
-                setSettings({ captionsEnabled: !settings.captionsEnabled })
-              }
-              className={`touch-target text-sm rounded-md border px-2.5 lg:px-3 py-1 flex items-center gap-1.5 ${
-                settings.captionsEnabled
-                  ? "bg-brand-100 border-brand-500 text-brand-800"
-                  : "border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
-              }`}
-              title={
-                // Honest tooltip — surface the Safari/Firefox limitation
-                // even when captions are flowing from other speakers.
-                !localCaptionsSupportedSync
-                  ? "Live captions: you'll see captions from Chrome/Edge speakers, but your own speech isn't transcribed on this browser. Open the room in Google Chrome to caption your own voice."
-                  : settings.captionsEnabled
-                    ? "Turn off live captions"
-                    : "Turn on live captions"
-              }
-              aria-pressed={settings.captionsEnabled}
+            <span className="hidden lg:inline">
+              {!callJoined
+                ? "Join call"
+                : videoPanelVisible
+                  ? "Hide video"
+                  : "Show video"}
+            </span>
+          </button>
+          {/* More overflow — display name + Export + captions toggle. */}
+          <div className="relative" ref={deskMenuRef}>
+            <IconBtn
+              onClick={() => setDeskMenuOpen((o) => !o)}
+              label="More actions"
+              active={deskMenuOpen}
             >
-              <CaptionsSvg />
-              <span className="hidden lg:inline">CC</span>
-              {/* Asterisk hints that something's different about CC on
-                  this browser. The tooltip explains. */}
-              {!localCaptionsSupportedSync && (
-                <span
-                  className="hidden lg:inline text-[10px] opacity-60"
-                  aria-hidden="true"
-                >
-                  *
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => {
-                if (!callJoined) joinCall();
-                else setVideoPanelVisible((v) => !v);
-              }}
-              className={`touch-target text-sm rounded-md px-2.5 lg:px-3 py-1 flex items-center gap-1.5 ${
-                callJoined
-                  ? "bg-brand-600 hover:bg-brand-500 text-white"
-                  : "border border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
-              }`}
-              title={
-                !callJoined
-                  ? "Join call"
-                  : videoPanelVisible
-                    ? "Hide video"
-                    : "Show video"
-              }
-              aria-label={
-                !callJoined
-                  ? "Join call"
-                  : videoPanelVisible
-                    ? "Hide video"
-                    : "Show video"
-              }
-            >
-              {!callJoined ? (
-                <PhoneCallSvg />
-              ) : videoPanelVisible ? (
-                <CamOffSvg />
-              ) : (
-                <CamSvg />
-              )}
-              <span className="hidden lg:inline">
-                {!callJoined
-                  ? "Join call"
-                  : videoPanelVisible
-                    ? "Hide video"
-                    : "Show video"}
-              </span>
-            </button>
-            <IconBtn onClick={() => setSettingsOpen(true)} label="Settings">
-              <GearSvg />
+              <DotsSvg />
             </IconBtn>
-            {isHost && (
-              <>
-                <span
-                  aria-hidden
-                  className="w-px h-6 bg-[var(--border)] mx-0.5"
+            {deskMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-60 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2 z-50">
+                <label className="block text-[10px] uppercase tracking-wider text-[var(--text-dim)] px-1 mb-1">
+                  Display name
+                </label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Display name"
+                  className="w-full mb-2 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] px-2 py-1.5 text-sm outline-none focus:border-brand-500"
                 />
-                <button
-                  onClick={() => setEndLessonOpen(true)}
-                  className="touch-target text-[13px] rounded-md border border-[color:var(--destructive)] text-[color:var(--destructive)] hover:bg-[var(--destructive-soft)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 font-medium"
-                  title="End the lesson — exports the whiteboard as a PDF, shares it in the room chat, and leaves the room"
+                <MenuItem
+                  onClick={() => {
+                    void exportCanvas();
+                    setDeskMenuOpen(false);
+                  }}
                 >
-                  <span className="w-2 h-2 rounded-full bg-[color:var(--destructive)]" />
-                  <span className="hidden lg:inline">End lesson</span>
+                  Export canvas as PNG
+                </MenuItem>
+                <button
+                  onClick={() =>
+                    setSettings({ captionsEnabled: !settings.captionsEnabled })
+                  }
+                  className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-[var(--hover)] flex items-center justify-between gap-2"
+                  title={
+                    !localCaptionsSupportedSync
+                      ? "Live captions: you'll see captions from Chrome/Edge speakers, but your own speech isn't transcribed on this browser. Open the room in Google Chrome to caption your own voice."
+                      : settings.captionsEnabled
+                        ? "Turn off live captions"
+                        : "Turn on live captions"
+                  }
+                  aria-pressed={settings.captionsEnabled}
+                >
+                  <span className="flex items-center gap-2">
+                    <CaptionsSvg />
+                    Live captions
+                    {!localCaptionsSupportedSync && (
+                      <span
+                        className="text-[10px] opacity-60"
+                        aria-hidden="true"
+                      >
+                        *
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`text-xs font-medium ${
+                      settings.captionsEnabled
+                        ? "text-brand-700"
+                        : "text-[var(--text-dim)]"
+                    }`}
+                  >
+                    {settings.captionsEnabled ? "On" : "Off"}
+                  </span>
                 </button>
-              </>
+              </div>
             )}
           </div>
+          <IconBtn onClick={() => setSettingsOpen(true)} label="Settings">
+            <GearSvg />
+          </IconBtn>
+          {isHost && (
+            <>
+              <span aria-hidden className="w-px h-6 bg-[var(--border)] mx-0.5" />
+              <button
+                onClick={() => setEndLessonOpen(true)}
+                className="touch-target text-[13px] rounded-md border border-[color:var(--destructive)] text-[color:var(--destructive)] hover:bg-[var(--destructive-soft)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 font-medium"
+                title="End the lesson — exports the whiteboard as a PDF, shares it in the room chat, and leaves the room"
+              >
+                <span className="w-2 h-2 rounded-full bg-[color:var(--destructive)]" />
+                <span className="hidden lg:inline">End lesson</span>
+              </button>
+            </>
+          )}
         </div>
 
         {/* Mobile controls */}
@@ -997,18 +1060,35 @@ export default function RoomShell({
 
         {callJoined && (
           // Always mounted when in call so audio continues even when panel is
-          // hidden. Width animates to 0 (overflow:hidden) so the canvas reflows
-          // smoothly rather than jumping. display:none is never used — the
-          // LiveKit connection inside stays alive throughout.
+          // hidden. In column mode the width animates to 0 (overflow:hidden) so
+          // the canvas reflows smoothly. In PiP mode the aside is fixed-
+          // positioned (out of flow) so the canvas takes the full width while
+          // the call floats as a draggable tile. display:none is never used and
+          // the element keeps its React position — the LiveKit connection stays
+          // alive throughout (see CLAUDE.md note #17).
           <aside
-            className="hidden md:flex shrink-0 flex-col relative bg-[var(--bg-elev-2)] overflow-hidden"
-            style={{
-              width: videoPanelVisible ? (videoCompact ? VIDEO_WIDTH_COMPACT : videoPanelWidth) : 0,
-              borderLeft: videoPanelVisible ? "1px solid var(--border-subtle)" : "none",
-              transition: "width 220ms ease-in-out",
-            }}
+            className={
+              videoPip && videoPanelVisible
+                ? "hidden md:flex fixed z-[9999] flex-col rounded-xl overflow-hidden border border-[color:var(--border)] shadow-2xl bg-[var(--bg-elev-2)]"
+                : "hidden md:flex shrink-0 flex-col relative bg-[var(--bg-elev-2)] overflow-hidden"
+            }
+            style={
+              videoPip && videoPanelVisible
+                ? { width: PIP_W, height: PIP_H, left: pipPos.x, top: pipPos.y }
+                : {
+                    width: videoPanelVisible
+                      ? videoCompact
+                        ? VIDEO_WIDTH_COMPACT
+                        : videoPanelWidth
+                      : 0,
+                    borderLeft: videoPanelVisible
+                      ? "1px solid var(--border-subtle)"
+                      : "none",
+                    transition: "width 220ms ease-in-out",
+                  }
+            }
           >
-            {!videoCompact && (
+            {!videoCompact && !videoPip && (
               <VideoPanelResizer
                 width={videoPanelWidth}
                 setWidth={setVideoPanelWidth}
@@ -1016,14 +1096,53 @@ export default function RoomShell({
                 max={VIDEO_WIDTH_MAX}
               />
             )}
-            <button
-              onClick={() => setVideoCompact(!videoCompact)}
-              className="absolute top-1.5 right-1.5 z-20 w-7 h-7 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs shadow"
-              aria-label={videoCompact ? "Expand video panel" : "Shrink video panel"}
-              title={videoCompact ? "Expand video panel" : "Shrink video panel"}
-            >
-              {videoCompact ? "⤢" : "⤡"}
-            </button>
+            {videoPip && videoPanelVisible ? (
+              <div
+                onPointerDown={startPipDrag}
+                className="absolute top-0 left-0 right-0 z-20 h-7 flex items-center justify-between px-2 bg-[var(--bg-elev)]/85 backdrop-blur-sm cursor-grab active:cursor-grabbing select-none"
+              >
+                <span className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] pointer-events-none">
+                  Call
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setVideoPip(false)}
+                    className="w-5 h-5 rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs"
+                    aria-label="Dock call to side panel"
+                    title="Dock to side"
+                  >
+                    ⤢
+                  </button>
+                  <button
+                    onClick={() => setVideoPanelVisible(false)}
+                    className="w-5 h-5 rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs"
+                    aria-label="Hide video"
+                    title="Hide video (stay in call)"
+                  >
+                    <X size={12} aria-hidden />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-1">
+                <button
+                  onClick={() => setVideoPip(true)}
+                  className="w-7 h-7 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs shadow"
+                  aria-label="Pop out call into a floating window"
+                  title="Pop out (free the whiteboard width)"
+                >
+                  ⧉
+                </button>
+                <button
+                  onClick={() => setVideoCompact(!videoCompact)}
+                  className="w-7 h-7 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs shadow"
+                  aria-label={videoCompact ? "Expand video panel" : "Shrink video panel"}
+                  title={videoCompact ? "Expand video panel" : "Shrink video panel"}
+                >
+                  {videoCompact ? "⤢" : "⤡"}
+                </button>
+              </div>
+            )}
             <VideoPanel
               roomId={roomId}
               userId={userId}
@@ -1324,12 +1443,12 @@ function MenuSvg() {
     </svg>
   );
 }
-function DownloadSvg() {
+function DotsSvg() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
     </svg>
   );
 }
