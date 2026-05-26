@@ -1243,6 +1243,7 @@ async function insertPdfAsImages(
         type: "image",
         x,
         y,
+        isLocked: true,
         props: { assetId, w, h },
       });
 

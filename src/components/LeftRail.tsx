@@ -9,6 +9,8 @@ import {
   type TLDefaultSizeStyle,
 } from "tldraw";
 import {
+  ArrowCounterClockwise,
+  ArrowClockwise,
   Cursor,
   Hand,
   PencilSimple,
@@ -72,6 +74,8 @@ export default function LeftRail({
   const [active, setActive] = useState<string>("draw");
   const [activeColor, setActiveColor] = useState<TLDefaultColorStyle>("black");
   const [activeSize, setActiveSize] = useState<TLDefaultSizeStyle>("s");
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   useEffect(() => {
     if (!editor) return;
@@ -85,6 +89,16 @@ export default function LeftRail({
     sync();
     const unsub = editor.store.listen(sync, { scope: "session" });
     return () => unsub();
+  }, [editor]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const sync = () => {
+      setCanUndo(editor.getCanUndo());
+      setCanRedo(editor.getCanRedo());
+    };
+    sync();
+    return editor.store.listen(sync, { scope: "all" });
   }, [editor]);
 
   if (!editor) return null;
@@ -110,6 +124,15 @@ export default function LeftRail({
       className="hidden md:flex w-14 shrink-0 flex-col items-center gap-1 py-2 bg-[var(--bg-elev)] border-r border-[color:var(--border)] overflow-y-auto"
       aria-label="Drawing tools"
     >
+      <RailBtn onClick={() => editor.undo()} label="Undo" shortcut="⌘Z" disabled={!canUndo}>
+        <ArrowCounterClockwise size={18} />
+      </RailBtn>
+      <RailBtn onClick={() => editor.redo()} label="Redo" shortcut="⌘⇧Z" disabled={!canRedo}>
+        <ArrowClockwise size={18} />
+      </RailBtn>
+
+      <Divider />
+
       <RailBtn active={active === "select"} onClick={() => select("select")} label="Select" shortcut="V">
         <Cursor size={18} weight={active === "select" ? "fill" : "regular"} />
       </RailBtn>
@@ -230,6 +253,7 @@ function RailBtn({
   onClick,
   label,
   shortcut,
+  disabled,
 }: {
   children: React.ReactNode;
   active?: boolean;
@@ -237,6 +261,7 @@ function RailBtn({
   onClick: () => void;
   label: string;
   shortcut?: string;
+  disabled?: boolean;
 }) {
   const activeClasses =
     activeTone === "amber"
@@ -250,7 +275,8 @@ function RailBtn({
       title={tooltip}
       aria-label={label}
       aria-pressed={!!active}
-      className={`w-10 h-10 rounded-lg inline-flex items-center justify-center transition-colors ${
+      disabled={disabled}
+      className={`w-10 h-10 rounded-lg inline-flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
         active
           ? activeClasses
           : "text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
