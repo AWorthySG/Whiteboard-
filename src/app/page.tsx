@@ -12,6 +12,7 @@ import {
 } from "@/hooks/useRecentRooms";
 import { pinRoom, unpinRoom, usePinnedRooms } from "@/hooks/usePinnedRooms";
 import { getSupabase } from "@/lib/supabase";
+import { Star, X } from "@phosphor-icons/react";
 import BrandLogo from "@/components/BrandLogo";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
 
@@ -449,7 +450,7 @@ function RoomRow({
           on hover only when unpinned (keeps the row visually quiet). */}
       <button
         onClick={() => (pinned ? unpinRoom(r.roomId) : pinRoom(r.roomId))}
-        className={`text-sm px-1 leading-none ${
+        className={`inline-flex items-center px-1 ${
           pinned
             ? "text-[color:var(--accent)]"
             : "opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-[color:var(--accent)]"
@@ -457,15 +458,15 @@ function RoomRow({
         aria-label={pinned ? "Unpin room" : "Pin room"}
         title={pinned ? "Unpin" : "Pin to top"}
       >
-        {pinned ? "★" : "☆"}
+        <Star size={15} weight={pinned ? "fill" : "regular"} aria-hidden />
       </button>
       <button
         onClick={() => removeRoomFromRecents(r.roomId)}
-        className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-danger-600 text-xs px-1"
+        className="opacity-0 group-hover:opacity-100 inline-flex items-center text-[var(--text-dim)] hover:text-danger-600 px-1"
         aria-label="Remove from recent rooms"
         title="Remove from recent"
       >
-        ×
+        <X size={14} aria-hidden />
       </button>
     </li>
   );
