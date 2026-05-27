@@ -11,6 +11,7 @@ import {
   File as FileIcon,
   Gear,
   List,
+  PencilSimple,
   Phone,
   ShareNetwork,
   VideoCamera,
@@ -1080,7 +1081,9 @@ export default function RoomShell({
                 >
                   <X size={14} aria-hidden />
                 </button>
-                <div className="text-3xl mb-2">✏️</div>
+                <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
+                  <PencilSimple size={26} className="text-[var(--text-dim)]" aria-hidden />
+                </div>
                 <p className="text-sm font-medium">Your whiteboard is empty</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
                   Draw with the pen, drag a PDF onto the canvas, click
