@@ -262,6 +262,7 @@ create table if not exists public.room_templates (
   owner_user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   content jsonb not null,
+  thumbnail text,
   created_at timestamptz not null default now()
 );
 create index if not exists room_templates_owner_idx

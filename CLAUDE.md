@@ -73,7 +73,7 @@ Run `supabase/setup.sql` on a fresh project to bootstrap. Tables:
 | `room_messages` | Compact chat messages |
 | `room_recordings` | Cloud-uploaded recording metadata (file lives in `whiteboard-recordings` bucket) |
 | `join_requests` | Knock/admission state per (room, user) |
-| `room_templates` | Host's private, account-scoped library of reusable board layouts. `owner_user_id` → `auth.users`; `content` is a tldraw `TLContent` jsonb blob. **Owner-only RLS** (no public read) and **NOT** in the realtime publication — see exception note below. |
+| `room_templates` | Host's private, account-scoped library of reusable board layouts. `owner_user_id` → `auth.users`; `content` is a tldraw `TLContent` jsonb blob; `thumbnail` is a small WebP data URL for the library preview (nullable). **Owner-only RLS** (no public read) and **NOT** in the realtime publication — see exception note below. |
 
 All app tables **except `room_templates`** are added to the `supabase_realtime`
 publication so the React hooks just subscribe and re-fetch on change. RLS is
@@ -212,9 +212,18 @@ GuestNameEntry         Inline in RoomShell.tsx. Shown to guests who land on a ro
                        flash for guests whose name is already remembered.
 
 AdmissionPanel.tsx     Host-only floating panel showing pending join_requests with
-                       Admit / Deny buttons. Also fires a toast ("X is asking to
-                       join") the first time it sees each new pending request so
-                       the host can't miss it.
+                       Admit / Deny buttons (+ "Admit all" when 2+ pending, one
+                       batch UPDATE of every pending row → admitted). Also fires a
+                       toast ("X is asking to join") the first time it sees each new
+                       pending request so the host can't miss it. Fetches ALL the
+                       room's join_requests (not just pending) to drive a collapsible
+                       roster of already-decided students (excludes the host's
+                       self-admit row): admitted → "Remove" (deny), denied →
+                       "Re-admit" (admit). KnockGate live-subscribes to each row, so
+                       Remove kicks the student and Re-admit lets them straight back
+                       in. When nobody's pending the panel shrinks to a compact
+                       collapsed "Class roster (n)" pill (w-56, subtle border); a
+                       pending knock expands it to the full brand-bordered panel.
 
 ZoomControls.tsx       Bottom-left pill: zoom out / current % (clickable for preset
                        menu) / zoom in. Preset menu has Fit to content, Reset to
@@ -271,6 +280,11 @@ DocumentsDrawer.tsx    Right-side drawer listing uploaded files. Has its own "Up
 HomeworkDrawer.tsx     Student submission picker passes allowCapture to AttachmentPicker
                        so students get a one-tap "Take photo" (rear camera) for
                        snapping handwritten work; host worksheet-attach path omits it.
+                       Assignments past their due date render "Overdue · {date}" in
+                       red (vs amber "Due {date}"). The host's Homework nav tab shows
+                       a "needs review" count badge fed by useHomeworkReviewCount
+                       (count of homework_submissions in the room with feedback IS
+                       NULL, live via Realtime); see useHomeworkReviewCount below.
 RecordingsDrawer.tsx   Right-side drawers backed by their respective Supabase tables.
 
 SignInModal.tsx        Username + Password form with Sign in / Create account toggle.
@@ -375,7 +389,11 @@ TemplatesModal.tsx     Host-only, lazy-loaded modal (entry points: desktop "More
                        Account-scoped (owner_user_id = auth.uid()), so it requires
                        sign-in — a localStorage-only host sees a "sign in to save"
                        prompt instead. Takes editor={canvasEditorRef.current} like
-                       EndLessonModal.
+                       EndLessonModal. Each save also captures a small WebP
+                       thumbnail (exportToBlob → canvas downscale to 320px, stored
+                       in room_templates.thumbnail; best-effort, null on failure →
+                       placeholder icon) shown in the list, and rows can be renamed
+                       inline (pencil → input → Enter/blur updates name).
 
 SettingsModal.tsx      Profile, account (sign in / claim room / sign out), appearance
                        (theme), whiteboard (pen-only/palm-rejection), documents, call
@@ -434,6 +452,7 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 - `useIsHost(roomId)` — combined server + localStorage host check
 - `useRoomMeta(roomId)` — room title + leader-mode state, with `setTitle` / `setLeaderMode`
 - `useRecentRooms()` + `trackRoomVisit()` — localStorage list shown on home page
+- `useHomeworkReviewCount(roomId, enabled)` — live count of the room's `homework_submissions` with `feedback IS NULL` (host-only; returns 0 when disabled). Drives the Homework nav "needs review" badge. One `count: "exact", head: true` query + a Realtime subscription on `homework_submissions` filtered by `room_id`.
 - `useSyncToken(roomId, userId)` — fetches an HS256 sync token from `/api/sync-token` and auto-refreshes ~2 min before its 15-min TTL. Until the first token arrives, `WhiteboardCanvas` uses a placeholder URI that 401s — useSync briefly shows offline state and swaps to the real URI when the token lands.
 
 ## Module-level stores (`src/lib/`)
