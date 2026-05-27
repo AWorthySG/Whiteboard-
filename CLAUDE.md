@@ -280,6 +280,11 @@ DocumentsDrawer.tsx    Right-side drawer listing uploaded files. Has its own "Up
 HomeworkDrawer.tsx     Student submission picker passes allowCapture to AttachmentPicker
                        so students get a one-tap "Take photo" (rear camera) for
                        snapping handwritten work; host worksheet-attach path omits it.
+                       Assignments past their due date render "Overdue · {date}" in
+                       red (vs amber "Due {date}"). The host's Homework nav tab shows
+                       a "needs review" count badge fed by useHomeworkReviewCount
+                       (count of homework_submissions in the room with feedback IS
+                       NULL, live via Realtime); see useHomeworkReviewCount below.
 RecordingsDrawer.tsx   Right-side drawers backed by their respective Supabase tables.
 
 SignInModal.tsx        Username + Password form with Sign in / Create account toggle.
@@ -447,6 +452,7 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 - `useIsHost(roomId)` — combined server + localStorage host check
 - `useRoomMeta(roomId)` — room title + leader-mode state, with `setTitle` / `setLeaderMode`
 - `useRecentRooms()` + `trackRoomVisit()` — localStorage list shown on home page
+- `useHomeworkReviewCount(roomId, enabled)` — live count of the room's `homework_submissions` with `feedback IS NULL` (host-only; returns 0 when disabled). Drives the Homework nav "needs review" badge. One `count: "exact", head: true` query + a Realtime subscription on `homework_submissions` filtered by `room_id`.
 - `useSyncToken(roomId, userId)` — fetches an HS256 sync token from `/api/sync-token` and auto-refreshes ~2 min before its 15-min TTL. Until the first token arrives, `WhiteboardCanvas` uses a placeholder URI that 401s — useSync briefly shows offline state and swaps to the real URI when the token lands.
 
 ## Module-level stores (`src/lib/`)

@@ -25,6 +25,7 @@ import { useIsHost } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { trackRoomVisit, useRecentRooms } from "@/hooks/useRecentRooms";
 import { useWhiteboardRecorder } from "@/hooks/useWhiteboardRecorder";
+import { useHomeworkReviewCount } from "@/hooks/useHomeworkReviewCount";
 import { useToast } from "./Toast";
 import BrandLogo from "./BrandLogo";
 import ErrorBoundary from "./ErrorBoundary";
@@ -139,6 +140,9 @@ export default function RoomShell({
   const [videoPanelWidth, setVideoPanelWidthState] = useState(VIDEO_WIDTH_DEFAULT);
   const [videoCompact, setVideoCompactState] = useState(false);
   const isHost = useIsHost(roomId);
+  // Count of submissions awaiting host feedback — drives the Homework
+  // nav badge. Host-only (students don't review).
+  const homeworkReviewCount = useHomeworkReviewCount(roomId, isHost);
 
   // Persist the compact toggle.
   useEffect(() => {
@@ -1047,6 +1051,7 @@ export default function RoomShell({
         onOpenDocuments={() => setDocsOpen(true)}
         onOpenHomework={() => setHwOpen(true)}
         onOpenRecordings={() => setRecsOpen(true)}
+        homeworkBadge={homeworkReviewCount}
       />
 
       <div className="flex-1 min-h-0 relative flex flex-col md:flex-row">

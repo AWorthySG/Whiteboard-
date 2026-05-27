@@ -336,16 +336,32 @@ export default function HomeworkDrawer({
                           </span>
                         </a>
                       )}
-                      {h.due_date && (
-                        <div className="text-xs text-amber-700 mt-1">
-                          Due{" "}
-                          {new Date(h.due_date).toLocaleDateString(undefined, {
+                      {h.due_date &&
+                        (() => {
+                          // due_date is a date-only string; treat end of
+                          // that day (local) as the deadline for "overdue".
+                          const overdue =
+                            new Date(`${h.due_date}T23:59:59`).getTime() <
+                            Date.now();
+                          const formatted = new Date(
+                            h.due_date,
+                          ).toLocaleDateString(undefined, {
                             weekday: "short",
                             month: "short",
                             day: "numeric",
-                          })}
-                        </div>
-                      )}
+                          });
+                          return (
+                            <div
+                              className={`text-xs mt-1 ${
+                                overdue
+                                  ? "text-danger-600 font-medium"
+                                  : "text-amber-700"
+                              }`}
+                            >
+                              {overdue ? `Overdue · ${formatted}` : `Due ${formatted}`}
+                            </div>
+                          );
+                        })()}
                     </div>
                     {isHost && (
                       <ConfirmButton
