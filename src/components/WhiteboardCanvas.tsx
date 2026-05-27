@@ -31,7 +31,7 @@ import {
   useTools,
   useValue,
 } from "tldraw";
-import { ArrowsOut, Camera, CaretDown, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
+import { Camera, CaretDown, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
@@ -197,6 +197,7 @@ export default function WhiteboardCanvas({
   exportRef,
   addPageRef,
   openUploadRef,
+  bringEveryoneRef,
   onPagesChange,
   switchPageRef,
   pageThumbnailRef,
@@ -221,6 +222,11 @@ export default function WhiteboardCanvas({
   // document upload picker without having to lift the state out of
   // WhiteboardCanvas. Mirrors the existing addPageRef pattern.
   openUploadRef?: MutableRefObject<(() => void) | null>;
+  // Lets the parent (RoomShell → LeftRail / mobile menu) trigger the
+  // host-only "bring everyone to my view" viewport broadcast. Mirrors
+  // the openUploadRef pattern so the action can live in the rail/menu
+  // instead of as a floating pill on the canvas.
+  bringEveryoneRef?: MutableRefObject<(() => void) | null>;
   /** Lets the parent shell reach the live Editor instance — used by
    *  the End Lesson modal to render every page into a PDF. Set on
    *  mount, cleared on unmount. */
@@ -727,6 +733,17 @@ export default function WhiteboardCanvas({
     void channel.send({ type: "broadcast", event: "vp", payload: { x: b.x, y: b.y, w: b.w, h: b.h } });
   }, []);
 
+  // Expose the viewport broadcast so the host control can live in the
+  // LeftRail (desktop) and the mobile "More" menu instead of a floating
+  // pill on the canvas. Mirrors the openUploadRef pattern.
+  useEffect(() => {
+    if (!bringEveryoneRef) return;
+    bringEveryoneRef.current = () => broadcastViewport();
+    return () => {
+      if (bringEveryoneRef.current) bringEveryoneRef.current = null;
+    };
+  }, [bringEveryoneRef, broadcastViewport]);
+
   const canvasActions = useMemo<CanvasActionsCtx>(
     () => ({
       onUpload: () => openFilePicker(runUpload),
@@ -873,7 +890,6 @@ export default function WhiteboardCanvas({
         userId={userId}
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
-        onBringEveryone={broadcastViewport}
       />
       {searchOpen && editorRef.current && (
         <CanvasSearch
@@ -954,7 +970,6 @@ function CanvasFloatingPanel({
   userId,
   toolsCollapsed,
   onToggleTools,
-  onBringEveryone,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -964,7 +979,6 @@ function CanvasFloatingPanel({
   userId: string;
   toolsCollapsed: boolean;
   onToggleTools: () => void;
-  onBringEveryone: () => void;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
@@ -997,7 +1011,7 @@ function CanvasFloatingPanel({
     >
       {beingFollowed && (
         <div
-          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-amber-100 text-amber-800 border-amber-600 shadow-lg flex items-center gap-1.5"
+          className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-amber-100 text-amber-800 border-amber-600 shadow-lg flex items-center gap-1.5"
           title="The host is leading the view — your pan/zoom is locked"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
@@ -1006,7 +1020,7 @@ function CanvasFloatingPanel({
       )}
       {isLeading && (
         <div
-          className="rounded-md px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider bg-amber-500 text-white border border-amber-600 shadow-lg flex items-center gap-1.5"
+          className="rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider bg-amber-500 text-white border border-amber-600 shadow-lg flex items-center gap-1.5"
           title="You're leading — every guest's canvas mirrors your view. Click the eye icon in the toolbar to stop."
         >
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
@@ -1015,23 +1029,12 @@ function CanvasFloatingPanel({
       )}
       {hasDrawGrant && (
         <div
-          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-emerald-100 text-emerald-900 border-emerald-600 shadow-lg flex items-center gap-1.5"
+          className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-emerald-100 text-emerald-900 border-emerald-600 shadow-lg flex items-center gap-1.5"
           title="The host has given you drawing privilege — solve the problem on the shared canvas."
         >
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
           You can draw
         </div>
-      )}
-      {isHost && (
-        <button
-          onClick={onBringEveryone}
-          className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] shadow-lg flex items-center gap-1.5 hover:bg-[var(--hover)]"
-          title="Zoom every student's canvas to match your current view"
-          aria-label="Bring everyone here"
-        >
-          <ArrowsOut size={12} aria-hidden />
-          Bring everyone here
-        </button>
       )}
       <DeleteSelectionButton editor={editor} />
       {!isHost && <PointerModeButton editor={editor} />}
@@ -1079,7 +1082,7 @@ function CanvasFloatingPanel({
           this control has no effect there — md:hidden removes it. */}
       <button
         onClick={onToggleTools}
-        className="md:hidden rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
+        className="md:hidden rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
         title={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-label={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-pressed={!toolsCollapsed}
@@ -1117,7 +1120,7 @@ function PenModeIndicator({ editor }: { editor: Editor | null }) {
   return (
     <button
       onClick={turnOff}
-      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] shadow-lg flex items-center gap-1.5 hover:bg-[var(--hover)]"
+      className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] shadow-lg flex items-center gap-1.5 hover:bg-[var(--hover)]"
       title={
         appSettings.penOnly
           ? "Pen-only mode is on (Settings → Whiteboard). Tap to let your finger draw again."
@@ -1889,7 +1892,7 @@ function PointerModeButton({ editor }: { editor: Editor | null }) {
   return (
     <button
       onClick={toggle}
-      className={`rounded-md px-2.5 py-1 text-[10px] font-medium border shadow-lg flex items-center gap-1.5 ${
+      className={`rounded-full px-2.5 py-1 text-[11px] font-medium border shadow-lg flex items-center gap-1.5 ${
         isPointing
           ? "bg-red-500 text-white border-red-600 hover:bg-red-600"
           : "bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] hover:bg-[var(--hover)]"
@@ -1936,7 +1939,7 @@ function ClearAnnotationsButton({ editor, userId }: { editor: Editor | null; use
   return (
     <button
       onClick={clear}
-      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
+      className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
       title={`Remove your ${count} shape${count === 1 ? "" : "s"} from this page`}
       aria-label="Clear my drawings from this page"
     >
@@ -1972,7 +1975,7 @@ function DeleteSelectionButton({ editor }: { editor: Editor | null }) {
   return (
     <button
       onClick={del}
-      className="rounded-md px-2.5 py-1 text-[10px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
+      className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
       title={count > 1 ? `Delete ${count} selected shapes` : "Delete selected shape"}
       aria-label="Delete selection"
     >

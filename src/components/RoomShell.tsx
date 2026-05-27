@@ -215,6 +215,7 @@ export default function RoomShell({
   const canvasAddPageRef = useRef<(() => void) | null>(null);
   const canvasSwitchPageRef = useRef<((pageId: string) => void) | null>(null);
   const canvasOpenUploadRef = useRef<(() => void) | null>(null);
+  const canvasBringEveryoneRef = useRef<(() => void) | null>(null);
   const canvasPageThumbnailRef = useRef<
     ((pageId: string) => Promise<string | null>) | null
   >(null);
@@ -592,7 +593,7 @@ export default function RoomShell({
           </div>
         </div>
       )}
-      <header className="flex items-start lg:items-center gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
+      <header className="flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
         <Link
           href="/"
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
@@ -927,7 +928,7 @@ export default function RoomShell({
         </div>
 
         {/* Mobile controls */}
-        <div className="ml-auto flex lg:hidden items-center gap-1 shrink-0">
+        <div className="ml-auto flex lg:hidden items-center gap-1.5 shrink-0">
           <IconBtn
             onClick={() => {
               if (!callJoined) joinCall();
@@ -986,6 +987,9 @@ export default function RoomShell({
                 </MenuItem>
                 {isHost && (
                   <div className="pt-2 mt-1 border-t border-[color:var(--border-subtle)]">
+                    <MenuItem onClick={() => { canvasBringEveryoneRef.current?.(); setMenuOpen(false); }}>
+                      Bring everyone to my view
+                    </MenuItem>
                     <div className="px-2 pt-1 pb-2">
                       <RecordButton
                         roomId={roomId}
@@ -1024,6 +1028,7 @@ export default function RoomShell({
           onToggleAnnotations={() => setAnnotationsHidden((v) => !v)}
           onToggleLeader={() => setLeaderMode(!meta.leaderMode, userId)}
           onUpload={() => canvasOpenUploadRef.current?.()}
+          onBringEveryone={() => canvasBringEveryoneRef.current?.()}
         />
         <div className="relative flex-1 min-w-0 min-h-0">
           {/* Recording state overlay — red inset border + REC badge.
@@ -1093,6 +1098,7 @@ export default function RoomShell({
             exportRef={canvasExportRef}
             addPageRef={canvasAddPageRef}
             openUploadRef={canvasOpenUploadRef}
+            bringEveryoneRef={canvasBringEveryoneRef}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}
