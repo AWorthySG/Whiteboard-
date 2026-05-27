@@ -362,6 +362,21 @@ PresenceBadge.tsx      Header live-participant count via Supabase Realtime prese
 
 ReconnectBanner.tsx    Floating banner when tldraw sync is loading/offline/errored.
 
+ErrorBoundary.tsx      Reusable React error boundary (class component) with a
+                       `fallback(reset, error)` render prop. RoomShell wraps the
+                       volatile subtrees in it — VideoPanel (both the desktop aside
+                       and mobile sheet) and the three drawers — so one widget
+                       throwing during render shows a scoped fallback instead of
+                       tripping the route-level error.tsx and taking down the live
+                       whiteboard. VideoErrorFallback / DrawerErrorFallback are the
+                       fallbacks (in RoomShell). The boundary is a STABLE wrapper, so
+                       it never remounts VideoPanel (safe w.r.t. the LiveKit-position
+                       caveat #17 — PiP still moves the aside, not the parent chain).
+                       App-router error files: `src/app/error.tsx` (route-segment
+                       crashes) and `src/app/global-error.tsx` (root-layout crashes;
+                       ships its own <html>/<body>, no theme vars since the shell may
+                       have failed to mount).
+
 OnboardingHint.tsx     One-time tutorial modal (settings.hasSeenOnboarding flag).
 
 BrandLogo.tsx          next/image wrapper for /icon.png.

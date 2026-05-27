@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { WarningCircle } from "@phosphor-icons/react";
 
 // Next.js renders this whenever a client component throws during render.
 // Without it the user just sees the bare 'Application error: a client-side
@@ -20,7 +21,9 @@ export default function ErrorBoundary({
   return (
     <main className="min-h-[100dvh] flex items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-6 text-center">
-        <div className="text-4xl mb-3">⚠️</div>
+        <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
+          <WarningCircle size={28} className="text-danger-600" aria-hidden />
+        </div>
         <h1 className="text-lg font-semibold">Something went wrong</h1>
         <p className="text-sm text-[var(--text-muted)] mt-2">
           The app hit an unexpected error. Try again — your work in any active
