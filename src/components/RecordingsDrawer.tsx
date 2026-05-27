@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Play, X } from "@phosphor-icons/react";
+import { Play, VideoCamera, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
 import DrawerSkeleton from "./Skeleton";
+
+// Supabase free tier is ~1 GB of total Storage (shared with uploaded
+// docs/images). Recordings are by far the biggest consumer, so the
+// host gets a usage meter here to catch a fill-up before uploads fail.
+const FREE_TIER_BYTES = 1024 * 1024 * 1024;
 
 type Recording = {
   id: string;
@@ -36,6 +41,9 @@ export default function RecordingsDrawer({
   const toast = useToast();
   const [items, setItems] = useState<Recording[] | null>(null);
   const [playing, setPlaying] = useState<Recording | null>(null);
+  // Account-wide recordings storage (sum across ALL rooms, not just this
+  // one) so the host can see headroom against the ~1 GB Supabase free tier.
+  const [storageBytes, setStorageBytes] = useState<number | null>(null);
   useEscapeToClose(open, onClose);
 
   useEffect(() => {
@@ -52,7 +60,16 @@ export default function RecordingsDrawer({
         .order("recorded_at", { ascending: false });
       setItems((data as Recording[]) ?? []);
     };
+    const fetchUsage = async () => {
+      const { data } = await supabase.from("room_recordings").select("size_bytes");
+      const total = ((data as { size_bytes: number | null }[]) ?? []).reduce(
+        (sum, r) => sum + (r.size_bytes ?? 0),
+        0,
+      );
+      setStorageBytes(total);
+    };
     void fetchItems();
+    void fetchUsage();
     const channel = supabase
       .channel(`recordings-${roomId}`)
       .on(
@@ -63,7 +80,10 @@ export default function RecordingsDrawer({
           table: "room_recordings",
           filter: `room_id=eq.${roomId}`,
         },
-        () => void fetchItems(),
+        () => {
+          void fetchItems();
+          void fetchUsage();
+        },
       )
       .subscribe();
     return () => {
@@ -106,11 +126,16 @@ export default function RecordingsDrawer({
           </header>
 
           <div className="flex-1 overflow-y-auto">
+            {isHost && storageBytes !== null && storageBytes > 0 && (
+              <StorageMeter bytes={storageBytes} />
+            )}
             {items === null ? (
               <DrawerSkeleton />
             ) : items.length === 0 ? (
               <div className="p-8 text-center">
-                <div className="text-4xl mb-2">🎬</div>
+                <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
+                  <VideoCamera size={26} className="text-[var(--text-dim)]" aria-hidden />
+                </div>
                 <p className="text-sm font-medium">No recordings yet</p>
                 <p className="text-xs text-[var(--text-dim)] mt-1">
                   {isHost
@@ -217,9 +242,9 @@ function PlayerModal({
           <button
             onClick={onClose}
             aria-label="Close player"
-            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+            className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
           >
-            ×
+            <X size={22} aria-hidden />
           </button>
         </div>
         <video
@@ -229,6 +254,40 @@ function PlayerModal({
           className="w-full max-h-[80vh] bg-black"
         />
       </div>
+    </div>
+  );
+}
+
+// Host-only usage bar at the top of the drawer. Recordings are the main
+// driver of the ~1 GB Supabase free tier; the bar turns amber past 70%
+// and red past 90% so a fill-up (which would start failing uploads) is
+// caught early. The number is account-wide across every room.
+function StorageMeter({ bytes }: { bytes: number }) {
+  const pct = Math.min(1, bytes / FREE_TIER_BYTES);
+  const barColor =
+    pct >= 0.9 ? "bg-danger-600" : pct >= 0.7 ? "bg-amber-500" : "bg-brand-500";
+  return (
+    <div
+      className="px-4 py-3 border-b border-[color:var(--border-subtle)]"
+      title="Total size of all recordings. Supabase's free tier is ~1 GB of storage, shared with uploaded documents and images."
+    >
+      <div className="flex items-center justify-between text-xs mb-1.5">
+        <span className="font-medium text-[var(--text-muted)]">Recordings storage</span>
+        <span className="tabular-nums text-[var(--text-dim)]">
+          {formatBytes(bytes)} / ~1 GB
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+        <div
+          className={`h-full rounded-full ${barColor}`}
+          style={{ width: `${Math.max(2, pct * 100)}%` }}
+        />
+      </div>
+      {pct >= 0.9 && (
+        <p className="text-[10px] text-danger-600 mt-1">
+          Almost full — delete old recordings to free space.
+        </p>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CaretRight, X } from "@phosphor-icons/react";
+import { CaretRight, FilePdf, Image as ImageIcon, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
@@ -327,8 +327,12 @@ export default function DocumentsDrawer({
                             key={d.id}
                             className="pl-10 pr-4 py-3 flex items-center gap-3"
                           >
-                            <div className="text-xl">
-                              {d.mime_type === "application/pdf" ? "📄" : "🖼️"}
+                            <div className="text-[var(--text-muted)] shrink-0">
+                              {d.mime_type === "application/pdf" ? (
+                                <FilePdf size={22} aria-hidden />
+                              ) : (
+                                <ImageIcon size={22} aria-hidden />
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <a
