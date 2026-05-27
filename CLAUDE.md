@@ -169,7 +169,11 @@ WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Uploads go BROWSER → SUPAB
 VideoPanel.tsx         LiveKit room — token fetch, Tiles grid, CameraReleaseGuard (calls
                        track.stop() on disable so the macOS green light turns off),
                        RoomCoordinator (raise hand / mute-all via data channel),
-                       ControlBar with leave enabled.
+                       ControlBar with leave enabled. Tiles also renders a
+                       ConnectionQualityChip per participant (via
+                       useConnectionQualityIndicator) that only appears when that
+                       participant's LiveKit quality drops to Poor (amber) or Lost
+                       (red), naming who — so a freeze reads as a network issue.
                        Accepts an `onLeaveCall` prop; when the user intentionally
                        leaves via the control bar, the LiveKit disconnect fires
                        onLeaveCall so RoomShell can unmount the panel and show the

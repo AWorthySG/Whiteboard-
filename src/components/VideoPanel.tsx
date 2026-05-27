@@ -6,13 +6,15 @@ import {
   LiveKitRoom,
   ParticipantTile,
   RoomAudioRenderer,
+  useConnectionQualityIndicator,
   useDataChannel,
   useLocalParticipant,
   useParticipants,
   useRoomContext,
   useTracks,
 } from "@livekit/components-react";
-import { Track, type LocalTrack } from "livekit-client";
+import { ConnectionQuality, Track, type LocalTrack } from "livekit-client";
+import type { Participant } from "livekit-client";
 import {
   BellSlash,
   Check,
@@ -334,6 +336,14 @@ function Tiles() {
       <div className="absolute top-2 left-2 z-10 text-[10px] font-medium uppercase tracking-wider bg-black/60 text-white rounded px-1.5 py-0.5 pointer-events-none">
         {participants.length} in call
       </div>
+      {/* Connection-quality warnings: a named chip appears for any
+          participant whose LiveKit connection drops to poor/lost, so the
+          host knows why a student froze instead of guessing. */}
+      <div className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1 pointer-events-none">
+        {participants.map((p) => (
+          <ConnectionQualityChip key={p.identity} participant={p} />
+        ))}
+      </div>
       <GridLayout tracks={tracks} style={{ height: "100%" }}>
         <ParticipantTile />
       </GridLayout>
@@ -355,6 +365,30 @@ function Tiles() {
         </button>
       )}
     </div>
+  );
+}
+
+// Per-participant connection-quality chip. Renders nothing unless the
+// participant's LiveKit connection drops to poor or lost — then a named
+// chip surfaces it (amber for poor, red for lost) so the host can tell a
+// freeze is a network problem, not the app.
+function ConnectionQualityChip({ participant }: { participant: Participant }) {
+  const { quality } = useConnectionQualityIndicator({ participant });
+  if (quality !== ConnectionQuality.Poor && quality !== ConnectionQuality.Lost) {
+    return null;
+  }
+  const lost = quality === ConnectionQuality.Lost;
+  const who = participant.isLocal
+    ? "Your connection"
+    : participant.name?.trim() || participant.identity;
+  return (
+    <span
+      className={`text-[10px] font-medium rounded px-1.5 py-0.5 text-white shadow ${
+        lost ? "bg-red-600" : "bg-amber-600"
+      }`}
+    >
+      {who}: {lost ? "connection lost" : "weak connection"}
+    </span>
   );
 }
 
