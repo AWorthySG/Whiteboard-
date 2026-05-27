@@ -102,7 +102,7 @@ export default function PagesTabBar({
       // bottom pill on a narrow screen overlaps the ZoomControls. From
       // tablet up (md), the bottom tabs are still nicer for fast
       // switching between many pages.
-      className="flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-[0_4px_12px_rgba(60,40,20,0.08)] px-1.5 py-1 max-w-[min(92vw,620px)]"
+      className="flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-1.5 py-1 max-w-[min(92vw,620px)]"
     >
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
         {pages.map((page) => {
