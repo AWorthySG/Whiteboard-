@@ -61,6 +61,9 @@ import type { Command } from "./CommandPalette";
 const EndLessonModal = dynamic(() => import("./EndLessonModal"), {
   ssr: false,
 });
+const TemplatesModal = dynamic(() => import("./TemplatesModal"), {
+  ssr: false,
+});
 // Evaluated lazily on the client. Used by the overlay to show a single
 // notice if the local browser can't transcribe (Safari / Firefox).
 let localCaptionsSupportedSync = false;
@@ -256,6 +259,7 @@ export default function RoomShell({
     [],
   );
   const [endLessonOpen, setEndLessonOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   useCommandPaletteShortcut(useCallback(() => setPaletteOpen(true), []));
   const recentRooms = useRecentRooms();
@@ -923,6 +927,16 @@ export default function RoomShell({
                     {settings.captionsEnabled ? "On" : "Off"}
                   </span>
                 </button>
+                {isHost && (
+                  <MenuItem
+                    onClick={() => {
+                      setTemplatesOpen(true);
+                      setDeskMenuOpen(false);
+                    }}
+                  >
+                    Board templates…
+                  </MenuItem>
+                )}
               </div>
             )}
           </div>
@@ -1006,6 +1020,9 @@ export default function RoomShell({
                   <div className="pt-2 mt-1 border-t border-[color:var(--border-subtle)]">
                     <MenuItem onClick={() => { canvasBringEveryoneRef.current?.(); setMenuOpen(false); }}>
                       Bring everyone to my view
+                    </MenuItem>
+                    <MenuItem onClick={() => { setTemplatesOpen(true); setMenuOpen(false); }}>
+                      Board templates…
                     </MenuItem>
                     <div className="px-2 pt-1 pb-2">
                       <RecordButton
@@ -1292,6 +1309,13 @@ export default function RoomShell({
             roomTitle={meta.title}
             hostName={name || "Host"}
             hostUserId={userId}
+          />
+        )}
+        {isHost && (
+          <TemplatesModal
+            open={templatesOpen}
+            onClose={() => setTemplatesOpen(false)}
+            editor={canvasEditorRef.current}
           />
         )}
         <CaptionsHost

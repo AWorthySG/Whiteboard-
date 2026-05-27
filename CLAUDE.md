@@ -73,13 +73,17 @@ Run `supabase/setup.sql` on a fresh project to bootstrap. Tables:
 | `room_messages` | Compact chat messages |
 | `room_recordings` | Cloud-uploaded recording metadata (file lives in `whiteboard-recordings` bucket) |
 | `join_requests` | Knock/admission state per (room, user) |
+| `room_templates` | Host's private, account-scoped library of reusable board layouts. `owner_user_id` → `auth.users`; `content` is a tldraw `TLContent` jsonb blob. **Owner-only RLS** (no public read) and **NOT** in the realtime publication — see exception note below. |
 
-All app tables are added to the `supabase_realtime` publication so the React
-hooks just subscribe and re-fetch on change. RLS is **permissive** on the
-non-rooms tables (anyone can read/write) because the app doesn't have proper
-auth boundaries for student data — host-only actions are enforced client-side.
-The `rooms` table is the exception: ownership writes require the matching
-authenticated user.
+All app tables **except `room_templates`** are added to the `supabase_realtime`
+publication so the React hooks just subscribe and re-fetch on change. RLS is
+**permissive** on the non-rooms tables (anyone can read/write) because the app
+doesn't have proper auth boundaries for student data — host-only actions are
+enforced client-side. Two tables are the exception: `rooms` ownership writes
+require the matching authenticated user, and `room_templates` is **owner-only
+for every operation** (a private host library — no public read, and
+deliberately left out of the realtime publication since only the owner ever
+reads it, in their own modal).
 
 Two Supabase Storage buckets:
 - `whiteboard-assets` — public read, anon insert (uploaded docs/images)
@@ -359,6 +363,19 @@ CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floatin
                          and tldraw's toolbar is hidden anyway, so it's removed there.
                        (SyncStatusDot was removed — ReconnectBanner is the single
                        connection-status home.)
+
+TemplatesModal.tsx     Host-only, lazy-loaded modal (entry points: desktop "More" ⋯
+                       menu + mobile menu, both host-gated). Reusable board
+                       templates: "Save this page as a template" captures the
+                       current page via editor.getContentFromCurrentPage(
+                       [...getCurrentPageShapeIds()]) and inserts a row into
+                       room_templates; "Load" calls putContentOntoCurrentPage(
+                       content, { select: true }) + zoomToSelection, adding the
+                       template's shapes to the CURRENT page (not replacing it).
+                       Account-scoped (owner_user_id = auth.uid()), so it requires
+                       sign-in — a localStorage-only host sees a "sign in to save"
+                       prompt instead. Takes editor={canvasEditorRef.current} like
+                       EndLessonModal.
 
 SettingsModal.tsx      Profile, account (sign in / claim room / sign out), appearance
                        (theme), whiteboard (pen-only/palm-rejection), documents, call
