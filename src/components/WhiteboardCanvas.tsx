@@ -1006,7 +1006,10 @@ function CanvasFloatingPanel({
   const activeSizeDot = STYLE_PREVIEW_SIZE_DOT[activeSize] ?? 3;
   return (
     <div
-      className="absolute top-3 right-3 flex flex-col items-end gap-2"
+      // On phones the column sits below the centred clock/timer row
+      // (top-14) so the wider status pills (Following host / Leading view)
+      // never overlap it; desktop has the width to keep them on one line.
+      className="absolute top-14 right-3 md:top-3 flex flex-col items-end gap-2"
       style={{ zIndex: 9999 }}
     >
       {beingFollowed && (

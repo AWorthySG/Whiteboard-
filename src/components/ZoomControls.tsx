@@ -72,7 +72,7 @@ export default function ZoomControls({ editor }: { editor: Editor | null }) {
       ref={menuRef}
       // `relative` keeps the preset dropdown menu (absolute bottom-full)
       // anchored to this pill rather than the canvas wrapper.
-      className="relative flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-[0_4px_12px_rgba(60,40,20,0.08)] px-1 py-1"
+      className="relative flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-1 py-1"
     >
       <button
         onClick={() => editor.zoomOut(undefined, { animation: { duration: 150 } })}

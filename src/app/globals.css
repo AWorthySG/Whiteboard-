@@ -258,9 +258,13 @@ html[data-theme="light"] .tl-canvas {
   outline-offset: 2px;
   border-radius: 4px;
 }
-/* tldraw renders its own interaction layer with its own focus styles,
-   and bg-brand surfaces use the lighter brand colour for visibility. */
-.tldraw-shell *:focus-visible {
+/* tldraw renders its own interaction layer with its own focus styles, so
+   suppress the global outline only INSIDE tldraw's own container
+   (.tl-container). Our custom canvas controls (ZoomControls, PagesTabBar,
+   CanvasFloatingPanel) live in .tldraw-shell but OUTSIDE .tl-container, so
+   they keep the keyboard focus ring — important for accessibility.
+   bg-brand surfaces use the lighter brand colour for visibility. */
+.tldraw-shell .tl-container *:focus-visible {
   outline: none;
 }
 .bg-brand-600:focus-visible,

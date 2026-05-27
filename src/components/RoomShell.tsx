@@ -626,6 +626,7 @@ export default function RoomShell({
             }}
             className="touch-target shrink-0 text-[13px] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 py-1 flex items-center gap-1.5 font-medium"
             title="Add a new blank page to this whiteboard"
+            aria-label="Add a new page"
           >
             <span className="text-base leading-none">+</span>
             <span className="hidden sm:inline">New page</span>
@@ -641,6 +642,7 @@ export default function RoomShell({
               onClick={() => setPagesMenuOpen((o) => !o)}
               className="touch-target text-[13px] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 flex items-center gap-1.5 font-medium"
               title="Switch pages"
+              aria-label="Switch page"
               aria-haspopup="listbox"
               aria-expanded={pagesMenuOpen}
             >
