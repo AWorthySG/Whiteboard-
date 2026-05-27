@@ -334,6 +334,11 @@ CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floatin
                          Notes are intentionally eraser-immune (see the
                          registerBeforeDeleteHandler note below), making this pill
                          (or Backspace) the way to remove them.
+                       - UndoRedoControls: md:hidden grouped pill (undo · redo)
+                         shown only on phones. Desktop has undo/redo in LeftRail;
+                         on phones they otherwise sit in the collapsed SlimToolbar
+                         (behind the Tools toggle), so this surfaces one-tap undo
+                         for a stray stroke. Buttons grey out via getCanUndo/Redo.
                        - PenModeIndicator: tap-to-dismiss pen-mode pill
                        - StrokeSizePicker + ColorPickerRow: md:hidden (in LeftRail).
                          On phones both sit behind a single collapsible "Stroke
