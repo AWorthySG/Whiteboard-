@@ -5,6 +5,7 @@ import {
   CaretDown,
   CaretUp,
   Check,
+  NotePencil,
   Paperclip,
   X,
 } from "@phosphor-icons/react";
@@ -295,7 +296,9 @@ export default function HomeworkDrawer({
           {items === null && <DrawerSkeleton />}
           {items !== null && items.length === 0 && (
             <div className="p-8 text-center">
-              <div className="text-4xl mb-2">📝</div>
+              <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
+                <NotePencil size={26} className="text-[var(--text-dim)]" aria-hidden />
+              </div>
               <p className="text-sm font-medium">No homework yet</p>
               <p className="text-xs text-[var(--text-dim)] mt-1">
                 {isHost
