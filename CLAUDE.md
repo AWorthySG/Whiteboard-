@@ -586,3 +586,10 @@ default stroke profile if the patch isn't applied.
     `react/jsx-no-undef` build error that fails the Vercel deploy. If ESLint ever
     reports them as unused, the real cause is upstream (a refactor removed the JSX
     usage) — fix that, don't delete the import blindly.
+19. **Icons: use `@phosphor-icons/react` everywhere.** Don't hand-roll inline
+    `<svg>` icon components or use emojis for UI icons — both break visual
+    consistency (mismatched stroke weight; emojis render per-OS). The header
+    controls and the PagesTabBar template menu were converted from ad-hoc SVGs /
+    emojis to Phosphor; keep new icons on Phosphor at a matching size + `aria-hidden`.
+    Phosphor icons are individually tree-shaken but still add ~0.4 kB each to the
+    room bundle (currently ~194 kB First Load, budget 200 kB) — be mindful near the cap.
