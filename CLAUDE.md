@@ -264,7 +264,9 @@ DocumentsDrawer.tsx    Right-side drawer listing uploaded files. Has its own "Up
                        empty state. Uploads go browser → Supabase Storage directly,
                        then a client-side insert into room_documents.
 
-HomeworkDrawer.tsx
+HomeworkDrawer.tsx     Student submission picker passes allowCapture to AttachmentPicker
+                       so students get a one-tap "Take photo" (rear camera) for
+                       snapping handwritten work; host worksheet-attach path omits it.
 RecordingsDrawer.tsx   Right-side drawers backed by their respective Supabase tables.
 
 SignInModal.tsx        Username + Password form with Sign in / Create account toggle.

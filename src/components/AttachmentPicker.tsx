@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Books,
+  Camera,
   File as FileIcon,
   Paperclip,
   UploadSimple,
@@ -43,12 +44,18 @@ export default function AttachmentPicker({
   onChange,
   accept = "application/pdf,image/*",
   label = "Attach a file",
+  allowCapture = false,
 }: {
   roomId: string;
   value: Attachment | null;
   onChange: (next: Attachment | null) => void;
   accept?: string;
   label?: string;
+  // When true, a "Take photo" button is shown on touch devices that
+  // opens the rear camera directly (capture="environment") — for
+  // students snapping a photo of handwritten work without digging
+  // through the OS file picker. Ignored on non-touch devices.
+  allowCapture?: boolean;
 }) {
   const toast = useToast();
   const [mode, setMode] = useState<"idle" | "picker">("idle");
@@ -56,6 +63,18 @@ export default function AttachmentPicker({
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const captureInputRef = useRef<HTMLInputElement | null>(null);
+  // Touch capability is only known client-side, so detect after mount
+  // (avoids an SSR/CSR mismatch). Phones + tablets (incl. iPad) report
+  // maxTouchPoints > 0; most desktops report 0, where a "Take photo"
+  // button would just reopen the file dialog and read as redundant.
+  const [canCapture, setCanCapture] = useState(false);
+  useEffect(() => {
+    setCanCapture(
+      typeof navigator !== "undefined" &&
+        (navigator.maxTouchPoints > 0 || "ontouchstart" in window),
+    );
+  }, []);
 
   // Lazy-load docs only when the picker opens — most users will
   // never hit this code path.
@@ -167,6 +186,17 @@ export default function AttachmentPicker({
           <UploadSimple aria-hidden size={14} />
           {uploading ? "Uploading…" : "Upload a file"}
         </button>
+        {allowCapture && canCapture && (
+          <button
+            type="button"
+            onClick={() => captureInputRef.current?.click()}
+            disabled={uploading}
+            className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 inline-flex items-center gap-1.5"
+          >
+            <Camera aria-hidden size={14} />
+            Take photo
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setMode((m) => (m === "picker" ? "idle" : "picker"))}
@@ -184,6 +214,17 @@ export default function AttachmentPicker({
           aria-label={label}
           onChange={handleUploadChange}
         />
+        {allowCapture && canCapture && (
+          <input
+            ref={captureInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            aria-label="Take a photo of your work"
+            onChange={handleUploadChange}
+          />
+        )}
       </div>
 
       {mode === "picker" && (

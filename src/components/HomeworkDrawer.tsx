@@ -424,6 +424,7 @@ export default function HomeworkDrawer({
                         value={submissionDraft}
                         onChange={setSubmissionDraft}
                         label="Pick or upload your work"
+                        allowCapture
                       />
                       {submissionDraft && (
                         <button
