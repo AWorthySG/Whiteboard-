@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CaretDown } from "@phosphor-icons/react";
+import {
+  CaretDown,
+  ChartLine,
+  DotsNine,
+  File as FileIcon,
+  FilePdf,
+  GridFour,
+  MusicNotes,
+  Notebook,
+} from "@phosphor-icons/react";
 import {
   Editor,
   AssetRecordType,
@@ -164,22 +173,22 @@ export default function PagesTabBar({
             <div className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] px-2 pt-1 pb-1">
               New page from template
             </div>
-            <TemplateBtn onClick={() => addPage("blank")} emoji="📄">
+            <TemplateBtn onClick={() => addPage("blank")} icon={<FileIcon size={16} aria-hidden />}>
               Blank
             </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("grid")} emoji="▦">
+            <TemplateBtn onClick={() => addPage("grid")} icon={<GridFour size={16} aria-hidden />}>
               Grid paper
             </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("dots")} emoji="⋮⋮">
+            <TemplateBtn onClick={() => addPage("dots")} icon={<DotsNine size={16} aria-hidden />}>
               Dotted grid
             </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("lined")} emoji="📋">
+            <TemplateBtn onClick={() => addPage("lined")} icon={<Notebook size={16} aria-hidden />}>
               Lined paper
             </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("coords")} emoji="📐">
+            <TemplateBtn onClick={() => addPage("coords")} icon={<ChartLine size={16} aria-hidden />}>
               Coordinate plane
             </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("music")} emoji="🎵">
+            <TemplateBtn onClick={() => addPage("music")} icon={<MusicNotes size={16} aria-hidden />}>
               Music staves
             </TemplateBtn>
             {onImportPdf && (
@@ -190,7 +199,7 @@ export default function PagesTabBar({
                     setMenuOpen(false);
                     onImportPdf();
                   }}
-                  emoji="📑"
+                  icon={<FilePdf size={16} aria-hidden />}
                 >
                   Import PDF as pages…
                 </TemplateBtn>
@@ -205,11 +214,11 @@ export default function PagesTabBar({
 
 function TemplateBtn({
   onClick,
-  emoji,
+  icon,
   children,
 }: {
   onClick: () => void;
-  emoji: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -217,7 +226,7 @@ function TemplateBtn({
       onClick={onClick}
       className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-[var(--hover)] flex items-center gap-2"
     >
-      <span className="text-base shrink-0">{emoji}</span>
+      <span className="shrink-0 text-[var(--text-muted)] inline-flex">{icon}</span>
       <span>{children}</span>
     </button>
   );
