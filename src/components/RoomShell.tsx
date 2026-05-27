@@ -16,6 +16,7 @@ import {
   ShareNetwork,
   VideoCamera,
   VideoCameraSlash,
+  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
@@ -26,6 +27,7 @@ import { trackRoomVisit, useRecentRooms } from "@/hooks/useRecentRooms";
 import { useWhiteboardRecorder } from "@/hooks/useWhiteboardRecorder";
 import { useToast } from "./Toast";
 import BrandLogo from "./BrandLogo";
+import ErrorBoundary from "./ErrorBoundary";
 
 const WhiteboardCanvas = dynamic(() => import("./WhiteboardCanvas"), { ssr: false });
 const VideoPanel = dynamic(() => import("./VideoPanel"), { ssr: false });
@@ -1213,16 +1215,23 @@ export default function RoomShell({
                 </button>
               </div>
             )}
-            <VideoPanel
-              roomId={roomId}
-              userId={userId}
-              userName={name || "Guest"}
-              isHost={isHost}
-              captionsEnabled={settings.captionsEnabled}
-              onCaption={pushCaption}
-              onLeaveCall={leaveCall}
-              autoConnect={joinMode}
-            />
+            <ErrorBoundary
+              label="VideoPanel"
+              fallback={(reset) => (
+                <VideoErrorFallback onRetry={reset} onLeave={leaveCall} />
+              )}
+            >
+              <VideoPanel
+                roomId={roomId}
+                userId={userId}
+                userName={name || "Guest"}
+                isHost={isHost}
+                captionsEnabled={settings.captionsEnabled}
+                onCaption={pushCaption}
+                onLeaveCall={leaveCall}
+                autoConnect={joinMode}
+              />
+            </ErrorBoundary>
           </aside>
         )}
 
@@ -1252,16 +1261,23 @@ export default function RoomShell({
               </div>
             </div>
             <div className="flex-1 min-h-0">
-              <VideoPanel
-                roomId={roomId}
-                userId={userId}
-                userName={name || "Guest"}
-                isHost={isHost}
-                captionsEnabled={settings.captionsEnabled}
-                onCaption={pushCaption}
-                onLeaveCall={leaveCall}
-                autoConnect={joinMode}
-              />
+              <ErrorBoundary
+                label="VideoPanel"
+                fallback={(reset) => (
+                  <VideoErrorFallback onRetry={reset} onLeave={leaveCall} />
+                )}
+              >
+                <VideoPanel
+                  roomId={roomId}
+                  userId={userId}
+                  userName={name || "Guest"}
+                  isHost={isHost}
+                  captionsEnabled={settings.captionsEnabled}
+                  onCaption={pushCaption}
+                  onLeaveCall={leaveCall}
+                  autoConnect={joinMode}
+                />
+              </ErrorBoundary>
             </div>
           </div>
         )}
@@ -1296,22 +1312,26 @@ export default function RoomShell({
         onClose={() => setPaletteOpen(false)}
         commands={paletteCommands}
       />
-      <DocumentsDrawer
-        open={docsOpen}
-        onClose={() => setDocsOpen(false)}
-        roomId={roomId}
-        userId={userId}
-        userName={name || "Guest"}
-        isHost={isHost}
-      />
-      <HomeworkDrawer
-        open={hwOpen}
-        onClose={() => setHwOpen(false)}
-        roomId={roomId}
-        userId={userId}
-        userName={name || "Guest"}
-        isHost={isHost}
-      />
+      <ErrorBoundary label="DocumentsDrawer" fallback={(reset) => <DrawerErrorFallback onClose={() => { setDocsOpen(false); reset(); }} />}>
+        <DocumentsDrawer
+          open={docsOpen}
+          onClose={() => setDocsOpen(false)}
+          roomId={roomId}
+          userId={userId}
+          userName={name || "Guest"}
+          isHost={isHost}
+        />
+      </ErrorBoundary>
+      <ErrorBoundary label="HomeworkDrawer" fallback={(reset) => <DrawerErrorFallback onClose={() => { setHwOpen(false); reset(); }} />}>
+        <HomeworkDrawer
+          open={hwOpen}
+          onClose={() => setHwOpen(false)}
+          roomId={roomId}
+          userId={userId}
+          userName={name || "Guest"}
+          isHost={isHost}
+        />
+      </ErrorBoundary>
       <InvitePanel
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
@@ -1319,12 +1339,14 @@ export default function RoomShell({
         roomId={roomId}
         isHost={isHost}
       />
-      <RecordingsDrawer
-        open={recsOpen}
-        onClose={() => setRecsOpen(false)}
-        roomId={roomId}
-        isHost={isHost}
-      />
+      <ErrorBoundary label="RecordingsDrawer" fallback={(reset) => <DrawerErrorFallback onClose={() => { setRecsOpen(false); reset(); }} />}>
+        <RecordingsDrawer
+          open={recsOpen}
+          onClose={() => setRecsOpen(false)}
+          roomId={roomId}
+          isHost={isHost}
+        />
+      </ErrorBoundary>
       <OnboardingHint isHost={isHost} />
       <ChatBubble roomId={roomId} userId={userId} userName={name || "Guest"} />
     </div>
@@ -1472,6 +1494,70 @@ function MenuItem({ onClick, children }: { onClick: () => void; children: React.
     >
       {children}
     </button>
+  );
+}
+
+// Shown when VideoPanel throws during render — the whiteboard stays up
+// (the boundary scopes the crash to the call panel) and the host can
+// retry or drop to whiteboard-only.
+function VideoErrorFallback({
+  onRetry,
+  onLeave,
+}: {
+  onRetry: () => void;
+  onLeave: () => void;
+}) {
+  return (
+    <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 p-4 text-center text-[var(--text-muted)]">
+      <div className="w-12 h-12 rounded-full bg-[var(--hover)] flex items-center justify-center">
+        <VideoCameraSlash size={24} aria-hidden />
+      </div>
+      <p className="text-sm font-medium text-[var(--text)]">Video had a problem</p>
+      <p className="text-xs text-[var(--text-dim)] max-w-[14rem]">
+        The call panel hit an error. Your whiteboard is unaffected.
+      </p>
+      <div className="flex gap-2">
+        <button
+          onClick={onRetry}
+          className="rounded-md bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 text-xs font-medium"
+        >
+          Reload video
+        </button>
+        <button
+          onClick={onLeave}
+          className="rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-3 py-1.5 text-xs"
+        >
+          Whiteboard only
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Shown when a drawer throws while open. The drawer's own overlay never
+// rendered (it threw), so this supplies a minimal one with a way out.
+function DrawerErrorFallback({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-xs rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-6 text-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto w-12 h-12 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
+          <WarningCircle size={24} className="text-danger-600" aria-hidden />
+        </div>
+        <p className="text-sm font-medium">This panel hit an error</p>
+        <p className="text-xs text-[var(--text-dim)] mt-1">
+          The rest of the room is unaffected.
+        </p>
+        <button
+          onClick={onClose}
+          className="mt-4 rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
+        >
+          Close
+        </button>
+      </div>
+    </div>
   );
 }
 
