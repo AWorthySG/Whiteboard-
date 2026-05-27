@@ -37,6 +37,19 @@ index fcc0144..c9cf62b 100644
    };
  };
  const solidSettings = (strokeWidth) => {
+diff --git a/node_modules/tldraw/dist-cjs/lib/shapes/shared/default-shape-constants.js b/node_modules/tldraw/dist-cjs/lib/shapes/shared/default-shape-constants.js
+index c2ba5d9..1a5db30 100644
+--- a/node_modules/tldraw/dist-cjs/lib/shapes/shared/default-shape-constants.js
++++ b/node_modules/tldraw/dist-cjs/lib/shapes/shared/default-shape-constants.js
+@@ -37,7 +37,7 @@ const TEXT_PROPS = {
+   padding: "0px"
+ };
+ const STROKE_SIZES = {
+-  s: 2,
++  s: 1.5,
+   m: 3.5,
+   l: 5,
+   xl: 10
 diff --git a/node_modules/tldraw/dist-esm/lib/shapes/draw/getPath.mjs b/node_modules/tldraw/dist-esm/lib/shapes/draw/getPath.mjs
 index d1fdab0..4d4833f 100644
 --- a/node_modules/tldraw/dist-esm/lib/shapes/draw/getPath.mjs
@@ -76,3 +89,16 @@ index d1fdab0..4d4833f 100644
    };
  };
  const solidSettings = (strokeWidth) => {
+diff --git a/node_modules/tldraw/dist-esm/lib/shapes/shared/default-shape-constants.mjs b/node_modules/tldraw/dist-esm/lib/shapes/shared/default-shape-constants.mjs
+index b718510..ae47144 100644
+--- a/node_modules/tldraw/dist-esm/lib/shapes/shared/default-shape-constants.mjs
++++ b/node_modules/tldraw/dist-esm/lib/shapes/shared/default-shape-constants.mjs
+@@ -6,7 +6,7 @@ const TEXT_PROPS = {
+   padding: "0px"
+ };
+ const STROKE_SIZES = {
+-  s: 2,
++  s: 1.5,
+   m: 3.5,
+   l: 5,
+   xl: 10
