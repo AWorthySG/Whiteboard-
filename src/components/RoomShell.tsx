@@ -685,7 +685,7 @@ export default function RoomShell({
             {pagesMenuOpen && (
               <div
                 role="listbox"
-                className="absolute top-full left-0 mt-1 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 overflow-y-auto rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1 z-50"
+                className="absolute top-full left-0 mt-1 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 overflow-y-auto rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1 z-[90]"
               >
                 {pagesState.pages.map((p, i) => {
                   const active = p.id === pagesState.currentId;
@@ -877,7 +877,7 @@ export default function RoomShell({
               <DotsThree size={18} weight="bold" aria-hidden />
             </IconBtn>
             {deskMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-60 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2 z-50">
+              <div className="absolute right-0 top-full mt-1 w-60 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2 z-[90]">
                 <label className="block text-[10px] uppercase tracking-wider text-[var(--text-dim)] px-1 mb-1">
                   Display name
                 </label>
@@ -995,7 +995,7 @@ export default function RoomShell({
               <List size={18} aria-hidden />
             </IconBtn>
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2 z-50">
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2 z-[90]">
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
