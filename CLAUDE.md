@@ -279,7 +279,8 @@ StrokeSizePicker.tsx   Four stroke-size options (s/m/l/xl) shown as dot swatches
 LeftRail.tsx           Vertical tool rail on the left edge of the canvas (md+ only).
                        Phase 4 design: contains the full tool set (select / hand /
                        pen / highlighter / eraser / note / upload) plus
-                       host-only toggles (hide annotations, lead view) AND the
+                       host-only controls (bring everyone to my view, hide
+                       annotations, lead view) AND the
                        drawing style controls (2×2 size grid, 2×4 color grid) below
                        a divider. This makes it the single unified drawing control
                        strip on desktop. Phones keep the SlimToolbar + floating panel.
@@ -303,10 +304,17 @@ ShortcutsModal.tsx     Keyboard shortcuts cheatsheet modal (? or toolbar button)
                        omitted — their kbd bindings are cleared in the tools() override.
 
 CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floating
-                       column of status indicators and context-sensitive controls:
-                       - "Bring everyone here" (host only): broadcasts viewport bounds
-                         over Supabase Realtime channel vp-{roomId} so every guest
-                         zooms to match in 400 ms
+                       column of status indicators and context-sensitive controls.
+                       All pills share one shape (rounded-full, text-[11px],
+                       shadow-lg) so the cluster reads as one system.
+                       - "Bring everyone to my view" (host only) used to live here
+                         as an always-on pill but was MOVED OFF the canvas — it now
+                         sits in LeftRail (desktop) and the mobile "More" menu, so
+                         the canvas top stays clear and doesn't collide with the
+                         centred LessonTimer/clock on narrow phones. The viewport
+                         broadcast itself is exposed via bringEveryoneRef (mirrors
+                         openUploadRef); broadcastViewport still sends bounds over
+                         Supabase Realtime channel vp-{roomId} (see gotcha below).
                        - "Point at board" (non-host, hand/laser mode only): toggles
                          the laser pointer tool so students can point without drawing
                        - "Clear my work" (non-host): deletes all shapes where
@@ -450,7 +458,7 @@ commit `45a340e` (15+ classes swept).
 - **Annotation stamp and draw-grant students**: `WhiteboardCanvas.onMount` stamps every new shape with `meta.annotation = !isHostRef.current && userId !== drawGrantUserIdRef.current`. The draw-grant exclusion means shapes drawn by a student the host has promoted to draw are NOT tagged as annotations and will NOT be hidden by "Hide student work". If you change the stamping logic, preserve this exclusion — the whole point of draw-grant is to have the student's work visible alongside the host's.
 - **Shape authorship stamp**: every shape also gets `meta.authorId = userId` (alongside `meta.annotation`). This is what the "Clear my work" button in CanvasFloatingPanel uses to find and delete only the current student's shapes. If you change the stamping logic in `registerBeforeCreateHandler`, preserve BOTH fields.
 - **Sticky notes are eraser-immune**: `WhiteboardCanvas.onMount` registers a `registerBeforeDeleteHandler("shape", …)` that returns `false` (vetoing the delete) when `source === "user"` AND `shape.type === "note"` AND `editor.getCurrentToolId() === "eraser"`. This stops a stray eraser stroke from wiping a note's content; notes are removed deliberately via select + the DeleteSelectionButton pill or Backspace instead. The guards matter: `source === "user"` lets remote deletes through so sync stays consistent (don't block `"remote"` or clients diverge), and the tool check scopes the veto to the eraser only so every other delete path still works. The handler runs per-record, so erasing a stroke that also crosses a note still deletes the stroke. tldraw still adds the note to the eraser's "erasing" set mid-drag (it dims), then restores it on release — that transient fade is expected, not a bug. Deregister it alongside the create handler in onMount's cleanup.
-- **"Bring everyone here" uses Supabase Realtime, not LiveKit**: the host clicking the button in CanvasFloatingPanel sends the current viewport bounds over Supabase Realtime Broadcast channel `vp-{roomId}`. Guests subscribe in a useEffect in WhiteboardCanvas and call `editor.zoomToBounds` when a `vp` event arrives. This avoids needing access to the LiveKit room context from outside the LiveKitRoom tree. Don't switch it to LiveKit data channel without threading the send function all the way up to WhiteboardCanvas.
+- **"Bring everyone here" uses Supabase Realtime, not LiveKit**: the host triggers it from the LeftRail (desktop) or the mobile "More" menu — both call `broadcastViewport` via `bringEveryoneRef` (the openUploadRef-style ref WhiteboardCanvas assigns on mount). It sends the current viewport bounds over Supabase Realtime Broadcast channel `vp-{roomId}`. Guests subscribe in a useEffect in WhiteboardCanvas and call `editor.zoomToBounds` when a `vp` event arrives. This avoids needing access to the LiveKit room context from outside the LiveKitRoom tree. Don't switch it to LiveKit data channel without threading the send function all the way up to WhiteboardCanvas. (It used to be a floating pill in CanvasFloatingPanel; moved off-canvas to declutter the top + avoid colliding with the centred timer on phones.)
 - **Desktop/mobile drawing controls split**: LeftRail owns the color and size pickers on desktop (md+). The same pickers inside CanvasFloatingPanel carry `md:hidden` so they're only visible on mobile. If you add a new drawing style control, add it to BOTH LeftRail AND CanvasFloatingPanel (with `md:hidden`), keeping parity between breakpoints.
 - **RecordButton paused-state stop**: the screen-share track's `ended` event now checks `state === "recording" || state === "paused"` before calling `stop()`. If you see a UI deadlock where the recorder appears stuck after the user stops sharing mid-pause, re-check this guard.
 - **LessonTimer expiry**: the 250 ms tick interval self-clears when `computeRemaining(timer) <= 0`. Nobody writes `timer_running=false` to the DB when the client clock hits zero (the timer just shows "Time's up"), so without the self-clear the interval would fire indefinitely. `addMinute` is capped at 480 minutes remaining so values stay well below the PostgreSQL `INTEGER` overflow boundary.

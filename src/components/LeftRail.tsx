@@ -21,6 +21,7 @@ import {
   Eye,
   EyeSlash,
   CaretDown,
+  ArrowsOut,
 } from "@phosphor-icons/react";
 
 // Vertical tool rail on the left edge of the canvas (Phase 4 of the
@@ -61,6 +62,7 @@ export default function LeftRail({
   onToggleAnnotations,
   onToggleLeader,
   onUpload,
+  onBringEveryone,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -69,6 +71,7 @@ export default function LeftRail({
   onToggleAnnotations: () => void;
   onToggleLeader: () => void | Promise<void>;
   onUpload: () => void;
+  onBringEveryone: () => void;
 }) {
   const [active, setActive] = useState<string>("draw");
   const [activeColor, setActiveColor] = useState<TLDefaultColorStyle>("black");
@@ -168,6 +171,9 @@ export default function LeftRail({
       {isHost && (
         <>
           <Divider />
+          <RailBtn onClick={onBringEveryone} label="Bring everyone to my view">
+            <ArrowsOut size={18} />
+          </RailBtn>
           <RailBtn
             active={annotationsHidden}
             activeTone="amber"
