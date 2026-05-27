@@ -212,9 +212,18 @@ GuestNameEntry         Inline in RoomShell.tsx. Shown to guests who land on a ro
                        flash for guests whose name is already remembered.
 
 AdmissionPanel.tsx     Host-only floating panel showing pending join_requests with
-                       Admit / Deny buttons. Also fires a toast ("X is asking to
-                       join") the first time it sees each new pending request so
-                       the host can't miss it.
+                       Admit / Deny buttons (+ "Admit all" when 2+ pending, one
+                       batch UPDATE of every pending row → admitted). Also fires a
+                       toast ("X is asking to join") the first time it sees each new
+                       pending request so the host can't miss it. Fetches ALL the
+                       room's join_requests (not just pending) to drive a collapsible
+                       roster of already-decided students (excludes the host's
+                       self-admit row): admitted → "Remove" (deny), denied →
+                       "Re-admit" (admit). KnockGate live-subscribes to each row, so
+                       Remove kicks the student and Re-admit lets them straight back
+                       in. When nobody's pending the panel shrinks to a compact
+                       collapsed "Class roster (n)" pill (w-56, subtle border); a
+                       pending knock expands it to the full brand-bordered panel.
 
 ZoomControls.tsx       Bottom-left pill: zoom out / current % (clickable for preset
                        menu) / zoom in. Preset menu has Fit to content, Reset to
