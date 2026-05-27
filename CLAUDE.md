@@ -73,7 +73,7 @@ Run `supabase/setup.sql` on a fresh project to bootstrap. Tables:
 | `room_messages` | Compact chat messages |
 | `room_recordings` | Cloud-uploaded recording metadata (file lives in `whiteboard-recordings` bucket) |
 | `join_requests` | Knock/admission state per (room, user) |
-| `room_templates` | Host's private, account-scoped library of reusable board layouts. `owner_user_id` → `auth.users`; `content` is a tldraw `TLContent` jsonb blob. **Owner-only RLS** (no public read) and **NOT** in the realtime publication — see exception note below. |
+| `room_templates` | Host's private, account-scoped library of reusable board layouts. `owner_user_id` → `auth.users`; `content` is a tldraw `TLContent` jsonb blob; `thumbnail` is a small WebP data URL for the library preview (nullable). **Owner-only RLS** (no public read) and **NOT** in the realtime publication — see exception note below. |
 
 All app tables **except `room_templates`** are added to the `supabase_realtime`
 publication so the React hooks just subscribe and re-fetch on change. RLS is
@@ -384,7 +384,11 @@ TemplatesModal.tsx     Host-only, lazy-loaded modal (entry points: desktop "More
                        Account-scoped (owner_user_id = auth.uid()), so it requires
                        sign-in — a localStorage-only host sees a "sign in to save"
                        prompt instead. Takes editor={canvasEditorRef.current} like
-                       EndLessonModal.
+                       EndLessonModal. Each save also captures a small WebP
+                       thumbnail (exportToBlob → canvas downscale to 320px, stored
+                       in room_templates.thumbnail; best-effort, null on failure →
+                       placeholder icon) shown in the list, and rows can be renamed
+                       inline (pencil → input → Enter/blur updates name).
 
 SettingsModal.tsx      Profile, account (sign in / claim room / sign out), appearance
                        (theme), whiteboard (pen-only/palm-rejection), documents, call
