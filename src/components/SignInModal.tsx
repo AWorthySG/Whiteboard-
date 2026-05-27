@@ -90,7 +90,7 @@ export default function SignInModal({
         className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
+        <header className="flex items-center justify-between px-6 py-4 border-b border-[color:var(--border-subtle)]">
           <h2 className="text-lg font-semibold">
             {mode === "signin" ? "Sign in" : "Create account"}
           </h2>
