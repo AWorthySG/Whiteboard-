@@ -22,6 +22,7 @@ export async function exportLessonPdf({
   roomTitle,
   hostName,
   hostUserId,
+  summary,
   onProgress,
 }: {
   editor: Editor;
@@ -29,6 +30,12 @@ export async function exportLessonPdf({
   roomTitle: string | null;
   hostName: string;
   hostUserId: string;
+  // When provided, a recap cover page (homework + recordings) is
+  // prepended so the exported PDF is a self-contained lesson recap.
+  summary?: {
+    homework: { title: string; dueDate?: string | null }[];
+    recordings: { title: string }[];
+  };
   onProgress?: (p: Progress) => void;
 }): Promise<{ url: string; name: string }> {
   const pages = editor.getPages();
@@ -36,12 +43,70 @@ export async function exportLessonPdf({
 
   // Dynamic imports — these two libs together are big and not needed
   // anywhere else in the room route.
-  const [{ exportToBlob }, { PDFDocument }] = await Promise.all([
+  const [{ exportToBlob }, { PDFDocument, StandardFonts, rgb }] = await Promise.all([
     import("tldraw"),
     import("pdf-lib"),
   ]);
 
   const pdf = await PDFDocument.create();
+
+  // Recap cover page (optional) — lesson title/date + a homework and
+  // recordings summary. Single-line truncated text (no wrapping) so the
+  // layout stays predictable. Recording URLs go in the chat recap, not
+  // here, to keep the page clean.
+  if (summary) {
+    const A4_W = 595.28;
+    const A4_H = 841.89;
+    const M = 48;
+    const helv = await pdf.embedFont(StandardFonts.Helvetica);
+    const helvBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const ink = rgb(0.1, 0.11, 0.13);
+    const muted = rgb(0.42, 0.45, 0.5);
+    const clip = (s: string, n = 84) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+    const cover = pdf.addPage([A4_W, A4_H]);
+    let y = A4_H - M;
+    cover.drawText(clip(roomTitle?.trim() || roomId, 48), {
+      x: M, y: y - 22, size: 22, font: helvBold, color: ink,
+    });
+    y -= 46;
+    const dateStr = new Date().toLocaleDateString(undefined, {
+      year: "numeric", month: "long", day: "numeric",
+    });
+    cover.drawText(`${clip(hostName, 40)}  ·  ${dateStr}`, { x: M, y, size: 11, font: helv, color: muted });
+    y -= 22;
+    cover.drawLine({ start: { x: M, y }, end: { x: A4_W - M, y }, thickness: 0.75, color: rgb(0.85, 0.87, 0.9) });
+    y -= 30;
+
+    cover.drawText("Homework", { x: M, y, size: 13, font: helvBold, color: ink });
+    y -= 19;
+    if (summary.homework.length === 0) {
+      cover.drawText("No homework assigned.", { x: M, y, size: 11, font: helv, color: muted });
+      y -= 18;
+    } else {
+      for (const h of summary.homework.slice(0, 20)) {
+        cover.drawText(`•  ${clip(h.title)}${h.dueDate ? `   (due ${h.dueDate})` : ""}`, {
+          x: M, y, size: 11, font: helv, color: ink,
+        });
+        y -= 17;
+      }
+    }
+    y -= 16;
+
+    cover.drawText("Recordings", { x: M, y, size: 13, font: helvBold, color: ink });
+    y -= 19;
+    if (summary.recordings.length === 0) {
+      cover.drawText("No recordings.", { x: M, y, size: 11, font: helv, color: muted });
+      y -= 18;
+    } else {
+      for (const r of summary.recordings.slice(0, 20)) {
+        cover.drawText(`•  ${clip(r.title)}`, { x: M, y, size: 11, font: helv, color: ink });
+        y -= 17;
+      }
+      y -= 6;
+      cover.drawText("Recording links are in the room chat.", { x: M, y, size: 9, font: helv, color: muted });
+    }
+  }
+
   const originalPageId = editor.getCurrentPageId();
 
   try {

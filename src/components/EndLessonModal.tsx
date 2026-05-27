@@ -48,14 +48,44 @@ export default function EndLessonModal({
       toast.error("Canvas not ready");
       return;
     }
-    setStage({ kind: "working", label: "Rendering pages…" });
+    setStage({ kind: "working", label: "Preparing recap…" });
     try {
+      // Gather recap data (homework + recordings) up front so it can go
+      // both on the PDF cover page and in the chat recap message.
+      const supabase = getSupabase();
+      let homework: { title: string; dueDate: string | null }[] = [];
+      let recordings: { title: string; url: string }[] = [];
+      if (supabase) {
+        const [{ data: hwData }, { data: recData }] = await Promise.all([
+          supabase
+            .from("room_homework")
+            .select("title,due_date,created_at")
+            .eq("room_id", roomId)
+            .order("created_at", { ascending: true }),
+          supabase
+            .from("room_recordings")
+            .select("title,file_url,recorded_at")
+            .eq("room_id", roomId)
+            .order("recorded_at", { ascending: true }),
+        ]);
+        homework = ((hwData as { title: string; due_date: string | null }[]) ?? []).map(
+          (h) => ({ title: h.title, dueDate: h.due_date }),
+        );
+        recordings = ((recData as { title: string | null; file_url: string }[]) ?? []).map(
+          (r) => ({ title: r.title ?? "Recording", url: r.file_url }),
+        );
+      }
+
       const { url, name } = await exportLessonPdf({
         editor,
         roomId,
         roomTitle,
         hostName,
         hostUserId,
+        summary: {
+          homework,
+          recordings: recordings.map((r) => ({ title: r.title })),
+        },
         onProgress: (p) => {
           const label =
             p.stage === "rendering"
@@ -69,24 +99,36 @@ export default function EndLessonModal({
         },
       });
 
-      // Post the link to the room chat so guests can grab it before
-      // they leave. Surface failure as a non-blocking warning — the
-      // PDF still exists in the Documents drawer so the lesson
-      // material isn't lost; the host can paste the link manually.
-      const supabase = getSupabase();
+      // Post a recap to the room chat so guests can grab everything before
+      // they leave: the PDF link, recording links, and the homework list.
+      // ChatBubble renders with whitespace-pre-wrap, so newlines survive.
+      // Surface failure as a non-blocking warning — the PDF still exists in
+      // the Documents drawer so the lesson material isn't lost.
       if (supabase) {
+        const titleStr = roomTitle?.trim() || roomId;
+        const parts = [`📄 Lesson recap — ${titleStr}`, "", `Whiteboard PDF: ${url}`];
+        if (recordings.length > 0) {
+          parts.push("", "Recordings:");
+          for (const r of recordings) parts.push(`• ${r.title}: ${r.url}`);
+        }
+        if (homework.length > 0) {
+          parts.push("", "Homework:");
+          for (const h of homework) {
+            parts.push(`• ${h.title}${h.dueDate ? ` (due ${h.dueDate})` : ""}`);
+          }
+        }
         const { error: chatErr } = await supabase
           .from("room_messages")
           .insert({
             room_id: roomId,
             user_id: hostUserId,
             user_name: hostName,
-            text: `📄 Lesson PDF is ready: ${url}`,
+            text: parts.join("\n"),
           });
         if (chatErr) {
           console.warn("[end-lesson] chat insert failed", chatErr);
           toast.error(
-            "PDF saved (in Documents drawer), but the chat link couldn't be posted — share manually.",
+            "Recap PDF saved (in Documents drawer), but the chat post failed — share manually.",
           );
         }
       }
@@ -102,7 +144,7 @@ export default function EndLessonModal({
       document.body.removeChild(a);
 
       setStage({ kind: "done", url, name });
-      toast.success("Lesson PDF saved and shared in chat");
+      toast.success("Lesson recap saved and shared in chat");
     } catch (e) {
       console.error("[end-lesson] pdf failed", e);
       toast.error(`Couldn't save PDF: ${(e as Error).message}`);
@@ -129,8 +171,8 @@ export default function EndLessonModal({
         <h2 className="text-lg font-semibold">End lesson?</h2>
         <p className="text-sm text-[var(--text-muted)] mt-2">
           {done
-            ? "Done — the PDF link is in the room chat and a copy has been downloaded to this device. The file is also in the Documents drawer so guests can grab it before they leave."
-            : "Saves the whole whiteboard as a PDF, posts the link to the room chat (so guests can grab it), and downloads a copy for you. Then you leave the room."}
+            ? "Done — the recap (PDF link, recordings, and homework) is posted in the room chat and a copy has been downloaded. The PDF is also in the Documents drawer so guests can grab it before they leave."
+            : "Builds a recap PDF of the whole whiteboard (with a homework + recordings summary), posts the recap to the room chat so guests can grab it, and downloads a copy for you. Then you leave the room."}
         </p>
 
         {working && (
