@@ -31,7 +31,7 @@ import {
   useTools,
   useValue,
 } from "tldraw";
-import { Camera, CaretDown, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowCounterClockwise, Camera, CaretDown, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
@@ -1043,6 +1043,11 @@ function CanvasFloatingPanel({
       {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <PenModeIndicator editor={editor} />
+      {/* Phones only: always-visible undo/redo. Desktop has these in the
+          LeftRail; on phones they otherwise live in the collapsed
+          SlimToolbar (behind the Tools toggle), so a one-tap undo for a
+          stray stroke needed surfacing. */}
+      <UndoRedoControls editor={editor} />
       {/* On desktop (md+) these live in LeftRail for a unified control
           strip. Keep them here only for phones where LeftRail is hidden.
           Collapsed behind a single preview toggle (matching LeftRail's
@@ -1949,6 +1954,53 @@ function ClearAnnotationsButton({ editor, userId }: { editor: Editor | null; use
       <TrashSimple size={12} aria-hidden />
       Clear my work
     </button>
+  );
+}
+
+// Phones-only always-visible undo/redo pill (md:hidden). Desktop uses
+// the LeftRail copies; on phones the SlimToolbar (which also has them)
+// is collapsed by default, so this surfaces one-tap undo for the most
+// common correction during a live lesson. Buttons grey out when there's
+// nothing to undo/redo.
+function UndoRedoControls({ editor }: { editor: Editor | null }) {
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  useEffect(() => {
+    if (!editor) return;
+    const sync = () => {
+      setCanUndo(editor.getCanUndo());
+      setCanRedo(editor.getCanRedo());
+    };
+    sync();
+    return editor.store.listen(sync, { scope: "all" });
+  }, [editor]);
+
+  if (!editor) return null;
+
+  const btn =
+    "w-9 h-9 inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] disabled:opacity-30 disabled:cursor-not-allowed";
+  return (
+    <div className="md:hidden inline-flex items-center rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg overflow-hidden">
+      <button
+        onClick={() => editor.undo()}
+        disabled={!canUndo}
+        aria-label="Undo"
+        title="Undo"
+        className={btn}
+      >
+        <ArrowCounterClockwise size={16} aria-hidden />
+      </button>
+      <span aria-hidden className="w-px h-5 bg-[var(--border)]" />
+      <button
+        onClick={() => editor.redo()}
+        disabled={!canRedo}
+        aria-label="Redo"
+        title="Redo"
+        className={btn}
+      >
+        <ArrowClockwise size={16} aria-hidden />
+      </button>
+    </div>
   );
 }
 
