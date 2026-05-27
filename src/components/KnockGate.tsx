@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Prohibit, WarningCircle } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 
 type Status = "checking" | "pending" | "admitted" | "denied" | "error";
@@ -236,7 +237,9 @@ export default function KnockGate({
         )}
         {status === "denied" && (
           <>
-            <div className="text-3xl">🚫</div>
+            <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center">
+              <Prohibit size={28} className="text-danger-600" aria-hidden />
+            </div>
             <h2 className="mt-4 text-lg font-semibold">Not admitted</h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
               The host declined your request. Refresh to try again or contact them.
@@ -245,7 +248,10 @@ export default function KnockGate({
         )}
         {status === "error" && (
           <>
-            <h2 className="text-lg font-semibold text-danger-700">
+            <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center">
+              <WarningCircle size={28} className="text-danger-600" aria-hidden />
+            </div>
+            <h2 className="mt-4 text-lg font-semibold text-danger-700">
               Couldn't request to join
             </h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">{error}</p>

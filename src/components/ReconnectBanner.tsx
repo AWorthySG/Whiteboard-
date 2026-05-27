@@ -41,7 +41,7 @@ export default function ReconnectBanner({ status, connectionStatus }: Props) {
     <div
       className={`absolute top-3 left-1/2 -translate-x-1/2 z-[9998] flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium shadow-2xl border ${
         tone === "error"
-          ? "bg-danger-600/90 text-[var(--text)] border-danger-500/40"
+          ? "bg-danger-600/90 text-white border-danger-500/40"
           : "bg-amber-500/90 text-black border-amber-300/40"
       }`}
     >
