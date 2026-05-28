@@ -1,6 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#1f2c4a"/>
-  <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle"
-        font-family="ui-sans-serif, system-ui, -apple-system, Arial, sans-serif"
-        font-weight="700" font-size="280" fill="#ffffff" letter-spacing="-12">AW</text>
+  <g fill="none" stroke="#2c5c8c" stroke-linejoin="round">
+    <path d="M 186,345 L 186,163 A 70,70 0 0 1 326,163 L 326,345"
+          stroke-width="46" stroke-linecap="butt"/>
+    <path d="M 224,180 L 288,180 M 256,145 L 256,215"
+          stroke-width="17" stroke-linecap="round"/>
+    <path d="M 150,372 C 160,432 195,448 212,438 C 232,425 246,405 256,393 C 266,405 280,425 300,438 C 317,448 352,432 362,372"
+          stroke-width="28" stroke-linecap="round"/>
+  </g>
 </svg>
