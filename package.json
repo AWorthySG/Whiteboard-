@@ -1,11 +1,12 @@
 {
   "name": "whiteboard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "dev:sync": "cd sync-worker && npx wrangler dev --port 5858",
     "dev:all": "concurrently -k -n web,sync -c blue,magenta \"npm:dev\" \"npm:dev:sync\"",
+    "prebuild": "rm -rf node_modules/tldraw && npm install --no-save --no-audit --no-fund --ignore-scripts --silent tldraw@3.15.6 && patch-package --partial",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
