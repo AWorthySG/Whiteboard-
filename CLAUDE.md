@@ -598,8 +598,12 @@ default stroke profile if the patch isn't applied.
     Open `node_modules/tldraw/dist-{cjs,esm}/lib/shapes/draw/getPath.{js,mjs}` in the
     new version, re-edit `realPressureSettings` and `simulatePressureSettings` with
     the fountain-pen values (`thinning: 0.82/0.7`, `streamline: 0.4/0.5`,
-    `smoothing: 0.55`, `start/end: { taper: 30/25, cap: true }`), then run
-    `npx patch-package tldraw`. Delete the old patch file and commit the new one.
+    `smoothing: 0.55`), and `STROKE_SIZES.s = 1.5` in `default-shape-constants.{js,mjs}`,
+    then run `npx patch-package tldraw`. **Do NOT re-add `start/end: { cap: true,
+    taper: 25–30 }`** — those tapered/capped ends crashed every draw shape on Apple
+    Pencil Pro / iOS 18 (perfect-freehand couldn't generate a stable outline). If
+    you want them back, upgrade perfect-freehand alongside tldraw and re-test on a
+    real iPad Pencil first. Delete the old patch file and commit the new one.
 12. **Service worker is intentionally narrow.** Don't widen `sw.js` to cache HTML
     routes, API responses, Supabase, LiveKit, or the sync worker. Cache only
     `/_next/static/*` (content-hashed, immutable) and the small shell set. A
