@@ -10,6 +10,7 @@ import {
   GridFour,
   MusicNotes,
   Notebook,
+  PencilSimple,
 } from "@phosphor-icons/react";
 import {
   Editor,
@@ -23,9 +24,13 @@ type Template = "blank" | "grid" | "lined" | "music" | "coords" | "dots";
 
 export default function PagesTabBar({
   editor,
+  isHost,
   onImportPdf,
 }: {
   editor: Editor | null;
+  // Rename + delete are host-only — names sync to every student via
+  // tldraw, so a non-host change would affect the whole class.
+  isHost: boolean;
   // Opens a PDF picker and imports each page as its own background page
   // (wired from WhiteboardCanvas, which owns the upload pipeline).
   onImportPdf?: () => void;
@@ -34,6 +39,12 @@ export default function PagesTabBar({
   const [, setTick] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // Inline rename state. null = not renaming; otherwise the page id whose
+  // tab is currently swapped for an <input>. Mirrors the header title
+  // edit pattern (Enter/blur commits, Escape cancels) — replaces a former
+  // browser prompt() call that didn't reliably render inside the iPad PWA.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const toast = useToast();
 
   // Close template menu when clicking outside.
@@ -86,13 +97,24 @@ export default function PagesTabBar({
     }
   };
 
-  const renamePage = (id: string) => {
+  const startRename = (id: string) => {
+    if (!isHost) return;
     const page = pages.find((p) => p.id === id);
     if (!page) return;
-    const next = prompt("Rename page", page.name);
-    if (next !== null && next.trim()) {
-      editor.renamePage(page.id, next.trim());
+    setRenameDraft(page.name);
+    setRenamingId(id);
+  };
+
+  const commitRename = () => {
+    if (!renamingId) return;
+    const next = renameDraft.trim();
+    const page = pages.find((p) => p.id === renamingId);
+    // Only call renamePage when the name actually changed and isn't
+    // empty — saves a no-op sync write per blur otherwise.
+    if (page && next && next !== page.name) {
+      editor.renamePage(page.id, next);
     }
+    setRenamingId(null);
   };
 
   const removePage = (id: string) => {
@@ -116,21 +138,58 @@ export default function PagesTabBar({
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
         {pages.map((page) => {
           const active = page.id === currentId;
+          const renaming = renamingId === page.id;
           return (
             <div key={page.id} className="flex items-center group shrink-0">
-              <button
-                onClick={() => editor.setCurrentPage(page.id)}
-                onDoubleClick={() => renamePage(page.id)}
-                className={`text-xs px-3 py-1.5 rounded-full transition truncate max-w-[10rem] ${
-                  active
-                    ? "bg-brand-600 text-white"
-                    : "text-[var(--text-muted)] hover:bg-[var(--hover)]"
-                }`}
-                title={`${page.name} (double-click to rename)`}
-              >
-                {page.name}
-              </button>
-              {active && pages.length > 1 && (
+              {renaming ? (
+                <input
+                  autoFocus
+                  value={renameDraft}
+                  onChange={(e) => setRenameDraft(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") commitRename();
+                    if (e.key === "Escape") setRenamingId(null);
+                  }}
+                  onFocus={(e) => e.currentTarget.select()}
+                  // Match the tab button's vertical rhythm so the pill
+                  // doesn't jump in height while editing.
+                  className="text-xs px-3 py-1.5 rounded-full bg-[var(--bg)] border border-brand-500 text-[var(--text)] outline-none w-32 max-w-[10rem]"
+                  aria-label="Rename page"
+                />
+              ) : (
+                <button
+                  onClick={() => editor.setCurrentPage(page.id)}
+                  onDoubleClick={() => startRename(page.id)}
+                  className={`text-xs px-3 py-1.5 rounded-full transition truncate max-w-[10rem] ${
+                    active
+                      ? "bg-brand-600 text-white"
+                      : "text-[var(--text-muted)] hover:bg-[var(--hover)]"
+                  }`}
+                  title={
+                    isHost
+                      ? `${page.name} (double-click to rename)`
+                      : page.name
+                  }
+                >
+                  {page.name}
+                </button>
+              )}
+              {/* Host gets a pencil affordance on the active tab so the
+                  rename action is discoverable — double-click alone is
+                  invisible without prior knowledge. Hidden while the
+                  input is open so it can't fight the blur-to-commit. */}
+              {active && isHost && !renaming && (
+                <button
+                  onClick={() => startRename(page.id)}
+                  className="text-[var(--text-dim)] hover:text-[var(--text)] px-1 inline-flex items-center"
+                  aria-label="Rename page"
+                  title="Rename page"
+                >
+                  <PencilSimple size={12} aria-hidden />
+                </button>
+              )}
+              {active && pages.length > 1 && !renaming && (
                 <button
                   onClick={() => removePage(page.id)}
                   className="text-[var(--text-dim)] hover:text-danger-600 text-xs px-1"
