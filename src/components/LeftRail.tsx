@@ -106,7 +106,21 @@ export default function LeftRail({
 
   if (!editor) return null;
 
-  const select = (toolId: string) => editor.setCurrentTool(toolId);
+  // Calling complete() before setCurrentTool mirrors what tldraw does
+  // internally when its stylus-eraser-button handler switches tools: it
+  // dispatches a "complete" event to the current tool's state node so any
+  // in-progress Pointing / Dragging state on the OLD tool exits to Idle
+  // before the new tool takes over. Without it, an in-flight pointer
+  // capture (Apple Pencil hovering near the canvas while you tap a rail
+  // button, or a finger that just released after a stroke) can leave the
+  // old tool's nested state machine stuck — the LeftRail icon flips to
+  // the new tool but the next stroke still gets routed through the old
+  // tool's Pointing handler. Symptom: "icon switches but Pencil keeps
+  // using the old tool". Safe no-op when no interaction is in flight.
+  const select = (toolId: string) => {
+    editor.complete();
+    editor.setCurrentTool(toolId);
+  };
 
   const pickColor = (name: TLDefaultColorStyle) => {
     setActiveColor(name);
