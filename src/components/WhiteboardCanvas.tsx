@@ -833,21 +833,36 @@ export default function WhiteboardCanvas({
                   };
                 },
               );
-            // Sticky notes are deliberately immune to the eraser — a note
-            // holds typed/important content, so it must be removed
-            // deliberately (select + the floating Delete pill, or
-            // Backspace), never wiped by a stray eraser stroke. We veto
-            // only deletions the LOCAL eraser triggers; the Delete pill,
-            // keyboard delete, and remote deletes (source === "remote")
-            // all pass through so clients never diverge.
+            // Two delete vetoes share one handler:
+            // (1) Sticky notes are deliberately immune to the eraser — a
+            //     note holds typed/important content, so it must be removed
+            //     deliberately (select + the floating Delete pill, or
+            //     Backspace), never wiped by a stray eraser stroke.
+            // (2) Host-uploaded assets (PDFs, dropped images, lined sheets,
+            //     page-template backgrounds, the brand logo) carry
+            //     `meta.uploadedDocument: true` at insert time. A student
+            //     can't delete those by any means — select-all + Backspace,
+            //     eraser sweep, command palette, whatever — so they can't
+            //     wipe out a worksheet the tutor has already pulled up
+            //     mid-lesson.
+            // Both vetoes only fire for `source === "user"`. Remote deletes
+            // (a host deleting on their own screen syncs to ours as
+            // `source === "remote"`) must always pass through or sync
+            // diverges and the canvas state becomes inconsistent.
             const deregisterDeleteHandler =
               editor.sideEffects.registerBeforeDeleteHandler(
                 "shape",
                 (shape, source) => {
+                  if (source !== "user") return;
                   if (
-                    source === "user" &&
                     shape.type === "note" &&
                     editor.getCurrentToolId() === "eraser"
+                  ) {
+                    return false;
+                  }
+                  if (
+                    shape.meta?.uploadedDocument === true &&
+                    !isHostRef.current
                   ) {
                     return false;
                   }
@@ -1249,6 +1264,8 @@ async function insertFileOntoCanvas(
       type: "image",
       x: center.x - dims.w / 2,
       y: center.y - dims.h / 2,
+      isLocked: true,
+      meta: { uploadedDocument: true },
       props: { assetId, w: dims.w, h: dims.h },
     });
   } finally {
@@ -1331,6 +1348,7 @@ function insertLinedSheet(
     x,
     y,
     isLocked: true,
+    meta: { uploadedDocument: true },
     props: { assetId, w, h },
   });
   if (sendBack) editor.sendToBack([shapeId]);
@@ -1445,6 +1463,7 @@ async function insertPdfAsImages(
         x,
         y,
         isLocked: true,
+        meta: { uploadedDocument: true },
         props: { assetId, w, h },
       });
 
@@ -1586,6 +1605,7 @@ async function insertPdfAsPageBackgrounds(
         x: -w / 2,
         y: -h / 2,
         isLocked: true,
+        meta: { uploadedDocument: true },
         props: { assetId, w, h },
       });
       editor.sendToBack([bgShapeId]);
@@ -1642,6 +1662,8 @@ async function insertBrandLogo(editor: Editor | null) {
     type: "image",
     x: center.x - w / 2,
     y: center.y - h / 2,
+    isLocked: true,
+    meta: { uploadedDocument: true },
     props: { assetId, w, h },
   });
 }
