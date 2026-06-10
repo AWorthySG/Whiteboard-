@@ -271,6 +271,7 @@ async function applyTemplate(editor: Editor, template: Template) {
     x: -w / 2,
     y: -h / 2,
     isLocked: true,
+    meta: { uploadedDocument: true },
     props: { assetId, w, h },
   });
   editor.sendToBack([bgShapeId]);
