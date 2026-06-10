@@ -789,6 +789,10 @@ export default function WhiteboardCanvas({
             HelperButtons: toolsCollapsed ? null : undefined,
             // Faded A Worthy logo as a fixed canvas background watermark.
             Background: CanvasWatermark,
+            // Replace tldraw's default "Error" grey rectangle with one that
+            // shows the actual JS error message — needed to diagnose the
+            // Apple-Pencil-on-iOS-18 draw-shape crash from screenshots.
+            ShapeErrorFallback: DiagnosticShapeErrorFallback,
           }}
           inferDarkMode={false}
           // Host-only "hide student work" filter. Reads the tldraw atom
@@ -1868,6 +1872,38 @@ function CanvasWatermark() {
           objectFit: "contain",
         }}
       />
+    </div>
+  );
+}
+
+// Diagnostic replacement for tldraw's default ShapeErrorFallback (which just
+// renders a grey "Error" rectangle). Shows the actual error message inside the
+// shape's bounding box so a user with no dev-tools access (e.g. iPad Safari) can
+// screenshot it. The default fallback only shows the WORD "Error", which made
+// the Apple-Pencil-on-iOS-18 crash impossible to diagnose remotely.
+function DiagnosticShapeErrorFallback({ error }: { error: unknown }) {
+  const message = error instanceof Error ? error.message : String(error);
+  const name = error instanceof Error ? error.name : "Error";
+  return (
+    <div
+      style={{
+        background: "#fef3c7",
+        border: "1px solid #f59e0b",
+        color: "#7c2d12",
+        padding: "6px 8px",
+        fontSize: "10px",
+        lineHeight: 1.3,
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+        whiteSpace: "pre-wrap",
+        wordBreak: "break-word",
+        width: "100%",
+        height: "100%",
+        boxSizing: "border-box",
+        overflow: "auto",
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>{name}</div>
+      <div>{message}</div>
     </div>
   );
 }
