@@ -6,7 +6,7 @@
     "dev": "next dev",
     "dev:sync": "cd sync-worker && npx wrangler dev --port 5858",
     "dev:all": "concurrently -k -n web,sync -c blue,magenta \"npm:dev\" \"npm:dev:sync\"",
-    "prebuild": "node scripts/cleanup-tldraw-patch.mjs",
+    "prebuild": "node scripts/cleanup-tldraw-patch.mjs && rm -rf .next/cache",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
