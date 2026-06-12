@@ -933,6 +933,7 @@ export default function WhiteboardCanvas({
         <div className="pointer-events-auto">
           <PagesTabBar
             editor={editorRef.current}
+            isHost={isHost}
             onImportPdf={
               isHost
                 ? () => openFilePicker(runPdfAsPages, "application/pdf")

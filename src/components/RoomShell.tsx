@@ -303,6 +303,11 @@ export default function RoomShell({
   } | null>(null);
   const [pagesMenuOpen, setPagesMenuOpen] = useState(false);
   const pagesMenuRef = useRef<HTMLDivElement | null>(null);
+  // Inline rename inside the Pages dropdown. null = not renaming, else
+  // the pageId whose row is swapped for an <input>. Same Enter/blur/Esc
+  // pattern as the header title and the bottom PagesTabBar.
+  const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
+  const [renamePageDraft, setRenamePageDraft] = useState("");
 
   // Close the Pages dropdown on outside click.
   useEffect(() => {
@@ -315,6 +320,33 @@ export default function RoomShell({
     window.addEventListener("mousedown", onClick);
     return () => window.removeEventListener("mousedown", onClick);
   }, [pagesMenuOpen]);
+
+  // Commit an inline page rename from the Pages dropdown. Skips no-op
+  // renames (empty string, unchanged name) so we don't trigger a sync
+  // write per blur otherwise.
+  const commitPageRename = useCallback(() => {
+    if (!renamingPageId || !pagesState) return;
+    const next = renamePageDraft.trim();
+    const page = pagesState.pages.find((p) => p.id === renamingPageId);
+    if (page && next && next !== page.name) {
+      canvasEditorRef.current?.renamePage(page.id as never, next);
+    }
+    setRenamingPageId(null);
+  }, [renamingPageId, renamePageDraft, pagesState]);
+
+  // If the dropdown is closed while a rename is still in flight, commit
+  // it. The normal blur-to-save path already covers outside-clicks
+  // (mousedown moves focus, fires blur on the input, blur runs
+  // commitPageRename, then the outside-click handler runs and closes
+  // the menu). This is a safety net for the rarer path where the menu
+  // closes WITHOUT a focus change (e.g. parent unmounting the dropdown
+  // while the rename row is mid-edit) — without it, renamingPageId
+  // would stay set and the row would re-open in edit mode next time
+  // the dropdown opens. Matches the header title's blur-to-commit
+  // behaviour: closing the surface saves rather than discards.
+  useEffect(() => {
+    if (!pagesMenuOpen && renamingPageId) commitPageRename();
+  }, [pagesMenuOpen, renamingPageId, commitPageRename]);
 
   // Dismiss the empty-room hint as soon as the canvas has any shapes
   // or more than one page. Subscribes to the editor store so freshly
@@ -690,46 +722,118 @@ export default function RoomShell({
                 {pagesState.pages.map((p, i) => {
                   const active = p.id === pagesState.currentId;
                   const thumb = pageThumbs[p.id];
+                  const renaming = renamingPageId === p.id;
+                  // Renaming rows render as a div (not a button) so the
+                  // inner <input> can take focus cleanly without the
+                  // outer button hijacking pointer events.
                   return (
-                    <button
+                    <div
                       key={p.id}
                       role="option"
                       aria-selected={active}
-                      onClick={() => {
-                        canvasSwitchPageRef.current?.(p.id);
-                        setPagesMenuOpen(false);
-                      }}
-                      className={`w-full text-left text-sm rounded-md px-2 py-2 flex items-center gap-3 ${
+                      className={`group w-full text-left text-sm rounded-md flex items-center gap-3 ${
                         active
                           ? "bg-brand-100 text-brand-800 font-medium"
-                          : "hover:bg-[var(--hover)] text-[var(--text)]"
+                          : renaming
+                            ? "bg-[var(--hover)] text-[var(--text)]"
+                            : "hover:bg-[var(--hover)] text-[var(--text)]"
                       }`}
                     >
-                      {/* Thumbnail (or placeholder if empty/loading). */}
-                      <div
-                        className={`shrink-0 w-16 h-12 rounded overflow-hidden border ${
-                          active
-                            ? "border-brand-500"
-                            : "border-[color:var(--border-subtle)]"
-                        } bg-white flex items-center justify-center`}
-                      >
-                        {thumb ? (
-                          <img
-                            src={thumb}
-                            alt=""
-                            className="w-full h-full object-contain"
-                          />
-                        ) : (
-                          <span className="text-[var(--text-dim)] text-[10px]">
-                            empty
+                      {renaming ? (
+                        <>
+                          <div
+                            className={`shrink-0 ml-2 my-2 w-16 h-12 rounded overflow-hidden border ${
+                              active
+                                ? "border-brand-500"
+                                : "border-[color:var(--border-subtle)]"
+                            } bg-white flex items-center justify-center`}
+                          >
+                            {thumb ? (
+                              <img
+                                src={thumb}
+                                alt=""
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <span className="text-[var(--text-dim)] text-[10px]">
+                                empty
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-[var(--text-dim)] w-5 shrink-0">
+                            {i + 1}.
                           </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-[var(--text-dim)] w-5 shrink-0">
-                        {i + 1}.
-                      </span>
-                      <span className="truncate">{p.name}</span>
-                    </button>
+                          <input
+                            autoFocus
+                            value={renamePageDraft}
+                            onChange={(e) =>
+                              setRenamePageDraft(e.target.value)
+                            }
+                            onBlur={commitPageRename}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") commitPageRename();
+                              if (e.key === "Escape") setRenamingPageId(null);
+                            }}
+                            onFocus={(e) => e.currentTarget.select()}
+                            className="min-w-0 flex-1 mr-2 my-2 rounded-md bg-[var(--bg)] border border-brand-500 text-[var(--text)] px-2 py-1 text-sm outline-none"
+                            aria-label="Rename page"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              canvasSwitchPageRef.current?.(p.id);
+                              setPagesMenuOpen(false);
+                            }}
+                            className="flex-1 min-w-0 text-left flex items-center gap-3 px-2 py-2"
+                          >
+                            <div
+                              className={`shrink-0 w-16 h-12 rounded overflow-hidden border ${
+                                active
+                                  ? "border-brand-500"
+                                  : "border-[color:var(--border-subtle)]"
+                              } bg-white flex items-center justify-center`}
+                            >
+                              {thumb ? (
+                                <img
+                                  src={thumb}
+                                  alt=""
+                                  className="w-full h-full object-contain"
+                                />
+                              ) : (
+                                <span className="text-[var(--text-dim)] text-[10px]">
+                                  empty
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-xs text-[var(--text-dim)] w-5 shrink-0">
+                              {i + 1}.
+                            </span>
+                            <span className="truncate">{p.name}</span>
+                          </button>
+                          {/* Host gets a per-row pencil to start an
+                              inline rename. Visible at all times (not
+                              hover-only) so it's reachable by touch on
+                              iPad — hover-revealed controls don't
+                              exist there. */}
+                          {isHost && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRenamePageDraft(p.name);
+                                setRenamingPageId(p.id);
+                              }}
+                              className="shrink-0 mr-2 my-2 p-1.5 rounded text-[var(--text-dim)] hover:bg-[var(--bg-elev-2)] hover:text-[var(--text)]"
+                              aria-label={`Rename ${p.name}`}
+                              title="Rename page"
+                            >
+                              <PencilSimple size={14} aria-hidden />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   );
                 })}
               </div>
