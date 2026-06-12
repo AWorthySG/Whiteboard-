@@ -300,17 +300,39 @@ export default function WhiteboardCanvas({
   // Sync token gates the WebSocket connection to the Cloudflare Worker.
   // We fetch one on mount (and on room/user change) and refresh ~2
   // minutes before its 15-min TTL expires so the connection never
-  // drops mid-lesson. The hook returns null until the first fetch
-  // resolves; useSync uses a placeholder URI in that window which
-  // never connects, then swaps to the real URI when the token lands.
+  // drops mid-lesson.
+  //
+  // CRITICAL: the token is read from a ref via a STABLE callback
+  // (useCallback with [roomId]), NOT interpolated into the uri string
+  // prop directly. tldraw's useSync lists `uri` in its effect deps —
+  // every time the prop's identity changes, useSync tears down the
+  // entire TLStore, creates a fresh one with a new storeId, and the
+  // host's local `instance` record (camera position, currentPageId,
+  // selection) is reset to defaults. That's how the host would land
+  // back on page 1 every ~13 minutes mid-lesson — token refresh
+  // produced a fresh URI string → store remount → "teleport to top".
+  //
+  // The function form is documented in the useSync types: the
+  // WebSocket adapter invokes it on initial connect AND each
+  // reconnect attempt, so it reads the freshest token from the ref
+  // while the store identity stays stable across refreshes.
   const syncToken = useSyncToken(roomId, userId);
-  const syncUri = useMemo(() => {
-    if (!syncToken) return null;
-    return `${SYNC_URL}/connect/${encodeURIComponent(roomId)}?token=${syncToken}`;
-  }, [roomId, syncToken]);
+  const syncTokenRef = useRef<string | null>(syncToken);
+  useEffect(() => {
+    syncTokenRef.current = syncToken;
+  }, [syncToken]);
+  const getSyncUri = useCallback(async (): Promise<string> => {
+    // Brief poll until the first token lands (typically <200ms after
+    // mount). A placeholder __pending__ URI here would burn a failing
+    // connect attempt before the real one, so wait instead.
+    while (!syncTokenRef.current) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return `${SYNC_URL}/connect/${encodeURIComponent(roomId)}?token=${syncTokenRef.current}`;
+  }, [roomId]);
 
   const store = useSync({
-    uri: syncUri ?? `${SYNC_URL}/connect/__pending__`,
+    uri: getSyncUri,
     assets: assetStore,
     userInfo: { id: userId, name: userName, color: pickColor(userId) },
   });
