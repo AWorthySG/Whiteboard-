@@ -574,6 +574,24 @@ export default function WhiteboardCanvas({
   // Mirror tldraw's page list up to the room header so the header can
   // render a Pages dropdown. Use a store listener so renames + remote
   // page edits flow through immediately.
+  //
+  // Performance note: tldraw's store fires a history entry on EVERY
+  // mutation — including every shape `updated` entry the draw tool
+  // emits during a stroke (the draw tool calls editor.updateShapes
+  // for every pointer move to extend its segments). A previous
+  // version subscribed with `scope: "all"` and called
+  // onPagesChange (= setPagesState in RoomShell) on each tick. That
+  // forced a full RoomShell re-render on every stroke point, which
+  // is exactly the pen-latency class of regression we moved the
+  // captions store out of React state to avoid. The fix has two
+  // layers:
+  // 1. Listener-side: bail before doing any work unless a `page:`
+  //    record was added/updated/removed, OR an `instance:` record's
+  //    currentPageId changed. Strokes only emit `shape:` updates,
+  //    so this cheap prefix check skips them.
+  // 2. publish-side: diff the produced { pages, currentId } against
+  //    the last one we shipped and skip the setPagesState call when
+  //    nothing meaningful changed. Belt-and-braces.
   useEffect(() => {
     if (!onPagesChange && !switchPageRef) return;
     if (switchPageRef) {
@@ -585,13 +603,46 @@ export default function WhiteboardCanvas({
     }
     let cancelled = false;
     let unsub: (() => void) | null = null;
+    let lastPagesKey = "";
+    let lastCurrentId = "";
     const publish = () => {
       const editor = editorRef.current;
       if (!editor || cancelled) return;
-      onPagesChange?.({
-        pages: editor.getPages().map((p) => ({ id: p.id, name: p.name })),
-        currentId: editor.getCurrentPageId(),
-      });
+      const pages = editor.getPages().map((p) => ({ id: p.id, name: p.name }));
+      const currentId = editor.getCurrentPageId();
+      // Cheap fingerprint: page id+name concatenation. tldraw page
+      // ids are short, names are short, total is bounded by the
+      // pages-per-room count which is small. Stable across
+      // re-orderings: tldraw's getPages() returns deterministic
+      // index-sorted order so the key only changes when something
+      // meaningful did.
+      const pagesKey = pages.map((p) => `${p.id}|${p.name}`).join(",");
+      if (pagesKey === lastPagesKey && currentId === lastCurrentId) return;
+      lastPagesKey = pagesKey;
+      lastCurrentId = currentId;
+      onPagesChange?.({ pages, currentId });
+    };
+    // Filter on the change diff. Strokes emit shape:* updates;
+    // those don't touch pages or currentPageId, so we bail without
+    // calling publish() at all on the common case.
+    const isInterestingChange = (
+      entry: import("tldraw").HistoryEntry<import("tldraw").TLRecord>,
+    ) => {
+      const ch = entry.changes;
+      for (const id in ch.added) if (id.startsWith("page:")) return true;
+      for (const id in ch.removed) if (id.startsWith("page:")) return true;
+      for (const id in ch.updated) {
+        if (id.startsWith("page:")) return true;
+        if (id.startsWith("instance:")) {
+          const pair = ch.updated[id as keyof typeof ch.updated];
+          const [from, to] = pair as [
+            { currentPageId?: string },
+            { currentPageId?: string },
+          ];
+          if (from.currentPageId !== to.currentPageId) return true;
+        }
+      }
+      return false;
     };
     // editorRef is set inside onMount; poll briefly until it's ready,
     // then attach the store listener.
@@ -600,7 +651,9 @@ export default function WhiteboardCanvas({
       if (!editor || cancelled) return;
       clearInterval(waitForEditor);
       publish();
-      unsub = editor.store.listen(publish, { scope: "all" });
+      unsub = editor.store.listen((entry) => {
+        if (isInterestingChange(entry)) publish();
+      });
     }, 50);
     return () => {
       cancelled = true;
@@ -2043,15 +2096,41 @@ function ClearAnnotationsButton({ editor, userId }: { editor: Editor | null; use
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!editor) return;
-    const update = () => {
+    const recount = () => {
       setCount(
         editor.getCurrentPageShapes().filter(
           (s) => (s.meta as Record<string, unknown>)?.authorId === userId,
         ).length,
       );
     };
-    update();
-    const unsub = editor.store.listen(update, { scope: "all" });
+    recount();
+    // The author-count only changes when shapes are ADDED or REMOVED.
+    // The draw tool emits an `updated` shape entry on every pointer
+    // move during a stroke (extending segments), so a `scope: "all"`
+    // listener that re-scans on every change runs an O(shapes) walk
+    // on every stroke point — visible jank on dense pages. Skip
+    // updates entirely; only re-scan on add/remove or page change.
+    const unsub = editor.store.listen((entry) => {
+      const ch = entry.changes;
+      for (const id in ch.added) {
+        if (id.startsWith("shape:")) return recount();
+      }
+      for (const id in ch.removed) {
+        if (id.startsWith("shape:")) return recount();
+      }
+      // Page switch: the visible page changed, so the count's domain
+      // (current page's shapes) did too even though no shape mutated.
+      for (const id in ch.updated) {
+        if (id.startsWith("instance:")) {
+          const pair = ch.updated[id as keyof typeof ch.updated];
+          const [from, to] = pair as [
+            { currentPageId?: string },
+            { currentPageId?: string },
+          ];
+          if (from.currentPageId !== to.currentPageId) return recount();
+        }
+      }
+    });
     return () => unsub();
   }, [editor, userId]);
 
