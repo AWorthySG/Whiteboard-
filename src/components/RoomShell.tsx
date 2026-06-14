@@ -244,6 +244,24 @@ export default function RoomShell({
   const canvasEditorRef = useRef<
     import("tldraw").Editor | null
   >(null);
+  // State mirror of canvasEditorRef so child components that receive
+  // `editor` as a PROP re-render once the editor mounts. The ref
+  // alone never schedules a render, so without this children mount
+  // with `editor={null}` and only "come alive" when something else
+  // re-renders the shell — fragile, currently masked by an unrelated
+  // pages-sync re-render. The ref stays for synchronous callsites
+  // (renamePage, whiteboardRecorder) so both point to the same
+  // instance in lockstep — set by `onEditor` from WhiteboardCanvas.
+  const [canvasEditor, setCanvasEditor] = useState<
+    import("tldraw").Editor | null
+  >(null);
+  const onCanvasEditor = useCallback(
+    (editor: import("tldraw").Editor | null) => {
+      canvasEditorRef.current = editor;
+      setCanvasEditor(editor);
+    },
+    [],
+  );
   // Captures the whiteboard timeline alongside the screen recording.
   // Tied to RecordButton's lifecycle via onRecordingStarted /
   // onRecordingFinished callbacks below.
@@ -1164,7 +1182,7 @@ export default function RoomShell({
             sibling, not an overlay. tldraw's bottom toolbar is
             hidden at md+ via globals.css [data-rail-active]. */}
         <LeftRail
-          editor={canvasEditorRef.current}
+          editor={canvasEditor}
           isHost={isHost}
           leaderMode={meta.leaderMode}
           annotationsHidden={annotationsHidden}
@@ -1247,6 +1265,7 @@ export default function RoomShell({
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}
+            onEditor={onCanvasEditor}
             onPagesChange={setPagesState}
           />
           <LessonTimer
@@ -1413,7 +1432,7 @@ export default function RoomShell({
           <EndLessonModal
             open={endLessonOpen}
             onClose={() => setEndLessonOpen(false)}
-            editor={canvasEditorRef.current}
+            editor={canvasEditor}
             roomId={roomId}
             roomTitle={meta.title}
             hostName={name || "Host"}
@@ -1424,7 +1443,7 @@ export default function RoomShell({
           <TemplatesModal
             open={templatesOpen}
             onClose={() => setTemplatesOpen(false)}
-            editor={canvasEditorRef.current}
+            editor={canvasEditor}
           />
         )}
         <CaptionsHost
