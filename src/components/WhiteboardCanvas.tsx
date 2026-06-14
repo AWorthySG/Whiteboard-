@@ -202,6 +202,7 @@ export default function WhiteboardCanvas({
   switchPageRef,
   pageThumbnailRef,
   editorOutRef,
+  onEditor,
 }: {
   roomId: string;
   userId: string;
@@ -231,6 +232,12 @@ export default function WhiteboardCanvas({
    *  the End Lesson modal to render every page into a PDF. Set on
    *  mount, cleared on unmount. */
   editorOutRef?: MutableRefObject<Editor | null>;
+  /** Fires on editor mount with the live instance, and on unmount
+   *  with null. Lets the parent hold the editor in STATE (not just a
+   *  ref) so children that receive `editor={...}` as a prop re-render
+   *  deterministically when the editor lands — instead of waiting on
+   *  a sibling effect to coincidentally re-render the parent. */
+  onEditor?: (editor: Editor | null) => void;
   onPagesChange?: (state: {
     pages: { id: string; name: string }[];
     currentId: string;
@@ -251,6 +258,14 @@ export default function WhiteboardCanvas({
   });
   const toast = useToast();
   const editorRef = useRef<Editor | null>(null);
+  // State mirror of editorRef. Both are set in lockstep inside
+  // onMount. Internal effects / callbacks read editorRef.current for
+  // synchronous access; child components that receive `editor` as a
+  // PROP read this state so they re-render once the editor lands.
+  // Without this, children mounted with `editor={editorRef.current}`
+  // get null on the first paint and only "come alive" when something
+  // else re-renders the parent (CLAUDE.md audit finding).
+  const [mountedEditor, setMountedEditor] = useState<Editor | null>(null);
   // Keep a ref in sync with the isHost prop so the registerBeforeCreateHandler
   // closure (set up once in onMount) always reads the current value even if
   // the host claims their room mid-session without a full remount.
@@ -876,6 +891,12 @@ export default function WhiteboardCanvas({
           onMount={(editor) => {
             editorRef.current = editor;
             if (editorOutRef) editorOutRef.current = editor;
+            // Trigger a re-render so children that receive `editor`
+            // as a prop (DeleteSelectionButton, ZoomControls, etc.)
+            // get the live instance on the very next paint instead
+            // of staying null until something else re-renders us.
+            setMountedEditor(editor);
+            onEditor?.(editor);
             // Stamp authorship on every shape as it's created so the host
             // can later hide student-drawn shapes. The originating client
             // stamps first (before sync), so when a shape arrives on a
@@ -1043,12 +1064,16 @@ export default function WhiteboardCanvas({
               window.removeEventListener("blur", clearLatchedModifiers);
               document.removeEventListener("visibilitychange", onVisibility);
               document.removeEventListener("focusin", onFocusIn);
+              editorRef.current = null;
+              if (editorOutRef) editorOutRef.current = null;
+              setMountedEditor(null);
+              onEditor?.(null);
             };
           }}
         />
       </CanvasActionsContext.Provider>
       <CanvasFloatingPanel
-        editor={editorRef.current}
+        editor={mountedEditor}
         isHost={isHost}
         leaderMode={leaderMode}
         leaderUserId={leaderUserId}
@@ -1057,9 +1082,9 @@ export default function WhiteboardCanvas({
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
       />
-      {searchOpen && editorRef.current && (
+      {searchOpen && mountedEditor && (
         <CanvasSearch
-          editor={editorRef.current}
+          editor={mountedEditor}
           onClose={() => setSearchOpen(false)}
         />
       )}
@@ -1068,7 +1093,7 @@ export default function WhiteboardCanvas({
       )}
       {/* Mobile: zoom only, above tldraw's native bottom toolbar */}
       <div className="md:hidden absolute bottom-20 left-3 z-[60]" style={{ pointerEvents: "auto" }}>
-        <ZoomControls editor={editorRef.current} />
+        <ZoomControls editor={mountedEditor} />
       </div>
       {/* Desktop: zoom + pages in a single absolutely-positioned bottom band.
           CSS grid (1fr auto 1fr) puts PagesTabBar in a true centre column and
@@ -1079,11 +1104,11 @@ export default function WhiteboardCanvas({
         style={{ gridTemplateColumns: "1fr auto 1fr" }}
       >
         <div className="pointer-events-auto flex items-center">
-          <ZoomControls editor={editorRef.current} />
+          <ZoomControls editor={mountedEditor} />
         </div>
         <div className="pointer-events-auto">
           <PagesTabBar
-            editor={editorRef.current}
+            editor={mountedEditor}
             isHost={isHost}
             onImportPdf={
               isHost
