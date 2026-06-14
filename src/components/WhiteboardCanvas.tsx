@@ -77,7 +77,7 @@ function uploadAsset(
   file: File,
   meta: UploadMeta,
   onUploadProgress?: (frac: number) => void,
-): Promise<{ url: string }> {
+): Promise<{ url: string; path: string }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseKey) {
@@ -135,12 +135,29 @@ function uploadAsset(
           console.warn("[upload] room_documents insert failed", e);
         }
       }
-      resolve({ url: publicUrl });
+      resolve({ url: publicUrl, path });
     };
     xhr.onerror = () => reject(new Error("Network error during upload"));
     xhr.onabort = () => reject(new Error("Upload cancelled"));
     xhr.send(file);
   });
+}
+
+// Best-effort sweep of Storage objects that were uploaded by a
+// rasterise-and-upload loop (e.g. insertPdfAsImages) but never got
+// a shape pointing at them — partial-failure path. Quietly swallows
+// errors: the caller is already throwing the import error and we
+// don't want a 5xx on storage cleanup to mask that.
+async function cleanupOrphanedAssets(paths: string[]) {
+  if (paths.length === 0) return;
+  try {
+    const { getSupabase } = await import("@/lib/supabase");
+    const supabase = getSupabase();
+    if (!supabase) return;
+    await supabase.storage.from("whiteboard-assets").remove(paths);
+  } catch (e) {
+    console.warn("[upload] orphan cleanup failed", e);
+  }
 }
 
 function cryptoRandomId(): string {
@@ -278,6 +295,12 @@ export default function WhiteboardCanvas({
   // host's current viewport to all guests in one broadcast.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const broadcastChannelRef = useRef<any>(null);
+  // Supabase channels need to reach "SUBSCRIBED" before .send is
+  // delivered to peers. Without this flag, a host who clicks "Bring
+  // everyone here" in the first second after page load gets a silent
+  // no-op (the channel is still in 'joining'). Tracking the status
+  // lets us toast a useful error and avoid the silent failure.
+  const broadcastChannelReadyRef = useRef(false);
   const [progress, setProgress] = useState<Progress>(null);
   const [searchOpen, setSearchOpen]     = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -807,9 +830,12 @@ export default function WhiteboardCanvas({
         const { x, y, w, h } = msg.payload;
         editor.zoomToBounds({ x, y, w, h }, { inset: 24, animation: { duration: 400 } });
       })
-      .subscribe();
+      .subscribe((status: string) => {
+        broadcastChannelReadyRef.current = status === "SUBSCRIBED";
+      });
     broadcastChannelRef.current = channel;
     return () => {
+      broadcastChannelReadyRef.current = false;
       void supabase.removeChannel(channel);
       broadcastChannelRef.current = null;
     };
@@ -819,9 +845,22 @@ export default function WhiteboardCanvas({
     const editor = editorRef.current;
     const channel = broadcastChannelRef.current;
     if (!editor || !channel) return;
+    if (!broadcastChannelReadyRef.current) {
+      toast.error("Still connecting — try again in a second.");
+      return;
+    }
     const b = editor.getViewportPageBounds();
-    void channel.send({ type: "broadcast", event: "vp", payload: { x: b.x, y: b.y, w: b.w, h: b.h } });
-  }, []);
+    void channel
+      .send({ type: "broadcast", event: "vp", payload: { x: b.x, y: b.y, w: b.w, h: b.h } })
+      .then((res: unknown) => {
+        if (res !== "ok") {
+          toast.error("Couldn't send the viewport — please retry.");
+        }
+      })
+      .catch(() => {
+        toast.error("Couldn't send the viewport — please retry.");
+      });
+  }, [toast]);
 
   // Expose the viewport broadcast so the host control can live in the
   // LeftRail (desktop) and the mobile "More" menu instead of a floating
@@ -1550,12 +1589,20 @@ async function insertPdfAsImages(
   const center = editor.getViewportPageBounds().center;
   const totalPages = doc.numPages;
 
+  // Track every successfully-uploaded asset path so we can sweep
+  // orphans on partial failure (mid-loop network drop / pdf.js
+  // render error / canvas tainted). Without this, already-uploaded
+  // PNGs sit in Storage with no DB row and no shape pointing at
+  // them — silent accumulation against the 1 GB free tier.
+  const uploadedPaths: string[] = [];
+
   // Upload the original PDF file itself ONCE, so the Documents drawer
   // shows a single entry per PDF rather than one per rasterised page.
   // Best-effort — if the upload fails, we still rasterise the pages
   // onto the canvas so the lesson isn't blocked.
   try {
-    await uploadAsset(file, { ...meta, originalName: file.name });
+    const { path } = await uploadAsset(file, { ...meta, originalName: file.name });
+    uploadedPaths.push(path);
   } catch (e) {
     console.warn("[pdf] original-PDF upload failed", e);
   }
@@ -1593,7 +1640,7 @@ async function insertPdfAsImages(
         type: "image/png",
       });
 
-      const { url } = await uploadAsset(
+      const { url, path: pagePath } = await uploadAsset(
         pngFile,
         { ...meta, originalName: pngFile.name, skipDocumentInsert: true },
         (frac) => {
@@ -1603,6 +1650,7 @@ async function insertPdfAsImages(
           });
         },
       );
+      uploadedPaths.push(pagePath);
 
       const w = viewport.width / renderScale;
       const h = viewport.height / renderScale;
@@ -1655,6 +1703,15 @@ async function insertPdfAsImages(
         offset += h + gap;
       }
     }
+  } catch (err) {
+    // Mid-loop failure: sweep any PNGs / the original PDF we already
+    // uploaded so the bucket doesn't accumulate dead files. Best-
+    // effort — if cleanup itself fails, just log; the import error
+    // is what the caller cares about.
+    if (uploadedPaths.length) {
+      void cleanupOrphanedAssets(uploadedPaths);
+    }
+    throw err;
   } finally {
     onProgress(null);
   }
@@ -1686,10 +1743,15 @@ async function insertPdfAsPageBackgrounds(
   const totalPages = doc.numPages;
   const base = file.name.replace(/\.pdf$/i, "");
 
+  // See insertPdfAsImages for the rationale on tracking + sweeping
+  // uploaded paths on partial failure.
+  const uploadedPaths: string[] = [];
+
   // Upload the original PDF once so it also shows in the Documents
   // drawer (best-effort — a failure here shouldn't block the import).
   try {
-    await uploadAsset(file, { ...meta, originalName: file.name });
+    const { path } = await uploadAsset(file, { ...meta, originalName: file.name });
+    uploadedPaths.push(path);
   } catch (e) {
     console.warn("[pdf] original-PDF upload failed", e);
   }
@@ -1726,7 +1788,7 @@ async function insertPdfAsPageBackgrounds(
         type: "image/png",
       });
 
-      const { url } = await uploadAsset(
+      const { url, path: pagePath } = await uploadAsset(
         pngFile,
         { ...meta, originalName: pngFile.name, skipDocumentInsert: true },
         (frac) => {
@@ -1736,6 +1798,7 @@ async function insertPdfAsPageBackgrounds(
           });
         },
       );
+      uploadedPaths.push(pagePath);
 
       const w = viewport.width / renderScale;
       const h = viewport.height / renderScale;
@@ -1799,6 +1862,11 @@ async function insertPdfAsPageBackgrounds(
         // browsers — non-fatal, the page is still created.
       }
     }
+  } catch (err) {
+    if (uploadedPaths.length) {
+      void cleanupOrphanedAssets(uploadedPaths);
+    }
+    throw err;
   } finally {
     onProgress(null);
   }
