@@ -13,7 +13,12 @@ import {
   useRoomContext,
   useTracks,
 } from "@livekit/components-react";
-import { ConnectionQuality, Track, type LocalTrack } from "livekit-client";
+import {
+  ConnectionQuality,
+  DefaultReconnectPolicy,
+  Track,
+  type LocalTrack,
+} from "livekit-client";
 import type { Participant } from "livekit-client";
 import {
   BellSlash,
@@ -31,6 +36,28 @@ import CaptionsManager from "./CaptionsManager";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
+
+// More patient than livekit-client's default reconnect policy. The
+// stock policy retries 10 times at [0, 300, 1200, 2700, 4800, 7000,
+// 7000, 7000, 7000, 7000] ms — total budget ~42s before
+// onDisconnected fires and our "Call dropped. Reconnecting…" panel
+// takes over. On flaky tutoring-from-home networks, a ~1-minute
+// Wi-Fi flutter (router reboot, 5G/Wi-Fi handoff, kid loading
+// YouTube) was tipping past 42s and showing the disconnect screen
+// mid-lesson. We keep the early aggressive retries for sub-second
+// blips (no spurious user-visible churn), then settle into 10-second
+// steady tries for another ~2 minutes. Total budget ~2m45s — long
+// enough to silently ride out a kettle-boil-grade outage. If the
+// network is genuinely dead beyond that, the "Call dropped" path
+// still takes over.
+const PATIENT_LIVEKIT_RECONNECT_DELAYS_MS = [
+  0, 300, 1200, 2700, 4800, 7000,
+  10_000, 10_000, 10_000, 10_000, 10_000, 10_000,
+  10_000, 10_000, 10_000, 10_000, 10_000, 10_000,
+];
+const PATIENT_LIVEKIT_RECONNECT_POLICY = new DefaultReconnectPolicy(
+  PATIENT_LIVEKIT_RECONNECT_DELAYS_MS,
+);
 
 export default function VideoPanel({
   roomId,
@@ -280,6 +307,11 @@ export default function VideoPanel({
         // Release the local microphone hardware when the user mutes,
         // so the system mic indicator turns off.
         publishDefaults: { stopMicTrackOnMute: true },
+        // Stretch the internal reconnect window from ~42s to ~2m45s
+        // so a network blip resolves silently inside LiveKit instead
+        // of bouncing us through our "Call dropped" UI. See the
+        // PATIENT_LIVEKIT_RECONNECT_DELAYS_MS comment above.
+        reconnectPolicy: PATIENT_LIVEKIT_RECONNECT_POLICY,
       }}
     >
       <div className="flex flex-col h-full">
