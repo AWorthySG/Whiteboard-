@@ -26,14 +26,17 @@ export default function ZoomControls({ editor }: { editor: Editor | null }) {
     return () => unsub();
   }, [editor]);
 
-  // Close preset menu on outside click.
+  // Close preset menu on outside tap/click. pointerdown unifies
+  // mouse, pen, and touch — a plain `mousedown` listener misses
+  // tablet taps when a tldraw pointer interaction stops the
+  // synthetic mouse event from bubbling.
   useEffect(() => {
     if (!menuOpen) return;
-    const onClick = (e: MouseEvent) => {
+    const onClick = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
     };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    window.addEventListener("pointerdown", onClick);
+    return () => window.removeEventListener("pointerdown", onClick);
   }, [menuOpen]);
 
   if (!editor) return null;

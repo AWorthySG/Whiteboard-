@@ -489,15 +489,20 @@ export default function WhiteboardCanvas({
   // student mid-lesson. When the grant flips to us, switch to draw;
   // when it flips away (and we're not the host), drop back to hand.
   useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor || isHost) return;
+    // Read from `mountedEditor` (state, in deps) rather than
+    // `editorRef.current` (ref, not in deps). If the host grants
+    // draw to a student whose canvas is still loading, the effect
+    // used to run once with editor === null and never re-run —
+    // leaving the student stuck on the hand tool despite the grant.
+    // Now the effect re-runs once the editor lands.
+    if (!mountedEditor || isHost) return;
     const hasDrawGrant = drawGrantUserId === userId;
-    if (hasDrawGrant && editor.getCurrentToolId() === "hand") {
-      editor.setCurrentTool("draw");
-    } else if (!hasDrawGrant && editor.getCurrentToolId() === "draw") {
-      editor.setCurrentTool("hand");
+    if (hasDrawGrant && mountedEditor.getCurrentToolId() === "hand") {
+      mountedEditor.setCurrentTool("draw");
+    } else if (!hasDrawGrant && mountedEditor.getCurrentToolId() === "draw") {
+      mountedEditor.setCurrentTool("hand");
     }
-  }, [drawGrantUserId, userId, isHost]);
+  }, [mountedEditor, drawGrantUserId, userId, isHost]);
 
   // try/catch because they can throw on iOS Safari before tldraw's
   // presence layer is fully initialised.

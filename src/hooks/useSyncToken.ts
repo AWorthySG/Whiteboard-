@@ -19,6 +19,13 @@ export function useSyncToken(
     if (!roomId || !userId) return;
     let cancelled = false;
     let refreshTimer: number | null = null;
+    // Abort an in-flight token fetch when the hook tears down (room
+    // change, unmount). The `cancelled` flag already guards against
+    // resolved-after-unmount setState, but without the abort the
+    // network request still completes and its response is decoded
+    // before the guard catches it — wasted work, and on a slow
+    // /api/sync-token the request can outlive the route.
+    const controller = new AbortController();
 
     const fetchOnce = async () => {
       try {
@@ -26,6 +33,7 @@ export function useSyncToken(
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ roomId, userId }),
+          signal: controller.signal,
         });
         if (!res.ok) {
           // 403 = not admitted yet. KnockGate is the gate; this hook
@@ -48,16 +56,19 @@ export function useSyncToken(
           data.expiresAt - Date.now() - REFRESH_BEFORE_EXPIRY_MS,
         );
         refreshTimer = window.setTimeout(fetchOnce, refreshAt);
-      } catch {
-        if (!cancelled) {
-          refreshTimer = window.setTimeout(fetchOnce, 5_000);
-        }
+      } catch (e) {
+        // AbortError on unmount/room change: nothing to do, the
+        // effect is going away. Anything else: backoff and retry.
+        if (cancelled) return;
+        if ((e as { name?: string })?.name === "AbortError") return;
+        refreshTimer = window.setTimeout(fetchOnce, 5_000);
       }
     };
 
     void fetchOnce();
     return () => {
       cancelled = true;
+      controller.abort();
       if (refreshTimer !== null) window.clearTimeout(refreshTimer);
     };
   }, [roomId, userId]);
