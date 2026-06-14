@@ -47,14 +47,17 @@ export default function PagesTabBar({
   const [renameDraft, setRenameDraft] = useState("");
   const toast = useToast();
 
-  // Close template menu when clicking outside.
+  // Close template menu when tapping/clicking outside. pointerdown
+  // unifies mouse, pen, and touch — a plain `mousedown` listener
+  // misses tablet taps when a tldraw pointer interaction stops the
+  // synthetic mouse event from bubbling.
   useEffect(() => {
     if (!menuOpen) return;
-    const onClick = (e: MouseEvent) => {
+    const onClick = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
     };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    window.addEventListener("pointerdown", onClick);
+    return () => window.removeEventListener("pointerdown", onClick);
   }, [menuOpen]);
 
   useEffect(() => {
