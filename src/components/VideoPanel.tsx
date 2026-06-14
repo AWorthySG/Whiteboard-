@@ -16,6 +16,7 @@ import {
 import {
   ConnectionQuality,
   DefaultReconnectPolicy,
+  DisconnectReason,
   Track,
   type LocalTrack,
 } from "livekit-client";
@@ -58,6 +59,41 @@ const PATIENT_LIVEKIT_RECONNECT_DELAYS_MS = [
 const PATIENT_LIVEKIT_RECONNECT_POLICY = new DefaultReconnectPolicy(
   PATIENT_LIVEKIT_RECONNECT_DELAYS_MS,
 );
+
+// Human-friendly label for the disconnect reason livekit-client gives
+// us in onDisconnected. We surface this in the "Call dropped" panel
+// so a drop carries enough context to diagnose (esp. DUPLICATE_IDENTITY,
+// which means another tab/device on the same browser took our slot).
+function describeDisconnectReason(reason: DisconnectReason | undefined): string {
+  switch (reason) {
+    case DisconnectReason.DUPLICATE_IDENTITY:
+      return "Joined from another tab or device";
+    case DisconnectReason.SERVER_SHUTDOWN:
+      return "Call server restarted";
+    case DisconnectReason.PARTICIPANT_REMOVED:
+      return "Removed from the room";
+    case DisconnectReason.ROOM_DELETED:
+      return "Room closed";
+    case DisconnectReason.STATE_MISMATCH:
+      return "Sync state mismatch";
+    case DisconnectReason.JOIN_FAILURE:
+      return "Couldn't join the room";
+    case DisconnectReason.MIGRATION:
+      return "Server migration";
+    case DisconnectReason.SIGNAL_CLOSE:
+      return "Connection to call server lost";
+    case DisconnectReason.CONNECTION_TIMEOUT:
+      return "Connection timed out";
+    case DisconnectReason.MEDIA_FAILURE:
+      return "Audio/video stream failed";
+    case DisconnectReason.CLIENT_INITIATED:
+      return "You ended the call";
+    case DisconnectReason.UNKNOWN_REASON:
+    case undefined:
+    default:
+      return "Connection lost";
+  }
+}
 
 export default function VideoPanel({
   roomId,
@@ -113,6 +149,17 @@ export default function VideoPanel({
   // auto-reconnect on drops instead of silently showing the rejoin screen.
   const intentionalLeaveRef = useRef(false);
   const [dropped, setDropped] = useState(false);
+  // Reason livekit-client gave us on the most recent unexpected drop.
+  // Surfaced in the dropped panel so the user has actual diagnostic
+  // signal ("Joined from another tab or device" vs. "Connection lost").
+  // Some reasons (notably DUPLICATE_IDENTITY) ALSO change behaviour:
+  // we skip auto-reconnect so two tabs in the same browser don't
+  // ping-pong kicking each other every 3 seconds.
+  const [dropReason, setDropReason] = useState<DisconnectReason | undefined>(
+    undefined,
+  );
+  const dropWasDuplicateIdentity =
+    dropReason === DisconnectReason.DUPLICATE_IDENTITY;
   // Tracks whether the user has successfully been in the call at least once
   // this session — used to show "Join the call" vs "You've left" messaging.
   const hasJoinedBeforeRef = useRef(false);
@@ -143,15 +190,22 @@ export default function VideoPanel({
   }, [roomId, userName, userId]);
 
   // Auto-reconnect after an unexpected drop. 3-second delay gives the
-  // network a moment to recover before we hammer the server.
+  // network a moment to recover before we hammer the server. We skip
+  // this entirely on DUPLICATE_IDENTITY: another tab/device on the
+  // same browser took our LiveKit slot (identity is `u-<userId>`,
+  // derived from per-browser localStorage). Auto-reconnecting here
+  // would kick the OTHER tab, which would then auto-reconnect and
+  // kick us, forever. Require manual user action to take the slot
+  // back, after they (hopefully) close the other tab.
   useEffect(() => {
     if (!dropped || inCall) return;
+    if (dropWasDuplicateIdentity) return;
     const t = window.setTimeout(() => {
       setDropped(false);
       setInCall(true);
     }, 3000);
     return () => window.clearTimeout(t);
-  }, [dropped, inCall]);
+  }, [dropped, inCall, dropWasDuplicateIdentity]);
 
   // Record that the user has been in the call at least once this session
   // so we can distinguish "never joined" from "intentionally left".
@@ -181,19 +235,68 @@ export default function VideoPanel({
 
   if (!inCall) {
     if (dropped) {
+      // DUPLICATE_IDENTITY gets its own copy: the auto-reconnect is
+      // intentionally suppressed (ping-pong avoidance — see the
+      // auto-reconnect effect above), and the action the user needs
+      // to take is different (close the other tab/device, not wait).
+      if (dropWasDuplicateIdentity) {
+        return (
+          <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
+            <p className="text-sm font-medium text-[var(--text)]">
+              You joined this call from another tab or device.
+            </p>
+            <p className="text-xs text-[var(--text-muted)] max-w-[18rem]">
+              The other window is now in the call. Close it (or just
+              switch to it) — auto-reconnect is paused here so the two
+              don&apos;t keep kicking each other.
+            </p>
+            <button
+              onClick={() => {
+                setDropped(false);
+                setDropReason(undefined);
+                setInCall(true);
+              }}
+              className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium mt-2"
+            >
+              Take the call back here
+            </button>
+            <button
+              onClick={() => {
+                setDropped(false);
+                setDropReason(undefined);
+                onLeaveCall?.();
+              }}
+              className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
+            >
+              Stay on whiteboard only
+            </button>
+          </div>
+        );
+      }
       return (
         <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
           <p className="text-sm text-[var(--text-muted)]">
             Call dropped. Reconnecting…
           </p>
+          <p className="text-xs text-[var(--text-dim)]">
+            Reason: {describeDisconnectReason(dropReason)}
+          </p>
           <button
-            onClick={() => { setDropped(false); setInCall(true); }}
+            onClick={() => {
+              setDropped(false);
+              setDropReason(undefined);
+              setInCall(true);
+            }}
             className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
           >
             Reconnect now
           </button>
           <button
-            onClick={() => { setDropped(false); onLeaveCall?.(); }}
+            onClick={() => {
+              setDropped(false);
+              setDropReason(undefined);
+              onLeaveCall?.();
+            }}
             className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
           >
             Stay on whiteboard only
@@ -290,15 +393,17 @@ export default function VideoPanel({
       audio={initialMic}
       data-lk-theme="default"
       style={{ height: "100%" }}
-      onDisconnected={() => {
+      onDisconnected={(reason) => {
         if (intentionalLeaveRef.current) {
           intentionalLeaveRef.current = false;
           setDropped(false);
+          setDropReason(undefined);
           setInCall(false);
           // Propagate to RoomShell so it can unmount VideoPanel and show
           // the whiteboard-only state with a clear "Join call" button.
           onLeaveCall?.();
         } else {
+          setDropReason(reason);
           setDropped(true);
           setInCall(false);
         }
