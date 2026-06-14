@@ -911,9 +911,85 @@ export default function WhiteboardCanvas({
             if (appSettings.penOnly) {
               editor.updateInstanceState({ isPenMode: true });
             }
+
+            // --- Stray straight-line guard (Apple Pencil) ----------
+            // tldraw's draw tool enters "straight line" mode whenever
+            // editor.inputs.shiftKey is true at pointer-down, and the
+            // draw tool's state node keeps `initialShape` from the
+            // PREVIOUS stroke. So a stale shiftKey makes the next
+            // pencil-down draw a straight line from the last stroke's
+            // endpoint to the pen — "a random straight line out of
+            // nowhere where my pencil tip is."
+            //
+            // shiftKey latches stale because: (1) tldraw binds its key
+            // listeners to its own container and ignores keyups while
+            // unfocused, with NO window-blur reset, so a Shift keyup is
+            // dropped whenever focus leaves the canvas while Shift is
+            // held; and (2) on pointer-down tldraw doesn't clear a
+            // stale shiftKey synchronously — it schedules a 150 ms
+            // timeout — but startShape() reads inputs.shiftKey BEFORE
+            // that timeout fires.
+            //
+            // Fix: a capture-phase pointerdown listener (runs before
+            // tldraw processes the event) re-syncs the modifier flags
+            // from the event's authoritative OS state, so startShape()
+            // reads the truth. Plus blur/visibility/focus-out handlers
+            // proactively clear any latched modifiers and null the
+            // draw/highlight tools' carried-over initialShape so a new
+            // stroke can never connect back to an earlier one.
+            const ed = editor;
+            const syncModifiersFromEvent = (e: PointerEvent) => {
+              ed.inputs.shiftKey = e.shiftKey;
+              ed.inputs.ctrlKey = e.ctrlKey || e.metaKey;
+              ed.inputs.altKey = e.altKey;
+              ed.inputs.metaKey = e.metaKey;
+            };
+            const clearLatchedModifiers = () => {
+              ed.inputs.shiftKey = false;
+              ed.inputs.ctrlKey = false;
+              ed.inputs.altKey = false;
+              ed.inputs.metaKey = false;
+              ed.inputs.keys.clear();
+              // Don't disturb a stroke that's mid-draw.
+              if (ed.isIn("draw.drawing") || ed.isIn("highlight.drawing")) {
+                return;
+              }
+              for (const path of ["draw.drawing", "highlight.drawing"]) {
+                const node = ed.getStateDescendant(path) as
+                  | { initialShape?: unknown }
+                  | undefined;
+                if (node) node.initialShape = undefined;
+              }
+            };
+            const onVisibility = () => {
+              if (document.visibilityState === "hidden") clearLatchedModifiers();
+            };
+            const onFocusIn = (e: FocusEvent) => {
+              const container = wrapperRef.current;
+              if (
+                container &&
+                e.target instanceof Node &&
+                !container.contains(e.target)
+              ) {
+                clearLatchedModifiers();
+              }
+            };
+            window.addEventListener("pointerdown", syncModifiersFromEvent, true);
+            window.addEventListener("blur", clearLatchedModifiers);
+            document.addEventListener("visibilitychange", onVisibility);
+            document.addEventListener("focusin", onFocusIn);
+
             return () => {
               deregisterCreateHandler();
               deregisterDeleteHandler();
+              window.removeEventListener(
+                "pointerdown",
+                syncModifiersFromEvent,
+                true,
+              );
+              window.removeEventListener("blur", clearLatchedModifiers);
+              document.removeEventListener("visibilitychange", onVisibility);
+              document.removeEventListener("focusin", onFocusIn);
             };
           }}
         />
