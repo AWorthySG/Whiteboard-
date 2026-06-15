@@ -51,7 +51,7 @@ const SECTIONS: Section[] = [
 
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded border border-[color:var(--border)] bg-[var(--bg-elev-2,#f1f5f9)] text-[11px] font-mono shadow-sm leading-tight">
+    <kbd className="inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded border border-[color:var(--border)] bg-[var(--bg-elev-2,#f1f5f9)] text-[11px] font-semibold shadow-sm leading-tight">
       {children}
     </kbd>
   );

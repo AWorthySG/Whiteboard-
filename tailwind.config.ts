@@ -29,7 +29,14 @@ export default {
         },
       },
       fontFamily: {
+        // All three families resolve to Nunito (loaded as the
+        // --font-sans CSS variable by next/font in app/layout.tsx).
+        // The app's typography is intentionally a single family —
+        // having `font-mono` and `font-hand` still point at Nunito
+        // means any leftover `font-mono` utility class in the tree
+        // can't accidentally drop in a system monospace.
         sans: [
+          "var(--font-sans)",
           "Nunito",
           "ui-sans-serif",
           "system-ui",
@@ -40,15 +47,35 @@ export default {
           "Arial",
           "sans-serif",
         ],
-        hand: ["Caveat", "Comic Sans MS", "cursive"],
-        mono: [
-          "JetBrains Mono",
-          "ui-monospace",
-          "SFMono-Regular",
-          "Menlo",
-          "Consolas",
-          "monospace",
+        hand: [
+          "var(--font-sans)",
+          "Nunito",
+          "ui-sans-serif",
+          "sans-serif",
         ],
+        mono: [
+          "var(--font-sans)",
+          "Nunito",
+          "ui-sans-serif",
+          "sans-serif",
+        ],
+      },
+      // Scaled-up radius scale — softer edges across the whole app
+      // without losing crispness. Buttons land around 8–10px, cards
+      // around 14px, modals around 18px, drawers around 24px. Tldraw's
+      // own chrome (which uses its own --radius-* variables) is
+      // bumped in globals.css to match. `full` is intentionally left
+      // alone so pills + avatars stay perfectly round.
+      borderRadius: {
+        none: "0",
+        sm: "4px",
+        DEFAULT: "6px",
+        md: "10px",
+        lg: "14px",
+        xl: "18px",
+        "2xl": "24px",
+        "3xl": "32px",
+        full: "9999px",
       },
     },
   },

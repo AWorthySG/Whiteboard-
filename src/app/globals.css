@@ -57,6 +57,48 @@ body,
     -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+/* Defensive: force Nunito on every element. body's font-family
+   already cascades through inheritance, but any vendor stylesheet
+   that sets its own font-family (LiveKit's @livekit/components-styles
+   for instance, or a tldraw label) would otherwise override it.
+   `inherit` lets each child re-inherit the body's resolved Nunito
+   family instead of falling back to that vendor default. */
+* {
+  font-family: inherit;
+}
+
+/* Tldraw ships its own font set: 'tldraw_sans' for chrome labels,
+   'tldraw_mono' for code-style bits, 'tldraw_draw' for the
+   handwriting-style draw font users pick INSIDE a text shape.
+   Override the sans + mono UI fonts so the toolbar / dialog labels
+   match the rest of the app in Nunito. Leave --tl-font-draw alone
+   — that's a user-content choice, not chrome. */
+.tldraw-shell,
+.tl-container {
+  --tl-font-sans: var(--font-sans), "Nunito", ui-sans-serif, sans-serif;
+  --tl-font-mono: var(--font-sans), "Nunito", ui-sans-serif, sans-serif;
+  --tl-font-serif: var(--font-sans), "Nunito", ui-sans-serif, sans-serif;
+  /* Bump tldraw's internal radius scale ~1.5× so the canvas chrome
+     (toolbar, color picker, dialogs) matches our app-wide rounder
+     feel. Pairs with the Tailwind borderRadius rescale. */
+  --radius-1: 6px;
+  --radius-2: 10px;
+  --radius-3: 14px;
+  --radius-4: 18px;
+}
+
+/* LiveKit's stylesheet hardcodes --lk-font-family to system-ui via
+   [data-lk-theme=default] (specificity 0,1,0) and is imported AFTER
+   globals.css in layout.tsx, so a plain attribute selector loses on
+   source order. Doubling the attribute bumps us to 0,2,0 which wins
+   regardless. Bumps --lk-border-radius too so the call panel, tiles,
+   and chat bubble pick up the softer corners. */
+[data-lk-theme][data-lk-theme] {
+  --lk-font-family: var(--font-sans), "Nunito", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --lk-border-radius: 0.625rem;
+}
+
 /* Phase 4: hide tldraw's native bottom toolbar at md+ since we
    render our own LeftRail there. Phones (<md) keep the native
    toolbar because the left rail would eat too much screen width
@@ -142,7 +184,7 @@ html[data-theme="light"] .tl-canvas {
 .btn-primary {
   background-color: rgb(37 99 235);
   color: #fff;
-  border-radius: 0.375rem;
+  border-radius: 0.625rem;
   padding: 0.375rem 0.875rem;
   font-size: 0.875rem;
   font-weight: 500;
@@ -160,7 +202,7 @@ html[data-theme="light"] .tl-canvas {
 .btn-secondary {
   background-color: rgb(219 234 254);
   color: rgb(30 64 175);
-  border-radius: 0.375rem;
+  border-radius: 0.625rem;
   padding: 0.375rem 0.875rem;
   font-size: 0.875rem;
   font-weight: 500;
@@ -175,7 +217,7 @@ html[data-theme="light"] .tl-canvas {
   background-color: transparent;
   color: var(--text-muted);
   border: 1px solid var(--border);
-  border-radius: 0.375rem;
+  border-radius: 0.625rem;
   padding: 0.375rem 0.875rem;
   font-size: 0.875rem;
   font-weight: 500;
@@ -256,7 +298,7 @@ html[data-theme="light"] .tl-canvas {
 :focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 /* tldraw renders its own interaction layer with its own focus styles, so
    suppress the global outline only INSIDE tldraw's own container
