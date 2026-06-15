@@ -236,7 +236,7 @@ export default function InvitePanel({
                     <input
                       readOnly
                       value={magicLink}
-                      className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-xs font-mono text-[var(--text)] outline-none"
+                      className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-xs text-[var(--text)] outline-none"
                       onFocus={(e) => e.currentTarget.select()}
                     />
                     <button

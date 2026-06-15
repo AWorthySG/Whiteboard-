@@ -25,7 +25,7 @@ export default function RecordingIndicator({
           screaming. Pulsing dot signals 'live, not paused'. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute top-3 left-3 z-[70] inline-flex items-center gap-1.5 px-2 py-1 rounded font-mono text-[10px] font-bold tracking-widest uppercase bg-[color:var(--destructive)] text-white shadow-md"
+        className="pointer-events-none absolute top-3 left-3 z-[70] inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase bg-[color:var(--destructive)] text-white shadow-md"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
         REC
