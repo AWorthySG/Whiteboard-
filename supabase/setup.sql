@@ -241,15 +241,39 @@ create index if not exists join_requests_room_idx on public.join_requests (room_
 alter table public.join_requests enable row level security;
 drop policy if exists "Public read join_requests" on public.join_requests;
 create policy "Public read join_requests" on public.join_requests for select using (true);
+-- INSERT: guests may only self-assign status 'pending' (a knock); the room's
+-- authenticated host may insert any status (their own self-admit row). This
+-- blocks the anon-key self-admit bypass (inserting a fresh 'admitted' row via
+-- the REST API). See migration 20260705120000_admission_rls_hardening.sql.
 drop policy if exists "Public insert join_requests" on public.join_requests;
-create policy "Public insert join_requests" on public.join_requests for insert with check (true);
--- UPDATE restricted to authenticated users: prevents unauthenticated guests
--- from self-admitting via the REST API. /api/invite/redeem uses the
+drop policy if exists "Insert join_requests" on public.join_requests;
+create policy "Insert join_requests" on public.join_requests
+  for insert
+  with check (
+    status = 'pending'
+    or auth.uid() = (
+      select host_user_id from public.rooms where id = room_id
+    )
+  );
+-- UPDATE restricted to the room's authenticated HOST (not just any signed-in
+-- user): admit / deny / remove / re-admit. /api/invite/redeem uses the
 -- service_role key (bypasses RLS) for magic-link auto-admission.
 drop policy if exists "Public update join_requests" on public.join_requests;
 drop policy if exists "Auth update join_requests" on public.join_requests;
-create policy "Auth update join_requests" on public.join_requests
-  for update to authenticated using (true);
+drop policy if exists "Host update join_requests" on public.join_requests;
+create policy "Host update join_requests" on public.join_requests
+  for update
+  to authenticated
+  using (
+    auth.uid() = (
+      select host_user_id from public.rooms where id = room_id
+    )
+  )
+  with check (
+    auth.uid() = (
+      select host_user_id from public.rooms where id = room_id
+    )
+  );
 
 -- -----------------------------------------------------------------
 -- room_templates — a host's private, account-scoped library of
