@@ -1594,20 +1594,27 @@ async function insertPdfAsImages(
   const center = editor.getViewportPageBounds().center;
   const totalPages = doc.numPages;
 
-  // Track every successfully-uploaded asset path so we can sweep
-  // orphans on partial failure (mid-loop network drop / pdf.js
-  // render error / canvas tainted). Without this, already-uploaded
-  // PNGs sit in Storage with no DB row and no shape pointing at
-  // them — silent accumulation against the 1 GB free tier.
-  const uploadedPaths: string[] = [];
+  // Track uploaded page PNGs that are NOT yet referenced by a placed
+  // canvas shape, so partial-failure cleanup sweeps only genuine
+  // orphans (mid-loop network drop / pdf.js render error / canvas
+  // tainted). A path is added right after its upload and REMOVED the
+  // instant its shape lands on the canvas — so a LATER page's failure
+  // can never delete an image that's already on the board (and synced
+  // to every client), which would leave a permanently-broken image for
+  // everyone. Anything still in this list when the loop throws is
+  // genuinely unreferenced and safe to delete.
+  const orphanPaths: string[] = [];
 
   // Upload the original PDF file itself ONCE, so the Documents drawer
   // shows a single entry per PDF rather than one per rasterised page.
   // Best-effort — if the upload fails, we still rasterise the pages
-  // onto the canvas so the lesson isn't blocked.
+  // onto the canvas so the lesson isn't blocked. Deliberately NOT added
+  // to orphanPaths: uploadAsset inserts a room_documents row for it, so
+  // it's referenced by the Documents drawer and is never an orphan —
+  // sweeping its storage on a page-loop failure would strand that row
+  // pointing at a deleted file.
   try {
-    const { path } = await uploadAsset(file, { ...meta, originalName: file.name });
-    uploadedPaths.push(path);
+    await uploadAsset(file, { ...meta, originalName: file.name });
   } catch (e) {
     console.warn("[pdf] original-PDF upload failed", e);
   }
@@ -1655,7 +1662,8 @@ async function insertPdfAsImages(
           });
         },
       );
-      uploadedPaths.push(pagePath);
+      // Orphan until its shape lands (see orphanPaths declaration).
+      orphanPaths.push(pagePath);
 
       const w = viewport.width / renderScale;
       const h = viewport.height / renderScale;
@@ -1693,6 +1701,11 @@ async function insertPdfAsImages(
         props: { assetId, w, h },
       });
 
+      // Shape placed → this PNG is now referenced by a canvas shape and
+      // is no longer an orphan. Remove it so a later page's failure
+      // can't sweep an image that's already on the board.
+      orphanPaths.pop();
+
       // Blank ruled answer sheet, same size as the page, placed directly to
       // its right so students can write where the worksheet has no space.
       if (writingSpace) {
@@ -1709,12 +1722,14 @@ async function insertPdfAsImages(
       }
     }
   } catch (err) {
-    // Mid-loop failure: sweep any PNGs / the original PDF we already
-    // uploaded so the bucket doesn't accumulate dead files. Best-
-    // effort — if cleanup itself fails, just log; the import error
+    // Mid-loop failure: sweep only the page PNGs whose shapes never
+    // landed (orphanPaths). Pages already on the canvas — and the
+    // original PDF, which has its own Documents row — are intentionally
+    // left in Storage so nothing on the board points at a deleted file.
+    // Best-effort — if cleanup itself fails, just log; the import error
     // is what the caller cares about.
-    if (uploadedPaths.length) {
-      void cleanupOrphanedAssets(uploadedPaths);
+    if (orphanPaths.length) {
+      void cleanupOrphanedAssets(orphanPaths);
     }
     throw err;
   } finally {
@@ -1748,15 +1763,18 @@ async function insertPdfAsPageBackgrounds(
   const totalPages = doc.numPages;
   const base = file.name.replace(/\.pdf$/i, "");
 
-  // See insertPdfAsImages for the rationale on tracking + sweeping
-  // uploaded paths on partial failure.
-  const uploadedPaths: string[] = [];
+  // See insertPdfAsImages for the rationale: only page PNGs not yet
+  // referenced by a placed shape are sweepable orphans; each is removed
+  // the instant its shape lands so a later page's failure can't delete
+  // a background already on a created page.
+  const orphanPaths: string[] = [];
 
   // Upload the original PDF once so it also shows in the Documents
   // drawer (best-effort — a failure here shouldn't block the import).
+  // Not tracked in orphanPaths: it has its own room_documents row and
+  // so is never an orphan.
   try {
-    const { path } = await uploadAsset(file, { ...meta, originalName: file.name });
-    uploadedPaths.push(path);
+    await uploadAsset(file, { ...meta, originalName: file.name });
   } catch (e) {
     console.warn("[pdf] original-PDF upload failed", e);
   }
@@ -1803,7 +1821,8 @@ async function insertPdfAsPageBackgrounds(
           });
         },
       );
-      uploadedPaths.push(pagePath);
+      // Orphan until its background shape lands (see orphanPaths).
+      orphanPaths.push(pagePath);
 
       const w = viewport.width / renderScale;
       const h = viewport.height / renderScale;
@@ -1851,6 +1870,11 @@ async function insertPdfAsPageBackgrounds(
       });
       editor.sendToBack([bgShapeId]);
 
+      // Background placed on its page → this PNG is referenced and no
+      // longer an orphan. Remove it so a later page's failure can't
+      // sweep a background that's already on a created page.
+      orphanPaths.pop();
+
       // Blank ruled answer sheet of the same size, just to the right of the
       // page background, so each worksheet page has its own writing space.
       if (writingSpace) {
@@ -1868,8 +1892,11 @@ async function insertPdfAsPageBackgrounds(
       }
     }
   } catch (err) {
-    if (uploadedPaths.length) {
-      void cleanupOrphanedAssets(uploadedPaths);
+    // Sweep only page PNGs whose background shapes never landed; pages
+    // already created (and the original PDF's Documents row) are left
+    // intact so nothing references a deleted file.
+    if (orphanPaths.length) {
+      void cleanupOrphanedAssets(orphanPaths);
     }
     throw err;
   } finally {
