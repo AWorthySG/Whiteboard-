@@ -175,6 +175,11 @@ drop policy if exists "Public read homework_submissions" on public.homework_subm
 create policy "Public read homework_submissions" on public.homework_submissions for select using (true);
 drop policy if exists "Public insert homework_submissions" on public.homework_submissions;
 create policy "Public insert homework_submissions" on public.homework_submissions for insert with check (true);
+-- UPDATE needed for host feedback (HomeworkDrawer.setFeedback) and student
+-- resubmission; permissive per the app's student-data model. Without this,
+-- feedback writes are RLS-filtered to zero rows and silently never persist.
+drop policy if exists "Public update homework_submissions" on public.homework_submissions;
+create policy "Public update homework_submissions" on public.homework_submissions for update using (true);
 drop policy if exists "Public delete homework_submissions" on public.homework_submissions;
 create policy "Public delete homework_submissions" on public.homework_submissions for delete using (true);
 

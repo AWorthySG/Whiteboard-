@@ -95,11 +95,17 @@ export default function RecordingsDrawer({
     // Confirmation is handled by <ConfirmButton/> in the row UI now.
     const supabase = getSupabase();
     if (!supabase) return;
-    // Best-effort delete from storage, then delete the row regardless.
-    await supabase.storage.from("whiteboard-recordings").remove([r.file_path]);
+    // Delete the DB row FIRST; only remove the file once the row is gone.
+    // The reverse order (previous behaviour) could delete the video from
+    // Storage and then fail the row delete, leaving a row with a dead
+    // Play/Download link.
     const { error } = await supabase.from("room_recordings").delete().eq("id", r.id);
-    if (error) toast.error(`Couldn't delete: ${error.message}`);
-    else toast.success("Recording deleted");
+    if (error) {
+      toast.error(`Couldn't delete: ${error.message}`);
+      return;
+    }
+    void supabase.storage.from("whiteboard-recordings").remove([r.file_path]);
+    toast.success("Recording deleted");
   };
 
   if (!open) return null;

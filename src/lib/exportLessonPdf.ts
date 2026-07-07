@@ -77,33 +77,47 @@ export async function exportLessonPdf({
     cover.drawLine({ start: { x: M, y }, end: { x: A4_W - M, y }, thickness: 0.75, color: rgb(0.85, 0.87, 0.9) });
     y -= 30;
 
-    cover.drawText("Homework", { x: M, y, size: 13, font: helvBold, color: ink });
-    y -= 19;
+    // Draw with a running cursor that spills onto a fresh page when a long
+    // homework/recordings list reaches the bottom margin, so items never
+    // render off the bottom of the cover page and silently vanish.
+    let cursor = cover;
+    const emit = (
+      text: string,
+      size: number,
+      font: typeof helv,
+      color: typeof ink,
+      gap: number,
+    ) => {
+      if (y < M) {
+        cursor = pdf.addPage([A4_W, A4_H]);
+        y = A4_H - M;
+      }
+      cursor.drawText(text, { x: M, y, size, font, color });
+      y -= gap;
+    };
+
+    emit("Homework", 13, helvBold, ink, 19);
     if (summary.homework.length === 0) {
-      cover.drawText("No homework assigned.", { x: M, y, size: 11, font: helv, color: muted });
-      y -= 18;
+      emit("No homework assigned.", 11, helv, muted, 18);
     } else {
       for (const h of summary.homework.slice(0, 20)) {
-        cover.drawText(`•  ${clip(h.title)}${h.dueDate ? `   (due ${h.dueDate})` : ""}`, {
-          x: M, y, size: 11, font: helv, color: ink,
-        });
-        y -= 17;
+        emit(
+          `•  ${clip(h.title)}${h.dueDate ? `   (due ${h.dueDate})` : ""}`,
+          11, helv, ink, 17,
+        );
       }
     }
     y -= 16;
 
-    cover.drawText("Recordings", { x: M, y, size: 13, font: helvBold, color: ink });
-    y -= 19;
+    emit("Recordings", 13, helvBold, ink, 19);
     if (summary.recordings.length === 0) {
-      cover.drawText("No recordings.", { x: M, y, size: 11, font: helv, color: muted });
-      y -= 18;
+      emit("No recordings.", 11, helv, muted, 18);
     } else {
       for (const r of summary.recordings.slice(0, 20)) {
-        cover.drawText(`•  ${clip(r.title)}`, { x: M, y, size: 11, font: helv, color: ink });
-        y -= 17;
+        emit(`•  ${clip(r.title)}`, 11, helv, ink, 17);
       }
       y -= 6;
-      cover.drawText("Recording links are in the room chat.", { x: M, y, size: 9, font: helv, color: muted });
+      emit("Recording links are in the room chat.", 9, helv, muted, 0);
     }
   }
 

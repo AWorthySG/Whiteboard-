@@ -75,11 +75,12 @@ export function useIsHost(roomId: string): boolean {
   }, [roomId]);
 
   useEffect(() => {
+    // Clear any prior room's result up front so a client-side room switch
+    // (roomId changes without a full remount) can't briefly report the
+    // previous room's ownership while the new query is in flight.
+    setRemoteHost(false);
     if (loading) return;
-    if (!user) {
-      setRemoteHost(false);
-      return;
-    }
+    if (!user) return;
     const supabase = getSupabase();
     if (!supabase) return;
     let cancelled = false;

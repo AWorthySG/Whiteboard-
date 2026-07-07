@@ -55,7 +55,15 @@ export default function ChatBubble({
         .limit(200);
       if (cancelled) return;
       const list = (data as Message[]) ?? [];
-      setMessages(list);
+      // Merge rather than replace: a realtime INSERT can land between this
+      // fetch starting and resolving, and a plain setMessages(list) would
+      // drop that just-arrived message. Keep any messages already in state
+      // that the snapshot didn't include.
+      setMessages((prev) => {
+        const seen = new Set(list.map((m) => m.id));
+        const extra = prev.filter((m) => !seen.has(m.id));
+        return [...list, ...extra];
+      });
       const unseen = list.filter(
         (m) =>
           new Date(m.created_at).getTime() > lastSeenRef.current &&
@@ -76,7 +84,10 @@ export default function ChatBubble({
         },
         (payload) => {
           const m = payload.new as Message;
-          setMessages((prev) => [...prev, m]);
+          // Dedupe: the initial fetch's merge may already include this id.
+          setMessages((prev) =>
+            prev.some((x) => x.id === m.id) ? prev : [...prev, m],
+          );
           if (m.user_id !== userId) {
             // Increment unread unless the panel is currently open.
             setOpen((curOpen) => {
