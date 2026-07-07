@@ -91,25 +91,53 @@ export async function POST(req: Request) {
     auth: { persistSession: false },
   });
 
-  // Upsert keyed on (room_id, user_id). Re-redeeming on a device that's
-  // already admitted is a no-op; a new device that hasn't been seen
-  // before creates a fresh admitted row.
-  const { error: upsertErr } = await supabase.from("join_requests").upsert(
-    {
+  // Read-then-conditionally-write keyed on (room_id, user_id). An
+  // unconditional upsert would reset requested_at / decided_at / user_name
+  // on EVERY re-redeem (a returning magic-link student who reloads the
+  // ?invite= URL each session), churning the host's roster timestamps.
+  // Instead: leave an already-admitted row untouched, promote a
+  // pending/denied row to admitted (preserving its original requested_at),
+  // and only stamp timestamps when first creating the row.
+  const now = new Date().toISOString();
+  const { data: existingRow } = await supabase
+    .from("join_requests")
+    .select("id, status")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existingRow) {
+    if (existingRow.status !== "admitted") {
+      const { error: updErr } = await supabase
+        .from("join_requests")
+        .update({ status: "admitted", decided_at: now })
+        .eq("id", existingRow.id);
+      if (updErr) {
+        return NextResponse.json(
+          { error: "Could not admit via invite link" },
+          { status: 500 },
+        );
+      }
+    }
+    // Already admitted → nothing to change; keep original timestamps/name.
+  } else {
+    const { error: insErr } = await supabase.from("join_requests").insert({
       room_id: roomId,
       user_id: userId,
       user_name: (userName ?? "").trim() || "Guest",
       status: "admitted",
-      requested_at: new Date().toISOString(),
-      decided_at: new Date().toISOString(),
-    },
-    { onConflict: "room_id,user_id" },
-  );
-  if (upsertErr) {
-    return NextResponse.json(
-      { error: "Could not admit via invite link" },
-      { status: 500 },
-    );
+      requested_at: now,
+      decided_at: now,
+    });
+    // A concurrent redeem may have created the row between our read and
+    // insert — a unique-constraint violation there means "already admitted",
+    // which is success, not an error.
+    if (insErr && insErr.code !== "23505") {
+      return NextResponse.json(
+        { error: "Could not admit via invite link" },
+        { status: 500 },
+      );
+    }
   }
 
   return NextResponse.json({ admitted: true });

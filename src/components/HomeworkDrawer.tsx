@@ -191,16 +191,34 @@ export default function HomeworkDrawer({
   const persistSubmission = async (homeworkId: string, att: Attachment) => {
     const supabase = getSupabase();
     if (!supabase) return;
-    const { error: dbErr } = await supabase
-      .from("homework_submissions")
-      .insert({
-        homework_id: homeworkId,
-        room_id: roomId,
-        student_user_id: userId,
-        student_name: userName,
-        file_url: att.url,
-        file_name: att.name,
-      });
+    // If this student already submitted for this homework, REPLACE that
+    // row rather than inserting a second one — there's no unique
+    // constraint on (homework_id, student_user_id), so a plain insert
+    // would leave the host looking at two submissions for one student.
+    // Resubmitting also clears any prior feedback since it no longer
+    // applies to the new file.
+    const existing = submissions.find(
+      (s) => s.homework_id === homeworkId && s.student_user_id === userId,
+    );
+    const { error: dbErr } = existing
+      ? await supabase
+          .from("homework_submissions")
+          .update({
+            file_url: att.url,
+            file_name: att.name,
+            submitted_at: new Date().toISOString(),
+            feedback: null,
+            feedback_at: null,
+          })
+          .eq("id", existing.id)
+      : await supabase.from("homework_submissions").insert({
+          homework_id: homeworkId,
+          room_id: roomId,
+          student_user_id: userId,
+          student_name: userName,
+          file_url: att.url,
+          file_name: att.name,
+        });
     if (dbErr) {
       // The file is in Storage but no submissions row references it.
       // Delete the orphan if it was a fresh upload — picked existing
@@ -213,7 +231,7 @@ export default function HomeworkDrawer({
       toast.error(`Submission failed: ${dbErr.message}`);
       return;
     }
-    toast.success("Work submitted");
+    toast.success(existing ? "Submission replaced" : "Work submitted");
     setSubmittingFor(null);
     setSubmissionDraft(null);
   };
@@ -256,11 +274,31 @@ export default function HomeworkDrawer({
   const removeSubmission = async (id: string) => {
     const supabase = getSupabase();
     if (!supabase) return;
+    const target = submissions.find((s) => s.id === id);
     const { error } = await supabase
       .from("homework_submissions")
       .delete()
       .eq("id", id);
-    if (error) toast.error(`Couldn't remove submission: ${error.message}`);
+    if (error) {
+      toast.error(`Couldn't remove submission: ${error.message}`);
+      return;
+    }
+    // Best-effort: remove the uploaded file too so it doesn't leak in
+    // Storage. Skip if another loaded submission still references the same
+    // URL (a re-picked / shared file), so we never delete something still
+    // in use. Only touches the public whiteboard-assets bucket path.
+    if (target?.file_url) {
+      const marker = "/storage/v1/object/public/whiteboard-assets/";
+      const idx = target.file_url.indexOf(marker);
+      const stillUsed = submissions.some(
+        (s) => s.id !== id && s.file_url === target.file_url,
+      );
+      if (idx !== -1 && !stillUsed) {
+        void supabase.storage
+          .from("whiteboard-assets")
+          .remove([target.file_url.slice(idx + marker.length)]);
+      }
+    }
   };
 
   if (!open) return null;

@@ -83,10 +83,16 @@ export default function RecordButton({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const startedAtRef = useRef<number>(0);
-  // Tracks non-paused recording seconds so durationSec in the DB row
-  // reflects actual content length, not wall-clock time including pauses.
-  const elapsedRef = useRef<number>(0);
+  // Wall-clock duration accounting. `activeMsRef` accumulates completed
+  // non-paused segments; `segmentStartRef` marks the start of the current
+  // active segment (0 while paused/stopped). Duration is derived from
+  // these timestamps, NOT from the 1 s display interval — browsers
+  // throttle setInterval to ~once/min in a backgrounded tab, so an
+  // interval-counted duration would badly undercount a lesson recorded
+  // while the host worked in another window (and PlaybackViewer would
+  // then drop real frames whose t exceeds the undercounted duration).
+  const activeMsRef = useRef<number>(0);
+  const segmentStartRef = useRef<number>(0);
   // Recording id is generated upfront (before any upload) so the
   // parent's frame capture can label its data with the same id from
   // the very first second — no waiting for the video upload to
@@ -106,13 +112,22 @@ export default function RecordButton({
 
   useEffect(() => {
     if (state !== "recording") return;
-    const id = window.setInterval(() => {
-      setElapsed((s) => {
-        const next = s + 1;
-        elapsedRef.current = next;
-        return next;
-      });
-    }, 1000);
+    // Drive the visible counter from wall-clock active time so it
+    // self-corrects after the tab was backgrounded (a throttled interval
+    // would otherwise show a frozen/slow count). Inlined rather than
+    // sharing a helper so this effect's deps stay just [state].
+    const tick = () =>
+      setElapsed(
+        Math.floor(
+          (activeMsRef.current +
+            (segmentStartRef.current
+              ? Date.now() - segmentStartRef.current
+              : 0)) /
+            1000,
+        ),
+      );
+    tick();
+    const id = window.setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [state]);
 
@@ -140,6 +155,11 @@ export default function RecordButton({
     if (state === "recording" && rec.state === "recording") {
       try {
         rec.pause();
+        // Close the current active segment into the running total.
+        if (segmentStartRef.current) {
+          activeMsRef.current += Date.now() - segmentStartRef.current;
+          segmentStartRef.current = 0;
+        }
         setState("paused");
       } catch (e) {
         console.warn("[record] pause failed", e);
@@ -147,6 +167,8 @@ export default function RecordButton({
     } else if (state === "paused" && rec.state === "paused") {
       try {
         rec.resume();
+        // Open a new active segment.
+        segmentStartRef.current = Date.now();
         setState("recording");
       } catch (e) {
         console.warn("[record] resume failed", e);
@@ -310,9 +332,14 @@ export default function RecordButton({
       recorder.onstop = async () => {
         const finalMime = mimeType || "video/webm";
         const blob = new Blob(chunksRef.current, { type: finalMime });
-        // Use the accumulated non-paused seconds rather than wall-clock
-        // start time so paused periods don't inflate the stored duration.
-        const durationSec = elapsedRef.current;
+        // Close the final active segment, then derive duration from
+        // accumulated wall-clock active time — pauses excluded and safe
+        // against background-tab interval throttling.
+        if (segmentStartRef.current) {
+          activeMsRef.current += Date.now() - segmentStartRef.current;
+          segmentStartRef.current = 0;
+        }
+        const durationSec = Math.round(activeMsRef.current / 1000);
         chunksRef.current = [];
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -340,17 +367,23 @@ export default function RecordButton({
         if (s === "recording" || s === "paused") stop();
       });
 
-      elapsedRef.current = 0;
+      activeMsRef.current = 0;
+      segmentStartRef.current = Date.now();
       setElapsed(0);
       recorder.start(1000);
       recorderRef.current = recorder;
-      startedAtRef.current = Date.now();
       // Generate the id once, here, so the upload path and the
       // parent-side frame capture both label data with the same id.
       recordingIdRef.current = crypto.randomUUID();
       setState("recording");
       onRecordingStarted?.(recordingIdRef.current);
     } catch (err) {
+      // If display/mic tracks were acquired before the failure (e.g. the
+      // MediaRecorder constructor threw on an unsupported mimeType), stop
+      // them so the OS screen-share/mic indicator turns off and the next
+      // start() doesn't overwrite streamRef and orphan them.
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
       console.error("[record] start failed", err);
       const e = err as { name?: string; message?: string };
       const name = e?.name ?? "";

@@ -136,6 +136,10 @@ export default function TemplatesModal({
   if (!open) return null;
 
   const saveCurrentPage = async () => {
+    // Re-entrancy guard: the button is disabled while saving, but the
+    // name input's Enter handler isn't — a quick double-Enter during the
+    // async thumbnail capture would otherwise insert two identical rows.
+    if (saving) return;
     const trimmed = name.trim();
     if (!editor) {
       toast.error("Whiteboard isn't ready yet.");

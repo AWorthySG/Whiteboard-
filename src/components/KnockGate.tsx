@@ -40,6 +40,8 @@ export default function KnockGate({
     // `return () => {}` goes to the Promise, not to React's cleanup.
     let heartbeat: number | undefined;
     let activeChannel: ReturnType<typeof supabase.channel> | null = null;
+    // Tracked so React's cleanup can cancel a pending reconnect timer.
+    let reconnectTimer: number | undefined;
 
     (async () => {
       // 0. If the URL carries an `?invite=` token, redeem it first.
@@ -134,16 +136,23 @@ export default function KnockGate({
         );
       activeChannel = channel;
       let reconnectAttempts = 0;
+      // Guard so multiple CHANNEL_ERROR callbacks can't each queue their
+      // own reconnect — that would spawn (and orphan) a fresh channel per
+      // error on a flaky network, leaking Supabase channels.
+      let reconnectPending = false;
       const subscribeWithRetry = () => {
         channel.subscribe((channelStatus) => {
           if (
             channelStatus === "CHANNEL_ERROR" ||
             channelStatus === "TIMED_OUT"
           ) {
+            if (reconnectPending) return;
+            reconnectPending = true;
             // Exponential backoff capped at 30s.
             const delay = Math.min(30_000, 1_000 * 2 ** reconnectAttempts);
             reconnectAttempts += 1;
-            window.setTimeout(() => {
+            reconnectTimer = window.setTimeout(() => {
+              reconnectPending = false;
               if (cancelled) return;
               supabase.removeChannel(channel);
               channel = supabase.channel(`join-${requestId}`).on(
@@ -196,6 +205,7 @@ export default function KnockGate({
       cancelled = true;
       window.clearTimeout(longWaitTimer);
       if (heartbeat !== undefined) window.clearInterval(heartbeat);
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
       if (activeChannel) void supabase.removeChannel(activeChannel);
     };
   }, [roomId, userId, userName]);
