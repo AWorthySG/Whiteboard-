@@ -106,13 +106,23 @@ export default function AdmissionPanel({
   const decide = async (req: JoinRequest, status: "admitted" | "denied") => {
     const supabase = getSupabase();
     if (!supabase) return;
-    const { error } = await supabase
+    // `.select()` so we can tell an RLS-filtered no-op (zero rows, error
+    // null) apart from a genuine success. The admission UPDATE policy is
+    // scoped to the room's signed-in host, so a localStorage-only host
+    // (or an expired session) silently matches zero rows — surface that
+    // instead of leaving the student stuck in the lobby with no feedback.
+    const { data, error } = await supabase
       .from("join_requests")
       .update({ status, decided_at: new Date().toISOString() })
-      .eq("id", req.id);
+      .eq("id", req.id)
+      .select("id");
     if (error) {
       console.error("[admission] decide failed", error);
       toast.error(`Couldn't update ${req.user_name || "guest"}`);
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error("Sign in and claim this room to admit students");
     }
   };
 
@@ -121,14 +131,22 @@ export default function AdmissionPanel({
     if (!supabase) return;
     // One query flips every pending row for the room. The host's own
     // row is already 'admitted' so it's untouched by the status filter.
-    const { error } = await supabase
+    const expected = pending.length;
+    const { data, error } = await supabase
       .from("join_requests")
       .update({ status: "admitted", decided_at: new Date().toISOString() })
       .eq("room_id", roomId)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .select("id");
     if (error) {
       console.error("[admission] admitAll failed", error);
       toast.error("Couldn't admit everyone");
+      return;
+    }
+    // Zero rows flipped while rows were pending → RLS filtered the write
+    // (caller isn't the signed-in host), not "nothing to do".
+    if (expected > 0 && (!data || data.length === 0)) {
+      toast.error("Sign in and claim this room to admit students");
     }
   };
 
