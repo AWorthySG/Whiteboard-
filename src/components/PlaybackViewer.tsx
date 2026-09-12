@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { ArrowLeft } from "@phosphor-icons/react";
 import type { Editor } from "tldraw";
 import "tldraw/tldraw.css";
+import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
 
 const Tldraw = dynamic(() => import("tldraw").then((m) => m.Tldraw), {
   ssr: false,
@@ -194,6 +195,7 @@ export default function PlaybackViewer({ recording }: { recording: Recording }) 
           {!framesErr && frames && (
             <>
               <Tldraw
+                options={TLDRAW_OPTIONS}
                 onMount={(ed) => {
                   editorRef.current = ed;
                   ed.updateInstanceState({ isReadonly: true });
