@@ -18,7 +18,9 @@ import {
   DefaultReconnectPolicy,
   DisconnectReason,
   Track,
+  VideoPresets,
   type LocalTrack,
+  type RoomOptions,
 } from "livekit-client";
 import type { Participant } from "livekit-client";
 import {
@@ -59,6 +61,33 @@ const PATIENT_LIVEKIT_RECONNECT_DELAYS_MS = [
 const PATIENT_LIVEKIT_RECONNECT_POLICY = new DefaultReconnectPolicy(
   PATIENT_LIVEKIT_RECONNECT_DELAYS_MS,
 );
+
+// Static room options, hoisted so the object identity is stable across
+// renders. Three of these exist purely to keep video off the whiteboard's
+// frame budget: encode/decode competes with tldraw's canvas rendering and
+// pointer handling for the same main thread, and on an iPad that
+// competition is what a lesson feels as pen lag. See CLAUDE.md.
+const ROOM_OPTIONS: RoomOptions = {
+  // Pause / downgrade video for tiles that are small or not visible. The
+  // video panel is a ~300px column (and is display:none in audio-only
+  // mode), so without this we decode full-size streams to paint thumbnails.
+  adaptiveStream: true,
+  // Stop publishing simulcast layers nobody is subscribed to.
+  dynacast: true,
+  // Cap camera capture at 360p. The panel is far too narrow to show more,
+  // and encoding 720p (the LiveKit default) costs several times as much
+  // CPU for no visible gain. Screen share has its own screenShareEncoding
+  // and is deliberately left at full resolution for shared worksheets.
+  videoCaptureDefaults: { resolution: VideoPresets.h360.resolution },
+  // Release the local microphone hardware when the user mutes,
+  // so the system mic indicator turns off.
+  publishDefaults: { stopMicTrackOnMute: true },
+  // Stretch the internal reconnect window from ~42s to ~2m45s
+  // so a network blip resolves silently inside LiveKit instead
+  // of bouncing us through our "Call dropped" UI. See the
+  // PATIENT_LIVEKIT_RECONNECT_DELAYS_MS comment above.
+  reconnectPolicy: PATIENT_LIVEKIT_RECONNECT_POLICY,
+};
 
 // Human-friendly label for the disconnect reason livekit-client gives
 // us in onDisconnected. We surface this in the "Call dropped" panel
@@ -408,16 +437,7 @@ export default function VideoPanel({
           setInCall(false);
         }
       }}
-      options={{
-        // Release the local microphone hardware when the user mutes,
-        // so the system mic indicator turns off.
-        publishDefaults: { stopMicTrackOnMute: true },
-        // Stretch the internal reconnect window from ~42s to ~2m45s
-        // so a network blip resolves silently inside LiveKit instead
-        // of bouncing us through our "Call dropped" UI. See the
-        // PATIENT_LIVEKIT_RECONNECT_DELAYS_MS comment above.
-        reconnectPolicy: PATIENT_LIVEKIT_RECONNECT_POLICY,
-      }}
+      options={ROOM_OPTIONS}
     >
       <div className="flex flex-col h-full">
         <div className="flex-1 min-h-0">

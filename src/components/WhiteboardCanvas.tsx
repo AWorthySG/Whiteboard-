@@ -36,6 +36,7 @@ import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
 import { getSupabase } from "@/lib/supabase";
+import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
@@ -897,6 +898,7 @@ export default function WhiteboardCanvas({
           store={store}
           overrides={overrides}
           shapeUtils={CUSTOM_SHAPE_UTILS}
+          options={TLDRAW_OPTIONS}
           licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
           components={{
             // Hide the whole top-left stack (main menu, page selector,
