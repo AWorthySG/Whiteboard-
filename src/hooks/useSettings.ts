@@ -28,6 +28,12 @@ export type Settings = {
   theme: Theme;
   hasSeenOnboarding: boolean;
   penOnly: boolean;
+  /** Diagnostic overlay showing live fps, input→frame latency, rendered
+   *  shape count and long-task blocking. Off by default; the component is
+   *  lazy-loaded so it costs nothing in the room bundle when unused.
+   *  `?perf=1` on the room URL forces it on without opening Settings,
+   *  which is how you enable it on an iPad mid-lesson. */
+  perfHud: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,6 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "light",
   hasSeenOnboarding: false,
   penOnly: false,
+  perfHud: false,
 };
 
 const KEY = "wb_settings_v1";

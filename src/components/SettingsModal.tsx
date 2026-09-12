@@ -136,6 +136,12 @@ export default function SettingsModal({
               checked={settings.penOnly}
               onChange={(v) => setSettings({ penOnly: v })}
             />
+            <Toggle
+              label="Show performance readout"
+              hint="Diagnostic overlay on the canvas showing live frame rate, input-to-frame latency, how many shapes are actually being painted, and main-thread stalls. Use it to pin down what's making a lesson feel laggy, then turn it back off. You can also add ?perf=1 to the room link to switch it on without opening Settings."
+              checked={settings.perfHud}
+              onChange={(v) => setSettings({ perfHud: v })}
+            />
           </Section>
 
           <Section title="Documents">
