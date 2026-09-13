@@ -65,6 +65,9 @@ const EndLessonModal = dynamic(() => import("./EndLessonModal"), {
 const TemplatesModal = dynamic(() => import("./TemplatesModal"), {
   ssr: false,
 });
+// Diagnostic only, and lazy so its chunk never enters the room bundle
+// unless someone actually turns it on.
+const PerfHud = dynamic(() => import("./PerfHud"), { ssr: false });
 // Evaluated lazily on the client. Used by the overlay to show a single
 // notice if the local browser can't transcribe (Safari / Firefox).
 let localCaptionsSupportedSync = false;
@@ -97,6 +100,18 @@ export default function RoomShell({
   userName: string;
 }) {
   const [settings, setSettings] = useSettings();
+  // `?perf=1` turns the diagnostic HUD on without opening Settings — the
+  // practical way to enable it on an iPad mid-lesson. Read in an effect
+  // rather than during render so the server and first client render agree.
+  const [perfForced, setPerfForced] = useState(false);
+  useEffect(() => {
+    try {
+      setPerfForced(new URLSearchParams(window.location.search).has("perf"));
+    } catch {
+      /* malformed query string — leave the HUD off */
+    }
+  }, []);
+  const perfHudOn = settings.perfHud || perfForced;
   const [name, setName] = useState(userName);
   // `nameBootstrapped` flips true after the first effect run that
   // pulls the remembered name out of localStorage. Without this, the
@@ -1268,6 +1283,15 @@ export default function RoomShell({
             onEditor={onCanvasEditor}
             onPagesChange={setPagesState}
           />
+          {perfHudOn && (
+            <PerfHud
+              editor={canvasEditor}
+              onClose={() => {
+                setPerfForced(false);
+                setSettings({ perfHud: false });
+              }}
+            />
+          )}
           <LessonTimer
             timer={meta.timer}
             isHost={isHost}
