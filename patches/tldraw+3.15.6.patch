@@ -11,7 +11,7 @@ index fcc0144..e71b899 100644
 -    // 0.62 + ((1 + strokeWidth) / 8) * 0.06,
 -    smoothing: 0.62,
 +    thinning: 0.7,
-+    streamline: 0.5,
++    streamline: 0,
 +    smoothing: 0.55,
      easing: import_editor.EASINGS.easeOutSine,
      simulatePressure: true
@@ -24,7 +24,7 @@ index fcc0144..e71b899 100644
 -    streamline: 0.62,
 -    smoothing: 0.62,
 +    thinning: 0.82,
-+    streamline: 0.4,
++    streamline: 0,
 +    smoothing: 0.55,
      simulatePressure: false,
      easing: PEN_EASING
@@ -55,7 +55,7 @@ index d1fdab0..1dc66c6 100644
 -    // 0.62 + ((1 + strokeWidth) / 8) * 0.06,
 -    smoothing: 0.62,
 +    thinning: 0.7,
-+    streamline: 0.5,
++    streamline: 0,
 +    smoothing: 0.55,
      easing: EASINGS.easeOutSine,
      simulatePressure: true
@@ -68,7 +68,7 @@ index d1fdab0..1dc66c6 100644
 -    streamline: 0.62,
 -    smoothing: 0.62,
 +    thinning: 0.82,
-+    streamline: 0.4,
++    streamline: 0,
 +    smoothing: 0.55,
      simulatePressure: false,
      easing: PEN_EASING
