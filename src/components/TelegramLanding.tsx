@@ -67,7 +67,7 @@ export default function TelegramLanding() {
   if (tg.isInTelegram && tg.startParam) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--bg)] p-6">
-        <BrandLogo size={48} />
+        <BrandLogo size={36} variant="wordmark" />
         <div className="inline-block w-7 h-7 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
         <p className="text-sm text-[var(--text-muted)]">Opening your lesson…</p>
       </div>

@@ -420,7 +420,17 @@ ErrorBoundary.tsx      Reusable React error boundary (class component) with a
 
 OnboardingHint.tsx     One-time tutorial modal (settings.hasSeenOnboarding flag).
 
-BrandLogo.tsx          next/image wrapper for /icon.png.
+BrandLogo.tsx          next/image wrapper with TWO variants. `variant="mark"`
+                       (default) renders the square /icon.png — correct wherever
+                       space is tight or the box is square. `variant="wordmark"`
+                       renders /logo-wordmark.png, the full "A-Worthy Education"
+                       lockup at 919x220 (~4.18:1); `size` is the HEIGHT and the
+                       width is derived so it never distorts. The wordmark
+                       already contains the company name, so never put brand
+                       text beside it. Used as wordmark on the landing hero, the
+                       room header at sm+, and the Telegram redirect splash;
+                       stays the mark on phones and in the Telegram mini-app
+                       header, where a ~117px lockup would crowd the row.
 
 ThemeApplier.tsx       Toggles html.theme-light based on useSettings().theme. Default
                        theme is "light" — dark mode still exists but isn't the default,
@@ -519,6 +529,7 @@ commit `45a340e` (15+ classes swept).
 - **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) AND its `NavigationPanel` (the native zoom/minimap pill) are both nulled in our `components` override, so we render our own `ZoomControls` bottom-left (was bottom-right; moved so the video panel doesn't cover it). If `NavigationPanel` is ever un-nulled you get TWO zoom pills stacked bottom-left — that was the "duplicate zoom panel" bug.
 - **PWA orientation lock**: `public/manifest.webmanifest` sets `"orientation": "portrait"`. This is honoured for installed PWAs on Android Chrome; iOS Safari ignores it for non-installed sessions.
 - **PWA icons**: `public/icon.svg` is a vector recreation of the A Worthy brand mark — the arched A with the `+` inside, sitting above the W swoosh — drawn in `#2c5c8c` on a transparent field. The PNG set (`public/icon-{152,167,180,192}.png`, `public/icon.png` at 512, and the Next.js favicon source `src/app/icon.png`) is regenerated from that SVG via sharp (`~15` lines; see commit `7f81a18` for the original script pattern) and stays transparent across the board. iOS doesn't read the manifest icon list reliably on first install, so `src/app/layout.tsx` adds explicit `<link rel="apple-touch-icon" sizes="...">` tags for 152/167/180 so Safari picks the right one. **Maskable is a separate file**: `public/icon-maskable.png` is the same mark composited onto a white 512×512 background, and the manifest's `purpose: "maskable"` entry points at it (not `icon.png`). Transparent maskable icons fail the Android spec — the safe-zone has no fill, so the launcher composites the mark onto whatever system background the user's phone happens to use. Don't re-collapse the maskable entry back into `icon.png`. When regenerating from the SVG, output the transparent variants AND composite the SVG over a white 512×512 square for `icon-maskable.png`.
+- **Two brand assets, and they are not interchangeable.** `public/logo-wordmark.png` is the horizontal "A-Worthy Education" lockup (919×220, ~4.18:1, transparent) used for *display* via `BrandLogo variant="wordmark"`. `public/icon.png` + the `icon-*` set is the square **mark** — the navy `#2c5c8c` arch-and-swoosh — and is what every square slot must keep using: PWA manifest icons, the favicon (`src/app/icon.png`), apple-touch-icons, the `AdmissionPanel` notification icon, `CanvasWatermark` and `insertBrandLogo`. **Do not regenerate the square icon set by cropping the mark out of the wordmark**, even though it looks like the same logo. The wordmark's mark is a different drawing: it is grey (avg `rgb(145,146,146)`) rather than navy, it omits the W swoosh, and its bounding box is 84×220 (0.38:1), so centring it in a square wastes ~60% of the canvas and the low contrast falls apart at 16–32 px. The square mark is purpose-drawn to fill a square and stay legible at favicon size; keep the two lockups separate the way the brand does.
 - **PWA install banner**: `PwaInstallBanner.tsx` listens for `beforeinstallprompt` (Android Chrome only — iOS Safari doesn't fire this) and persists dismissal in `wb_pwa_install_dismissed`. iOS users install via Share → Add to Home Screen.
 - **Service worker caching strategy**: `public/sw.js` runs two cache buckets. `wb-static-v2` is cache-first for `/_next/static/*` (content-hashed by Next so safe-to-cache-forever) — every PWA cold launch after the first boots from cache, dropping startup ~1s. `wb-shell-v2` is stale-while-revalidate for `manifest.webmanifest` + `icon.svg`. Everything else (HTML routes, API calls, Supabase, LiveKit, sync worker) is network-only — no risk of a stale room shell or stale auth token. If you change the cache schema, bump both bucket names (`-v2` → `-v3`); the `activate` listener sweeps any older bucket.
 - **Notch / Dynamic Island**: `viewport: { viewportFit: "cover" }` in `layout.tsx` lets the canvas paint behind the iPhone X+ cutout in landscape PWA mode. Interactive UI stays clear via `safe-area-inset-*` paddings in `globals.css`.

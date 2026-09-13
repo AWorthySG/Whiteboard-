@@ -157,8 +157,17 @@ export default function Home() {
       <div className="w-full max-w-xl rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border-subtle)] shadow-xl p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
-            <BrandLogo size={64} priority className="rounded-xl shrink-0" />
             <div className="min-w-0">
+              {/* Wordmark sits ABOVE the product name rather than beside it:
+                  at 4.18:1 it needs the full card width, and "A-Worthy
+                  Education" (the company) reads as a header over "A Worthy
+                  Whiteboard" (the product) instead of competing with it. */}
+              <BrandLogo
+                size={36}
+                variant="wordmark"
+                priority
+                className="mb-3"
+              />
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
                 A Worthy Whiteboard
               </h1>
