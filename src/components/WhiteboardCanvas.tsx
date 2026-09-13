@@ -2158,13 +2158,17 @@ function CanvasWatermark() {
       className="absolute inset-0 flex items-center justify-center pointer-events-none"
       style={{ zIndex: 0 }}
     >
+      {/* The wordmark, not the square mark — this is a wide backdrop with
+          room for the full lockup. Width-driven with height:auto so the
+          4.18:1 aspect is preserved; setting both axes (as the square mark
+          did) would letterbox it inside a square box and waste most of it. */}
       <img
-        src="/icon.png"
+        src="/logo-wordmark.png"
         alt=""
         className="select-none"
         style={{
-          width: "min(40vw, 480px)",
-          height: "min(40vw, 480px)",
+          width: "min(55vw, 680px)",
+          height: "auto",
           opacity: 0.14,
           objectFit: "contain",
         }}
