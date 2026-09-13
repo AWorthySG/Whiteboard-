@@ -687,10 +687,17 @@ export default function RoomShell({
           className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
           title="Back to home"
         >
-          <BrandLogo size={32} priority className="rounded-md" />
-          <span className="hidden sm:inline text-[15px] font-extrabold tracking-tight leading-none">
-            A Worthy
-          </span>
+          {/* Wordmark where there's room; the compact mark on phones, where
+              a ~117px lockup would crowd the header controls. The wordmark
+              carries the company name itself, so the old "A Worthy" text
+              span was dropped — keeping it printed the name twice. */}
+          <BrandLogo
+            size={28}
+            variant="wordmark"
+            priority
+            className="hidden sm:block"
+          />
+          <BrandLogo size={32} priority className="sm:hidden rounded-md" />
         </Link>
 
         {/* Vertical divider — visual rhythm between sections */}
