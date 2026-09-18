@@ -1,8 +1,8 @@
 diff --git a/node_modules/tldraw/dist-cjs/lib/shapes/draw/getPath.js b/node_modules/tldraw/dist-cjs/lib/shapes/draw/getPath.js
-index fcc0144..e71b899 100644
+index fcc0144..d4532b1 100644
 --- a/node_modules/tldraw/dist-cjs/lib/shapes/draw/getPath.js
 +++ b/node_modules/tldraw/dist-cjs/lib/shapes/draw/getPath.js
-@@ -29,10 +29,9 @@ const PEN_EASING = (t) => t * 0.65 + (0, import_editor.SIN)(t * import_editor.PI
+@@ -29,20 +29,19 @@ const PEN_EASING = (t) => t * 0.65 + (0, import_editor.SIN)(t * import_editor.PI
  const simulatePressureSettings = (strokeWidth) => {
    return {
      size: strokeWidth,
@@ -16,13 +16,14 @@ index fcc0144..e71b899 100644
      easing: import_editor.EASINGS.easeOutSine,
      simulatePressure: true
    };
-@@ -40,9 +39,9 @@ const simulatePressureSettings = (strokeWidth) => {
+ };
  const realPressureSettings = (strokeWidth) => {
    return {
-     size: 1 + strokeWidth * 1.2,
+-    size: 1 + strokeWidth * 1.2,
 -    thinning: 0.62,
 -    streamline: 0.62,
 -    smoothing: 0.62,
++    size: 0.5 + strokeWidth,
 +    thinning: 0.82,
 +    streamline: 0,
 +    smoothing: 0.55,
@@ -30,23 +31,29 @@ index fcc0144..e71b899 100644
      easing: PEN_EASING
    };
 diff --git a/node_modules/tldraw/dist-cjs/lib/shapes/shared/default-shape-constants.js b/node_modules/tldraw/dist-cjs/lib/shapes/shared/default-shape-constants.js
-index c2ba5d9..1a5db30 100644
+index c2ba5d9..4b8e4c7 100644
 --- a/node_modules/tldraw/dist-cjs/lib/shapes/shared/default-shape-constants.js
 +++ b/node_modules/tldraw/dist-cjs/lib/shapes/shared/default-shape-constants.js
-@@ -37,7 +37,7 @@ const TEXT_PROPS = {
+@@ -37,10 +37,10 @@ const TEXT_PROPS = {
    padding: "0px"
  };
  const STROKE_SIZES = {
 -  s: 2,
-+  s: 1.5,
-   m: 3.5,
-   l: 5,
-   xl: 10
+-  m: 3.5,
+-  l: 5,
+-  xl: 10
++  s: 1,
++  m: 2.5,
++  l: 3.5,
++  xl: 7
+ };
+ const FONT_SIZES = {
+   s: 18,
 diff --git a/node_modules/tldraw/dist-esm/lib/shapes/draw/getPath.mjs b/node_modules/tldraw/dist-esm/lib/shapes/draw/getPath.mjs
-index d1fdab0..1dc66c6 100644
+index d1fdab0..f4018e0 100644
 --- a/node_modules/tldraw/dist-esm/lib/shapes/draw/getPath.mjs
 +++ b/node_modules/tldraw/dist-esm/lib/shapes/draw/getPath.mjs
-@@ -9,10 +9,9 @@ const PEN_EASING = (t) => t * 0.65 + SIN(t * PI / 2) * 0.35;
+@@ -9,20 +9,19 @@ const PEN_EASING = (t) => t * 0.65 + SIN(t * PI / 2) * 0.35;
  const simulatePressureSettings = (strokeWidth) => {
    return {
      size: strokeWidth,
@@ -60,13 +67,14 @@ index d1fdab0..1dc66c6 100644
      easing: EASINGS.easeOutSine,
      simulatePressure: true
    };
-@@ -20,9 +19,9 @@ const simulatePressureSettings = (strokeWidth) => {
+ };
  const realPressureSettings = (strokeWidth) => {
    return {
-     size: 1 + strokeWidth * 1.2,
+-    size: 1 + strokeWidth * 1.2,
 -    thinning: 0.62,
 -    streamline: 0.62,
 -    smoothing: 0.62,
++    size: 0.5 + strokeWidth,
 +    thinning: 0.82,
 +    streamline: 0,
 +    smoothing: 0.55,
@@ -74,15 +82,21 @@ index d1fdab0..1dc66c6 100644
      easing: PEN_EASING
    };
 diff --git a/node_modules/tldraw/dist-esm/lib/shapes/shared/default-shape-constants.mjs b/node_modules/tldraw/dist-esm/lib/shapes/shared/default-shape-constants.mjs
-index b718510..ae47144 100644
+index b718510..b75c2b1 100644
 --- a/node_modules/tldraw/dist-esm/lib/shapes/shared/default-shape-constants.mjs
 +++ b/node_modules/tldraw/dist-esm/lib/shapes/shared/default-shape-constants.mjs
-@@ -6,7 +6,7 @@ const TEXT_PROPS = {
+@@ -6,10 +6,10 @@ const TEXT_PROPS = {
    padding: "0px"
  };
  const STROKE_SIZES = {
 -  s: 2,
-+  s: 1.5,
-   m: 3.5,
-   l: 5,
-   xl: 10
+-  m: 3.5,
+-  l: 5,
+-  xl: 10
++  s: 1,
++  m: 2.5,
++  l: 3.5,
++  xl: 7
+ };
+ const FONT_SIZES = {
+   s: 18,
