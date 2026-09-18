@@ -2151,11 +2151,23 @@ function ToolbarEyeSvg() {
 // Faded A Worthy logo as the canvas background. tldraw renders this
 // behind everything; the logo sits dead-centre, fixed to the screen
 // (not the canvas), so panning/zooming the drawing doesn't move it.
+/** Mascot stickers scattered behind the canvas, inset from the corners.
+ *  Inset rather than flush because every canvas corner already has UI —
+ *  LeftRail on the left edge, CanvasFloatingPanel top-right, ZoomControls
+ *  bottom-left, PagesTabBar bottom-centre, ChatBubble bottom-right — and a
+ *  sticker tucked underneath a control just reads as a smudge. */
+const WATERMARK_STICKERS = [
+  { src: "/sticker-avocado.webp", pos: "left-[12%] top-[15%]" },
+  { src: "/sticker-heart.webp", pos: "right-[12%] top-[15%]" },
+  { src: "/sticker-rocket.webp", pos: "left-[12%] bottom-[15%]" },
+  { src: "/sticker-icecream.webp", pos: "right-[12%] bottom-[15%]" },
+];
+
 function CanvasWatermark() {
   return (
     <div
       aria-hidden
-      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      className="absolute inset-0 overflow-hidden pointer-events-none"
       style={{ zIndex: 0 }}
     >
       {/* The wordmark, not the square mark — this is a wide backdrop with
@@ -2165,7 +2177,7 @@ function CanvasWatermark() {
       <img
         src="/logo-wordmark.png"
         alt=""
-        className="select-none"
+        className="select-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{
           width: "min(55vw, 680px)",
           height: "auto",
@@ -2173,6 +2185,25 @@ function CanvasWatermark() {
           objectFit: "contain",
         }}
       />
+      {/* md+ only: on a phone four stickers plus the wordmark is clutter
+          rather than branding, and there is no room to inset them clear of
+          the controls. Sized by HEIGHT so the four read as one set despite
+          differing aspect ratios (235x365 to 270x379). Opacity is LOWER
+          than the wordmark's 0.14 on purpose — these are saturated colour
+          and read heavier than grey text at the same alpha. */}
+      {WATERMARK_STICKERS.map((s) => (
+        <img
+          key={s.src}
+          src={s.src}
+          alt=""
+          className={`hidden md:block select-none absolute ${s.pos}`}
+          style={{
+            height: "min(13vh, 120px)",
+            width: "auto",
+            opacity: 0.1,
+          }}
+        />
+      ))}
     </div>
   );
 }
