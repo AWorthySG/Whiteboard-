@@ -2156,11 +2156,30 @@ function ToolbarEyeSvg() {
  *  LeftRail on the left edge, CanvasFloatingPanel top-right, ZoomControls
  *  bottom-left, PagesTabBar bottom-centre, ChatBubble bottom-right — and a
  *  sticker tucked underneath a control just reads as a smudge. */
+/** Two stickers on phones (a diagonal pair, so the board still reads as
+ *  branded without being crowded), all four from md up. The earlier version
+ *  hid every sticker below md, which meant phones showed none at all. */
 const WATERMARK_STICKERS = [
-  { src: "/sticker-avocado.webp", pos: "left-[12%] top-[15%]" },
-  { src: "/sticker-heart.webp", pos: "right-[12%] top-[15%]" },
-  { src: "/sticker-rocket.webp", pos: "left-[12%] bottom-[15%]" },
-  { src: "/sticker-icecream.webp", pos: "right-[12%] bottom-[15%]" },
+  {
+    src: "/sticker-avocado.webp",
+    pos: "left-[6%] top-[10%] md:left-[12%] md:top-[15%]",
+    small: true,
+  },
+  {
+    src: "/sticker-heart.webp",
+    pos: "right-[12%] top-[15%]",
+    small: false,
+  },
+  {
+    src: "/sticker-rocket.webp",
+    pos: "left-[12%] bottom-[15%]",
+    small: false,
+  },
+  {
+    src: "/sticker-icecream.webp",
+    pos: "right-[6%] bottom-[10%] md:right-[12%] md:bottom-[15%]",
+    small: true,
+  },
 ];
 
 function CanvasWatermark() {
@@ -2179,29 +2198,28 @@ function CanvasWatermark() {
         alt=""
         className="select-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{
-          width: "min(55vw, 680px)",
+          width: "min(62vw, 680px)",
           height: "auto",
-          opacity: 0.14,
+          opacity: 0.16,
           objectFit: "contain",
         }}
       />
-      {/* md+ only: on a phone four stickers plus the wordmark is clutter
-          rather than branding, and there is no room to inset them clear of
-          the controls. Sized by HEIGHT so the four read as one set despite
-          differing aspect ratios (235x365 to 270x379). Opacity is LOWER
-          than the wordmark's 0.14 on purpose — these are saturated colour
-          and read heavier than grey text at the same alpha. */}
+      {/* Sized by HEIGHT so the set reads as one family despite differing
+          aspect ratios (155x240 to 183x240), and via Tailwind rather than an
+          inline style so the breakpoint actually applies — an inline
+          `height` can't carry a media query. Opacity is a touch under the
+          wordmark's because saturated colour reads heavier than grey text at
+          equal alpha, but both were raised from the first pass (0.14/0.10),
+          which was too faint to register on a bright tablet screen. */}
       {WATERMARK_STICKERS.map((s) => (
         <img
           key={s.src}
           src={s.src}
           alt=""
-          className={`hidden md:block select-none absolute ${s.pos}`}
-          style={{
-            height: "min(13vh, 120px)",
-            width: "auto",
-            opacity: 0.1,
-          }}
+          className={`select-none absolute h-[68px] md:h-[120px] w-auto ${
+            s.small ? "" : "hidden md:block"
+          } ${s.pos}`}
+          style={{ opacity: 0.14 }}
         />
       ))}
     </div>
