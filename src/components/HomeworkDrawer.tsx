@@ -5,7 +5,6 @@ import {
   CaretDown,
   CaretUp,
   Check,
-  NotePencil,
   Paperclip,
   X,
 } from "@phosphor-icons/react";
@@ -15,6 +14,7 @@ import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
 import AttachmentPicker, { type Attachment } from "./AttachmentPicker";
 import DrawerSkeleton from "./Skeleton";
+import Sticker from "@/components/Sticker";
 
 type Homework = {
   id: string;
@@ -334,9 +334,10 @@ export default function HomeworkDrawer({
           {items === null && <DrawerSkeleton />}
           {items !== null && items.length === 0 && (
             <div className="p-8 text-center">
-              <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
-                <NotePencil size={26} className="text-[var(--text-dim)]" aria-hidden />
-              </div>
+              {/* A mascot rather than a grey icon chip: this is the one
+                  empty state a STUDENT is most likely to land on, and a
+                  friendlier frame beats "nothing here". */}
+              <Sticker name="reading" size={120} className="mx-auto mb-2" />
               <p className="text-sm font-medium">No homework yet</p>
               <p className="text-xs text-[var(--text-dim)] mt-1">
                 {isHost
