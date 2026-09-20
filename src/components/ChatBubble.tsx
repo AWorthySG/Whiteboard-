@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import Sticker from "@/components/Sticker";
 
 type Message = {
   id: string;
@@ -180,6 +181,10 @@ export default function ChatBubble({
           >
             {messages.length === 0 ? (
               <div className="text-center text-xs text-[var(--text-dim)] py-6">
+                {/* The chat panel is the room's "someone's looking after
+                    you" surface, which is what this sticker depicts. Kept
+                    small — the popover is only 320px wide. */}
+                <Sticker name="feeding" size={92} className="mx-auto mb-1" />
                 No messages yet. Say hi 👋
               </div>
             ) : (

@@ -445,12 +445,20 @@ Sticker.tsx            next/image wrapper for the mascot stickers, addressed by
                          rocket, icecream — also the CanvasWatermark set.
                        Placed at: landing hero (teaching), OnboardingHint
                        welcome modal (teaching), KnockGate waiting screen
-                       (encourage), HomeworkDrawer empty state (reading).
-                       **`dad` and `feeding` are registered but UNPLACED** —
-                       they're family-themed (a "#1 DAD" mug, a baby being
-                       bottle-fed) and have no honest home in a tutoring UI;
-                       don't shoehorn them into an empty state to "use them
-                       all". For a breakpoint-varying size, pass the desktop
+                       (encourage), HomeworkDrawer empty state (reading),
+                       ChatBubble empty state (feeding), Telegram redirect
+                       splash (dad).
+                       **`dad` and `feeding` are the two family-themed ones**
+                       (a "#1 DAD" mug, a baby being bottle-fed) and their
+                       placements are deliberately constrained: both depict
+                       "a big one looking after a little one", so they sit on
+                       surfaces about warmth (chat) or pure brand decoration
+                       (the Telegram splash, which is a wordmark + spinner
+                       and makes no claim about the viewer). Do NOT move
+                       `dad` onto a lesson-outcome surface — EndLessonModal,
+                       a homework result, a profile — where "#1 DAD" reads as
+                       an assertion about the user rather than as brand art.
+                       For a breakpoint-varying size, pass the desktop
                        value as `size` and override with `h-[..] sm:h-[..]
                        w-auto` classes — an inline height can't carry a media
                        query.
