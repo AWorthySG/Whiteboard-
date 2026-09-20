@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { Nunito, Caveat, JetBrains_Mono } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 import "tldraw/tldraw.css";
 import "@livekit/components-styles";
@@ -10,26 +10,22 @@ import ThemeApplier from "@/components/ThemeApplier";
 
 // Self-hosted via next/font: zero render-blocking, automatic
 // font-display: swap, and the family name is exposed as a CSS variable
-// so tailwind + raw CSS can reference it. Matches the typography
-// system in the design handoff (Nunito UI, Caveat for handwriting,
-// JetBrains Mono for code/room-ids).
+// so tailwind + raw CSS can reference it.
+//
+// Nunito is the ONLY family. Caveat (--font-hand) and JetBrains Mono
+// (--font-mono) used to be loaded here too, but nothing ever rendered in
+// them: every Tailwind family (sans/mono/hand) maps to --font-sans, and
+// globals.css forces Nunito on `*` plus tldraw's --tl-font-* and
+// LiveKit's --lk-font-family. Because next/font preloads by default and
+// both variable classes were on <html>, the browser was fetching ~70 kB
+// of woff2 per page load for type that never appeared on screen. If a
+// second family is ever genuinely wanted, add it back AND give it a real
+// consumer — an unused `variable` is a preload, not a no-op.
 const nunito = Nunito({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
   variable: "--font-sans",
-});
-const caveat = Caveat({
-  subsets: ["latin"],
-  weight: ["500", "700"],
-  display: "swap",
-  variable: "--font-hand",
-});
-const jetbrains = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  display: "swap",
-  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -90,7 +86,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${nunito.variable} ${caveat.variable} ${jetbrains.variable}`}
+      className={nunito.variable}
     >
       <head>
         {PRECONNECT_ORIGINS.map((origin) => (

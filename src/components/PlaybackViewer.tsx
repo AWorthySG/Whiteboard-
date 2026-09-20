@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeft, WarningCircle } from "@phosphor-icons/react";
 import type { Editor } from "tldraw";
 import "tldraw/tldraw.css";
 import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
@@ -178,7 +178,12 @@ export default function PlaybackViewer({ recording }: { recording: Recording }) 
           {framesErr && (
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
               <div className="max-w-md">
-                <div className="text-3xl mb-3">⏱️</div>
+                <WarningCircle
+                  size={32}
+                  weight="duotone"
+                  className="mx-auto mb-3 text-[var(--text-dim)]"
+                  aria-hidden
+                />
                 <p className="text-sm text-[var(--text-muted)]">{framesErr}</p>
                 <p className="text-xs text-[var(--text-dim)] mt-3">
                   You can still watch the video above — the whiteboard

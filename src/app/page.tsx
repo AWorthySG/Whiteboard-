@@ -14,6 +14,7 @@ import { pinRoom, unpinRoom, usePinnedRooms } from "@/hooks/usePinnedRooms";
 import { getSupabase } from "@/lib/supabase";
 import { Star, X } from "@phosphor-icons/react";
 import BrandLogo from "@/components/BrandLogo";
+import Sticker from "@/components/Sticker";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
 
 const SignInModal = dynamic(() => import("@/components/SignInModal"), { ssr: false });
@@ -153,10 +154,33 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-[100dvh] flex items-center justify-center px-4 py-8 sm:px-6">
+    // The page sat on flat #ffffff behind a #ffffff card, so the card
+    // read as a floating seam rather than a surface. A warm cream wash
+    // (the same paper tone as the whiteboard canvas) with a soft teal
+    // bloom gives it something to sit on. Both layers are CSS
+    // gradients — no image, no extra bytes.
+    <main
+      className="min-h-[100dvh] flex items-center justify-center px-4 py-8 sm:px-6"
+      style={{
+        background:
+          "radial-gradient(1100px 620px at 50% -10%, var(--accent-soft) 0%, transparent 62%), var(--canvas)",
+      }}
+    >
       <div className="w-full max-w-xl rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border-subtle)] shadow-xl p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
+          <div className="flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
+            {/* Stacks above the wordmark on phones rather than hiding:
+                side-by-side at phone width would squeeze the heading onto
+                three lines, but dropping the mascot entirely was the
+                "no branding on mobile" complaint. Height is set with
+                classes (not the `size` prop) because only a class can
+                carry a breakpoint. */}
+            <Sticker
+              name="teaching"
+              size={104}
+              priority
+              className="shrink-0 -ml-1 h-[76px] sm:h-[104px] w-auto"
+            />
             <div className="min-w-0">
               {/* Wordmark sits ABOVE the product name rather than beside it:
                   at 4.18:1 it needs the full card width, and "A-Worthy

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Prohibit, WarningCircle } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
+import Sticker from "@/components/Sticker";
 
 type Status = "checking" | "pending" | "admitted" | "denied" | "error";
 
@@ -223,6 +224,14 @@ export default function KnockGate({
         )}
         {status === "pending" && (
           <>
+            {/* A student can sit on this screen for a while before the host
+                notices the knock, so it's worth more than a bare spinner. */}
+            <Sticker
+              name="encourage"
+              size={132}
+              className="mx-auto mb-1"
+              priority
+            />
             <Spinner />
             <h2 className="mt-4 text-lg font-semibold">Waiting to be let in</h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">

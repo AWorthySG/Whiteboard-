@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CaretRight, FilePdf, Image as ImageIcon, X } from "@phosphor-icons/react";
+import {
+  CaretRight,
+  FilePdf,
+  FolderSimple,
+  Image as ImageIcon,
+  X,
+} from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
@@ -311,7 +317,12 @@ export default function DocumentsDrawer({
                       >
                         <CaretRight size={12} weight="bold" />
                       </span>
-                      <span className="text-xl">📁</span>
+                      <FolderSimple
+                        size={18}
+                        weight="duotone"
+                        className="text-[var(--text-dim)]"
+                        aria-hidden
+                      />
                       <span className="text-sm font-medium flex-1">
                         {group.label}
                       </span>
