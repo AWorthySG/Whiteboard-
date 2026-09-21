@@ -9,6 +9,7 @@ import {
 } from "@/hooks/useTelegramWebApp";
 import { useRecentRooms } from "@/hooks/useRecentRooms";
 import BrandLogo from "./BrandLogo";
+import Sticker from "./Sticker";
 
 // Telegram Mini App landing screen.
 // Behaviour:
@@ -67,6 +68,11 @@ export default function TelegramLanding() {
   if (tg.isInTelegram && tg.startParam) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--bg)] p-6">
+        {/* Pure brand splash — a wordmark, a spinner and one line of copy,
+            shown for the second or two before the redirect lands. That
+            makes it the one surface where a mascot is decoration and not
+            a statement about the person looking at it. */}
+        <Sticker name="dad" size={132} priority />
         <BrandLogo size={36} variant="wordmark" />
         <div className="inline-block w-7 h-7 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
         <p className="text-sm text-[var(--text-muted)]">Opening your lesson…</p>
