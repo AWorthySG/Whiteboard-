@@ -25,15 +25,6 @@ const STICKERS = {
   chemistry: { src: "/sticker-chemistry.webp", w: 408, h: 400 },
   finance: { src: "/sticker-finance.webp", w: 426, h: 400 },
   mathematics: { src: "/sticker-mathematics.webp", w: 427, h: 400 },
-  // Subject SOLO mascots (320px tall, single character with props) — the
-  // lighter set. Read well small, so they take the compact slots: the
-  // landing sticker sheet strip, error pages, banners, drawer headers.
-  "solo-english": { src: "/sticker-solo-english.webp", w: 305, h: 320 },
-  "solo-mathematics": { src: "/sticker-solo-mathematics.webp", w: 360, h: 320 },
-  "solo-calculus": { src: "/sticker-solo-calculus.webp", w: 407, h: 320 },
-  "solo-chemistry": { src: "/sticker-solo-chemistry.webp", w: 393, h: 320 },
-  "solo-economics": { src: "/sticker-solo-economics.webp", w: 338, h: 320 },
-  "solo-finance": { src: "/sticker-solo-finance.webp", w: 336, h: 320 },
   // More tutor + student duos from the collection (400px tall). Each is
   // registered so a future placement is one line; only the ones listed in
   // CLAUDE.md's placement map are rendered anywhere.
@@ -66,15 +57,6 @@ export const SUBJECT_STICKERS = [
   "finance",
 ] as const satisfies readonly StickerName[];
 
-/** The six subject SOLO mascots — one character each, for compact slots. */
-export const SOLO_STICKERS = [
-  "solo-english",
-  "solo-mathematics",
-  "solo-calculus",
-  "solo-chemistry",
-  "solo-economics",
-  "solo-finance",
-] as const satisfies readonly StickerName[];
 
 export default function Sticker({
   name,
