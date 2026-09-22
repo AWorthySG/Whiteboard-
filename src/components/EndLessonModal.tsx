@@ -14,6 +14,13 @@ type Stage =
 
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 
+// Ending the lesson is THE canonical destructive action in the app, so
+// every "leave" button here is the pale-red destructive pill (pale fill,
+// red text, ink outline) — never a second solid red, which is reserved
+// for primary "go" actions.
+const DESTRUCTIVE_BTN =
+  "touch-target rounded-full bg-danger-50 text-danger-700 border-2 border-ink font-extrabold shadow-sticker sticker-press hover:bg-danger-100 px-4 py-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed";
+
 export default function EndLessonModal({
   open,
   onClose,
@@ -161,14 +168,14 @@ export default function EndLessonModal({
 
   return (
     <div
-      className="fixed inset-0 z-[14000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[14000] flex items-center justify-center bg-[rgba(28,27,25,0.4)] backdrop-blur-sm p-4"
       onClick={working ? undefined : onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-6"
+        className="w-full max-w-md rounded-2xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg scale-pop p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold">End lesson?</h2>
+        <h2 className="text-lg font-extrabold tracking-display">End lesson?</h2>
         <p className="text-sm text-[var(--text-muted)] mt-2">
           {done
             ? "Done — the recap (PDF link, recordings, and homework) is posted in the room chat and a copy has been downloaded. The PDF is also in the Documents drawer so guests can grab it before they leave."
@@ -176,8 +183,8 @@ export default function EndLessonModal({
         </p>
 
         {working && (
-          <div className="mt-4 text-xs text-[var(--text-muted)] flex items-center gap-2">
-            <span className="inline-block w-4 h-4 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
+          <div className="mt-4 text-xs font-semibold text-[var(--text-muted)] flex items-center gap-2">
+            <span className="inline-block w-4 h-4 border-2 border-[color:var(--border)] border-t-brand-600 rounded-full animate-spin" />
             {stage.label}
           </div>
         )}
@@ -186,23 +193,25 @@ export default function EndLessonModal({
           {done ? (
             <button
               onClick={leaveNow}
-              className="touch-target rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
+              className={DESTRUCTIVE_BTN}
             >
               Leave room
             </button>
           ) : (
             <>
+              {/* "Just leave" is the quieter of the two exits — a white
+                  secondary pill — so the recap path stays the obvious one. */}
               <button
                 onClick={leaveNow}
                 disabled={working}
-                className="touch-target rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm disabled:opacity-50"
+                className="touch-target rounded-full bg-[var(--bg-elev)] border-2 border-ink font-extrabold shadow-sticker sticker-press hover:bg-[var(--bg-elev-2)] px-4 py-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Just leave (no PDF)
               </button>
               <button
                 onClick={saveAndLeave}
                 disabled={working}
-                className="touch-target rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium disabled:opacity-50"
+                className={DESTRUCTIVE_BTN}
               >
                 {working ? stage.label : "Save PDF and leave"}
               </button>

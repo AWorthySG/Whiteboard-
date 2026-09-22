@@ -21,6 +21,11 @@ function usernameToEmail(username: string): string {
 
 type Mode = "signin" | "signup";
 
+// Sticker-book input: 2px ink outline, small hard shadow, red outline +
+// soft red halo on focus (mirrors the LMS sign-in form).
+const INPUT_CLASS =
+  "mt-1.5 w-full rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]";
+
 export default function SignInModal({
   open,
   onClose,
@@ -83,34 +88,67 @@ export default function SignInModal({
 
   return (
     <div
-      className="fixed inset-0 z-[15000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[15000] flex items-center justify-center bg-[rgba(28,27,25,0.4)] backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl"
+        className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg scale-pop"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-6 py-4 border-b border-[color:var(--border-subtle)]">
-          <h2 className="text-lg font-semibold">
+        <header className="flex items-center justify-between px-6 py-4 border-b-2 border-dashed border-[color:var(--border)]">
+          <h2 className="text-lg font-extrabold tracking-display">
             {mode === "signin" ? "Sign in" : "Create account"}
           </h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
+            className="w-9 h-9 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)]"
             aria-label="Close"
           >
-            <X size={22} aria-hidden />
+            <X size={18} aria-hidden />
           </button>
         </header>
 
         <div className="p-6 space-y-4">
+          {/* Segmented pill — the same Sign In / Register switch the LMS
+              login card uses. The text link at the bottom still toggles
+              too; both drive the one `mode` state. */}
+          <div
+            role="group"
+            aria-label="Sign in or create account"
+            className="grid grid-cols-2 rounded-full border-2 border-ink bg-[var(--bg-elev-2)] p-1"
+          >
+            <button
+              type="button"
+              onClick={() => setMode("signin")}
+              aria-pressed={mode === "signin"}
+              className={`rounded-full border-2 px-3 py-1.5 text-sm font-extrabold transition ${
+                mode === "signin"
+                  ? "bg-brand-600 text-white border-ink shadow-sticker-sm"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("signup")}
+              aria-pressed={mode === "signup"}
+              className={`rounded-full border-2 px-3 py-1.5 text-sm font-extrabold transition ${
+                mode === "signup"
+                  ? "bg-brand-600 text-white border-ink shadow-sticker-sm"
+                  : "border-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              Create account
+            </button>
+          </div>
           <p className="text-sm text-[var(--text-muted)]">
             {mode === "signin"
               ? "Sign in with your host username and password. Works on any device."
               : "Pick a username and password. You'll use these to sign in from any device."}
           </p>
           <label className="block">
-            <span className="text-xs text-[var(--text-muted)]">Username</span>
+            <span className="font-label text-[var(--text-muted)]">Username</span>
             <input
               type="text"
               autoComplete="username"
@@ -120,11 +158,11 @@ export default function SignInModal({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="e.g. jeremy"
-              className="mt-1 w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+              className={INPUT_CLASS}
             />
           </label>
           <label className="block">
-            <span className="text-xs text-[var(--text-muted)]">Password</span>
+            <span className="font-label text-[var(--text-muted)]">Password</span>
             <input
               type="password"
               autoComplete={
@@ -136,13 +174,13 @@ export default function SignInModal({
                 if (e.key === "Enter") void submit();
               }}
               placeholder="At least 6 characters"
-              className="mt-1 w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-sm outline-none focus:border-brand-500"
+              className={INPUT_CLASS}
             />
           </label>
           <button
             onClick={submit}
             disabled={!username.trim() || !password || submitting}
-            className="w-full rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-4 py-2.5 text-sm font-medium"
+            className="btn-primary w-full"
           >
             {submitting
               ? mode === "signin"
@@ -154,7 +192,7 @@ export default function SignInModal({
           </button>
           <button
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            className="block w-full text-xs text-[var(--text-dim)] hover:text-[var(--text-muted)] underline underline-offset-2 text-center"
+            className="block w-full text-xs font-bold text-[var(--text-muted)] hover:text-brand-600 underline underline-offset-2 text-center"
           >
             {mode === "signin"
               ? "First time? Create an account"

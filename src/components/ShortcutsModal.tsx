@@ -49,9 +49,11 @@ const SECTIONS: Section[] = [
   },
 ];
 
+// A keycap is a mini sticker: 2px ink outline + a 3px hard shadow, so it
+// reads as a physical key sitting on the card.
 function Key({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded border border-[color:var(--border)] bg-[var(--bg-elev-2,#f1f5f9)] text-[11px] font-semibold shadow-sm leading-tight">
+    <kbd className="inline-flex items-center justify-center min-w-[22px] px-1.5 py-0.5 rounded-md border-2 border-ink shadow-sticker-sm bg-[var(--bg-elev-2)] text-[11px] font-extrabold leading-tight">
       {children}
     </kbd>
   );
@@ -63,12 +65,12 @@ function Keys({ keys }: { keys: string[] }) {
       {keys.map((k, i) => (
         <span key={i} className="flex items-center gap-0.5">
           {i > 0 && (
-            <span className="text-[var(--text-dim)] text-[10px] mx-0.5">
+            <span className="text-[var(--text-dim)] text-[10px] font-bold mx-0.5">
               {k === "drag" ? "" : "+"}
             </span>
           )}
           {k === "drag" ? (
-            <span className="text-xs text-[var(--text-dim)] italic">drag</span>
+            <span className="text-xs text-[var(--text-dim)] italic font-semibold">drag</span>
           ) : (
             <Key>{k}</Key>
           )}
@@ -81,18 +83,18 @@ function Keys({ keys }: { keys: string[] }) {
 export default function ShortcutsModal({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[rgba(28,27,25,0.4)]"
       onClick={onClose}
     >
       <div
-        className="relative bg-[var(--bg-elev)] border border-[color:var(--border)] rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto"
+        className="relative bg-[var(--bg-elev)] border-2 border-ink rounded-2xl shadow-sticker-lg scale-pop w-full max-w-lg max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)] sticky top-0 bg-[var(--bg-elev)]">
-          <h2 className="font-semibold text-sm">Keyboard shortcuts</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b-2 border-dashed border-[color:var(--border)] sticky top-0 bg-[var(--bg-elev)]">
+          <h2 className="text-lg font-extrabold tracking-display">Keyboard shortcuts</h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)]"
+            className="w-9 h-9 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)]"
             aria-label="Close shortcuts"
           >
             <X size={18} aria-hidden />
@@ -102,16 +104,18 @@ export default function ShortcutsModal({ onClose }: { onClose: () => void }) {
         <div className="p-5 space-y-6">
           {SECTIONS.map((section) => (
             <div key={section.title}>
-              <div className="text-[11px] uppercase tracking-wider text-[var(--text-dim)] font-medium mb-2">
+              <div className="font-label text-[var(--text-muted)] mb-2">
                 {section.title}
               </div>
-              <div className="space-y-1">
+              {/* Rows get a touch more air than before so each keycap's
+                  3px hard shadow doesn't kiss the row beneath it. */}
+              <div className="space-y-1.5">
                 {section.items.map((item) => (
                   <div
                     key={item.label}
                     className="flex items-center justify-between gap-4 py-0.5"
                   >
-                    <span className="text-sm text-[var(--text-muted)]">{item.label}</span>
+                    <span className="text-sm font-semibold text-[var(--text-muted)]">{item.label}</span>
                     <Keys keys={item.keys} />
                   </div>
                 ))}

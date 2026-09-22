@@ -240,28 +240,28 @@ export default function TemplatesModal({
 
   return (
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-[rgba(28,27,25,0.4)] p-4"
       onClick={onClose}
     >
       <div
-        className="relative bg-[var(--bg-elev)] border border-[color:var(--border)] rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-y-auto"
+        className="relative bg-[var(--bg-elev)] border-2 border-ink rounded-2xl shadow-sticker-lg scale-pop w-full max-w-md max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)] sticky top-0 bg-[var(--bg-elev)] z-10">
-          <h2 className="font-semibold text-sm flex items-center gap-2">
-            <Stack size={16} aria-hidden />
+        <div className="flex items-center justify-between px-5 py-4 border-b-2 border-dashed border-[color:var(--border)] sticky top-0 bg-[var(--bg-elev)] z-10">
+          <h2 className="text-lg font-extrabold tracking-display flex items-center gap-2">
+            <Stack size={18} aria-hidden />
             Board templates
           </h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)]"
+            className="w-9 h-9 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)]"
             aria-label="Close templates"
           >
             <X size={18} aria-hidden />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-5">
           {!authLoading && !user ? (
             <p className="text-sm text-[var(--text-muted)] leading-relaxed">
               Templates are saved to your account so you can reuse them in any
@@ -272,7 +272,7 @@ export default function TemplatesModal({
             <>
               {/* Save the current page */}
               <div className="space-y-1.5">
-                <label className="block text-[11px] uppercase tracking-wider text-[var(--text-dim)] font-medium">
+                <label className="block font-label text-[var(--text-muted)]">
                   Save this page as a template
                 </label>
                 <div className="flex gap-2">
@@ -284,12 +284,12 @@ export default function TemplatesModal({
                     }}
                     placeholder="e.g. Algebra warm-up"
                     maxLength={80}
-                    className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2.5 py-1.5 text-sm outline-none focus:border-brand-500"
+                    className="flex-1 min-w-0 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3.5 py-2 text-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
                   />
                   <button
                     onClick={() => void saveCurrentPage()}
                     disabled={saving || !name.trim()}
-                    className="shrink-0 text-sm rounded-md bg-brand-600 text-white hover:bg-brand-500 disabled:opacity-50 px-3 py-1.5 font-medium inline-flex items-center gap-1.5"
+                    className="btn-primary shrink-0"
                   >
                     <FloppyDisk size={15} aria-hidden />
                     {saving ? "Saving…" : "Save"}
@@ -303,7 +303,7 @@ export default function TemplatesModal({
 
               {/* Saved templates */}
               <div className="space-y-1.5">
-                <div className="text-[11px] uppercase tracking-wider text-[var(--text-dim)] font-medium">
+                <div className="font-label text-[var(--text-muted)]">
                   Your templates
                 </div>
                 {templates === null && (
@@ -317,13 +317,16 @@ export default function TemplatesModal({
                   </p>
                 )}
                 {templates !== null && templates.length > 0 && (
-                  <ul className="space-y-1">
+                  // Each template is its own sticker card; the list gaps
+                  // are wide enough that one card's 4px hard shadow
+                  // doesn't land on the next card's outline.
+                  <ul className="space-y-3 pt-1">
                     {templates.map((t) => (
                       <li
                         key={t.id}
-                        className="flex items-center gap-2 rounded-md border border-[color:var(--border)] bg-[var(--bg)] px-2.5 py-1.5"
+                        className="card-lift flex items-center gap-2 rounded-xl border-2 border-ink bg-[var(--bg-elev)] shadow-sticker px-3 py-2"
                       >
-                        <span className="shrink-0 w-14 h-10 rounded border border-[color:var(--border-subtle)] bg-[var(--bg-elev-2)] overflow-hidden flex items-center justify-center">
+                        <span className="shrink-0 w-14 h-10 rounded-lg border-2 border-ink bg-[var(--bg-elev-2)] overflow-hidden flex items-center justify-center">
                           {t.thumbnail ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -351,11 +354,11 @@ export default function TemplatesModal({
                             }}
                             onBlur={() => void renameTemplate(t)}
                             maxLength={80}
-                            className="flex-1 min-w-0 rounded-md bg-[var(--bg-elev)] border border-brand-500 px-2 py-1 text-sm outline-none"
+                            className="flex-1 min-w-0 rounded-lg bg-[var(--bg-elev)] border-2 border-brand-600 shadow-[0_0_0_3px_var(--accent-soft)] px-2.5 py-1 text-sm font-semibold outline-none"
                           />
                         ) : (
                           <span
-                            className="flex-1 min-w-0 text-sm truncate"
+                            className="flex-1 min-w-0 text-sm font-bold truncate"
                             title={t.name}
                           >
                             {t.name}
@@ -366,7 +369,7 @@ export default function TemplatesModal({
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={() => void renameTemplate(t)}
                             disabled={busyId === t.id}
-                            className="shrink-0 text-[var(--text-dim)] hover:text-brand-600 disabled:opacity-50 p-1"
+                            className="shrink-0 w-8 h-8 rounded-full inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-brand-600 disabled:opacity-40"
                             aria-label="Save name"
                             title="Save name"
                           >
@@ -378,23 +381,26 @@ export default function TemplatesModal({
                               setEditingId(t.id);
                               setEditingName(t.name);
                             }}
-                            className="shrink-0 text-[var(--text-dim)] hover:text-[var(--text)] p-1"
+                            className="shrink-0 w-8 h-8 rounded-full inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
                             aria-label={`Rename template ${t.name}`}
                             title="Rename"
                           >
                             <PencilSimple size={15} aria-hidden />
                           </button>
                         )}
+                        {/* Compact primary pill — written out rather than
+                            .btn-primary because that class's padding wins
+                            over utilities and would make the row too tall. */}
                         <button
                           onClick={() => loadTemplate(t)}
-                          className="shrink-0 text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 font-medium"
+                          className="shrink-0 text-xs rounded-full bg-brand-600 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press hover:bg-brand-700 px-3 py-1"
                         >
                           Load
                         </button>
                         <button
                           onClick={() => void deleteTemplate(t)}
                           disabled={busyId === t.id}
-                          className="shrink-0 text-[var(--text-dim)] hover:text-[color:var(--destructive)] disabled:opacity-50 p-1"
+                          className="shrink-0 w-8 h-8 rounded-full bg-danger-50 text-danger-700 border-2 border-ink shadow-sticker-sm sticker-press hover:bg-danger-100 disabled:opacity-40 inline-flex items-center justify-center"
                           aria-label={`Delete template ${t.name}`}
                           title="Delete template"
                         >
