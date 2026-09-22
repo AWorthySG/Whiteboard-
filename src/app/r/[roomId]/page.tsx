@@ -1,13 +1,12 @@
-import RoomShell from "@/components/RoomShell";
+import RoomShellClient from "@/components/RoomShellClient";
 
 export default async function RoomPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ roomId: string }>;
-  searchParams: Promise<{ name?: string }>;
 }) {
   const { roomId } = await params;
-  const { name } = await searchParams;
-  return <RoomShell roomId={decodeURIComponent(roomId)} userName={name ?? ""} />;
+  // Neither `searchParams` nor the room shell itself is rendered on the
+  // server — see RoomShellClient for why. `?name=` is read client-side.
+  return <RoomShellClient roomId={decodeURIComponent(roomId)} />;
 }

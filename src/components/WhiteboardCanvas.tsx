@@ -1297,7 +1297,7 @@ function CanvasFloatingPanel({
           aria-expanded={styleOpen}
           aria-label={styleOpen ? "Hide stroke size and colour" : "Show stroke size and colour"}
           title="Stroke size & colour"
-          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-1.5 py-1 hover:bg-[var(--hover)]"
+          className="touch-target inline-flex items-center justify-center gap-1.5 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-1.5 py-1 hover:bg-[var(--hover)]"
         >
           <span className="relative inline-flex items-center justify-center">
             <span
@@ -1328,7 +1328,7 @@ function CanvasFloatingPanel({
           this control has no effect there — md:hidden removes it. */}
       <button
         onClick={onToggleTools}
-        className="md:hidden rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-2.5 py-1 text-[11px] font-extrabold text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
+        className="touch-target md:hidden rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-2.5 py-1 text-[11px] font-extrabold text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center justify-center gap-1.5"
         title={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-label={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-pressed={!toolsCollapsed}

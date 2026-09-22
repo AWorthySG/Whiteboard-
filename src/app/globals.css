@@ -102,6 +102,49 @@ body,
   font-family: inherit;
 }
 
+/* ━━━ Touch + pen hardening (iPad / Apple Pencil) ━━━
+   The app is a tool, not a document. A finger or pencil drag across the
+   chrome must never start a text selection: on iOS a live selection
+   captures subsequent pencil input, so the next stroke drags a selection
+   handle instead of drawing — that is the "pencil stops working"
+   symptom, and the red ::selection below makes it glaringly visible.
+   `.tldraw-shell` already protected the canvas itself; this extends the
+   same protection to the header, rails, drawers and modals around it.
+   Text that exists to be read and copied opts back in via `.selectable`. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Real inputs, and the few surfaces where copying is the point: chat
+   (the end-of-lesson recap posts recording links as plain text), live
+   captions, and error details. `touch-callout: default` puts the iOS
+   copy/paste menu back on exactly these. */
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+/* Remove the 300 ms double-tap wait and accidental double-tap zoom on
+   controls — easy to trigger with a palm beside the canvas. `manipulation`
+   still permits panning and pinch-zoom, so scrollable drawers are
+   unaffected. Scoped out of tldraw's own container so nothing competes
+   with its pointer pipeline. */
+button:not(.tl-container *),
+a:not(.tl-container *),
+label:not(.tl-container *),
+select:not(.tl-container *),
+summary:not(.tl-container *),
+[role="button"]:not(.tl-container *) {
+  touch-action: manipulation;
+}
+
 /* Faint paper fibre on the cream page so white sticker cards sit on a
    surface rather than on flat colour. The whiteboard canvas paints its
    own solid --canvas fill on top, so handwriting never sits on dots. */

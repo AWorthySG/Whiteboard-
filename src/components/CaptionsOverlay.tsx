@@ -83,7 +83,7 @@ export default function CaptionsOverlay({
             <span className="font-label text-[var(--text-muted)] mr-2 not-italic">
               {line.name}
             </span>
-            <span className="text-sm leading-snug font-bold">{line.text}</span>
+            <span className="selectable text-sm leading-snug font-bold">{line.text}</span>
           </div>
         );
       })}
