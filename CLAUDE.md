@@ -264,9 +264,11 @@ CaptionsOverlay.tsx    Bottom-center floating panel that renders the last ~3 cap
                        are on screen (the up-front toast in CaptionsManager
                        handles the noisy case).
 
-Toast.tsx              Stacked toast notifications (ToastProvider in root layout). Solid
-                       red / green variants have explicit text-white (the bg is saturated
-                       so var(--text) reads as dark-on-dark in light mode).
+Toast.tsx              Stacked toast notifications (ToastProvider in root layout). Every
+                       variant is a sticker (2px ink outline, hard shadow, bold dark
+                       text): error on `bg-danger-50`, success on `bg-success-bg`,
+                       info on white. No solid fills — the only solid red on screen
+                       is a primary button or the REC badge.
 
 ChatBubble.tsx         Floating chat button + 320×440 popover. Persists to room_messages.
 
@@ -400,6 +402,17 @@ SettingsModal.tsx      Profile, account (sign in / claim room / sign out), appea
                        defaults, room (invite link, leave room).
 
 PresenceBadge.tsx      Header live-participant count via Supabase Realtime presence.
+                       Rendered as a badge chip in the grass tint with the pulsing
+                       `--presence` dot.
+
+SubNav.tsx             The Whiteboard / Documents / Homework / Recordings strip under
+                       the room header, on the sidebar cream with a 2px ink bottom
+                       rule. Tabs are pills — active `bg-brand-600 text-white
+                       border-2 border-ink`, inactive `border-2 border-transparent`
+                       so both states are the same size. The <button> stays
+                       `h-full` inside the 44px strip (full hit area on iPad); the
+                       visible 34px pill is an inner span, so don't move the pill
+                       classes back onto the button.
 
 ReconnectBanner.tsx    Floating banner when tldraw sync is loading/offline/errored.
 
@@ -448,21 +461,29 @@ Sticker.tsx            next/image wrapper for the mascot stickers, addressed by
                          sheet and the room welcome modal.
                        - Solo stickers (240px tall sources): avocado, heart,
                          rocket, icecream — also the CanvasWatermark set.
-                       Placed at: landing hero (teaching), OnboardingHint
-                       welcome modal (teaching), KnockGate waiting screen
-                       (encourage), HomeworkDrawer empty state (reading),
-                       ChatBubble empty state (feeding), Telegram redirect
-                       splash (dad).
-                       **`dad` and `feeding` are the two family-themed ones**
-                       (a "#1 DAD" mug, a baby being bottle-fed) and their
-                       placements are deliberately constrained: both depict
-                       "a big one looking after a little one", so they sit on
-                       surfaces about warmth (chat) or pure brand decoration
-                       (the Telegram splash, which is a wordmark + spinner
-                       and makes no claim about the viewer). Do NOT move
-                       `dad` onto a lesson-outcome surface — EndLessonModal,
-                       a homework result, a profile — where "#1 DAD" reads as
-                       an assertion about the user rather than as brand art.
+                       - Nine more duos + the six-up `sheet` illustration from
+                         the supplied collection (essay, readingbuddies,
+                         studying, civics, checklist, calculus2, chemistry2,
+                         mathematics2, economics2).
+                       PLACEMENT MAP (the LMS is restrained about mascots —
+                       one per surface, only where it means something):
+                       landing hero (teaching + the five SUBJECT_STICKERS as
+                       a tilted strip, `sheet` as a lg+ corner piece),
+                       OnboardingHint (teaching), room entry-choice modal
+                       (mathematics), KnockGate waiting (encourage),
+                       HomeworkDrawer empty (reading), DocumentsDrawer empty
+                       (essay — replaced the old hand-drawn SVG),
+                       TemplatesModal empty (checklist), ChatBubble empty
+                       (civics — the globe + speech bubbles), error.tsx
+                       (chemistry2), Telegram splash (readingbuddies).
+                       **Registered but unplaced**: dad, feeding (family-
+                       themed, no honest home), studying, calculus2,
+                       mathematics2, economics2 (near-duplicates of placed
+                       ones). AdmissionPanel returns null on an empty roster,
+                       so it has no empty-state slot. **The six solo
+                       "ghost" mascots (graduation cap, single character)
+                       were reviewed and rejected by the owner — do not
+                       re-add them.** The `sheet` is decorative only.
                        For a breakpoint-varying size, pass the desktop
                        value as `size` and override with `h-[..] sm:h-[..]
                        w-auto` classes — an inline height can't carry a media
@@ -611,7 +632,7 @@ an inline heading span) · `.font-label` · `.glass-header` · `.scale-pop` ·
 - **Upload validation is centralised** — all upload entry points (canvas drag-drop, Documents drawer, AttachmentPicker) call `validateFileForUpload` from `src/lib/fileValidation.ts` before the XHR fires. SVG is blocked at this layer (stored XSS risk via public CDN). Do not add a new upload path without importing and calling `validateFileForUpload` first, and use `getSafeMimeType` for the `Content-Type` header — never echo `file.type` directly to Supabase Storage.
 - **PDF writing space**: when `settings.pdfWritingSpace` is on (default), uploading a PDF also drops a blank ruled "answer sheet" of the SAME page size directly to the right of each page, so students can write where a worksheet has no allocated answer space. Because the sheet reuses the page's `w`/`h` (which are PDF points), an A4 page → an A4 sheet automatically. The sheet is a self-contained `data:image/svg+xml;base64,…` URL built by `makeLinedSheetDataUrl(w,h)` and placed via `insertLinedSheet()` as a LOCKED image (students draw on top). It's a data URL, not an uploaded/CDN-served file, so the SVG-XSS rule in `fileValidation.ts` doesn't apply. Both PDF paths support it: `insertPdfAsImages` (canvas images — vertical layout puts sheets in a parallel right column; horizontal layout advances the per-page stride past page+sheet) and `insertPdfAsPageBackgrounds` (one tldraw page per PDF page — sheet sits at `x = w/2 + 40`, sent to back like the page background). Sheets of the same size share one hash-keyed asset.
 - **Non-host default tool is hand**: in `WhiteboardCanvas.onMount` we call `editor.setCurrentTool("hand")` when `!isHost`. With `touch-action: none` on the canvas, a single-finger swipe goes to tldraw's gesture pipeline — defaulting students to the hand tool means a swipe pans rather than drawing a stray line. The host stays on `draw`. The student can still switch tools if they want to annotate.
-- **Toolbar active state**: globals.css forces a brand-blue background + white icon for the selected tool button (`[aria-pressed="true"]` / `[data-state="selected"]`). tldraw's default light-mode highlight was too subtle.
+- **Toolbar active state**: globals.css forces the red accent (`var(--accent)`) + white icon for the selected tool button (`[aria-pressed="true"]` / `[data-state="selected"]`) on tldraw's phone toolbar; LeftRail's active tool is the same `bg-brand-600 text-white`. tldraw's default light-mode highlight was too subtle.
 - **Keyboard focus rings (a11y)**: globals.css has a global `:focus-visible` outline. The outline-suppression rule is scoped to `.tldraw-shell .tl-container *:focus-visible` (NOT `.tldraw-shell *`) on purpose: our custom canvas controls (ZoomControls, PagesTabBar, CanvasFloatingPanel) live in `.tldraw-shell` but OUTSIDE `.tl-container`, so they keep the keyboard focus ring while tldraw's own interaction layer stays clean. Don't re-broaden it back to `.tldraw-shell *` — that silently kills focus visibility on every custom canvas control. Icon-only header buttons whose visible label is `hidden sm:inline` (the "+ New page" and "Pages" controls) carry an explicit `aria-label` since the label is display:none (and thus absent from the a11y tree) on phones.
 - **Leader mode UI**: when on, the host sees a solid `--sun` "LEADING VIEW" sticker pill top-right of the canvas, AND the eye icon in LeftRail gets a filled `--sun` background. Both use DARK (`--text`) ink on the yellow, not white — white on `#F5B82E` fails contrast. Guests being followed see the "Following host" sun chip.
 - **Geometric shape lockout**: the `tools()` override in `WhiteboardCanvas` clears the keyboard `kbd` field for `arrow`, `line`, `geo`, `text`, and `frame` so they're unreachable. They were already hidden from the SlimToolbar; this also kills the R/O/A/L/T/F shortcuts.
@@ -623,6 +644,7 @@ an inline heading span) · `.font-label` · `.glass-header` · `.scale-pop` ·
 - **Admission is persistent per (room, user_id)**. KnockGate now reads-then-conditionally-inserts: if a row already exists for this device it preserves the status (admitted → straight in, pending → still waiting, denied → stays denied). An older version unconditionally upserted 'pending', which clobbered admitted rows on every visit and effectively required re-admission every time. If you re-introduce an upsert here, use `ignoreDuplicates: true` or read first — never overwrite without intent.
 - **Magic invite links** (`/api/invite/mint` + `/api/invite/redeem`). Host-only feature in InvitePanel: generates an HS256 JWT signed with `WORKER_SHARED_SECRET` containing `{ kind: "invite", roomId, exp }`. Default 90-day expiry. Mint is gated by Supabase session — the caller must present a Bearer token that resolves to the `rooms.host_user_id` for this room (so localStorage-only hosts can't mint until they claim the room to their account in Settings). Redeem is anonymous + token-gated: any guest opening `/r/<roomId>?invite=<token>` has the token verified, then their `join_requests` row is upserted to admitted. KnockGate detects the `invite` URL param and calls redeem before the normal knock flow. Invite tokens deliberately OMIT the `userId` claim so the Cloudflare worker's `verifySyncToken` (which requires both `roomId` and `userId`) won't accept them as sync tokens — leaking an invite link only grants the right to redeem into the knock flow, not direct whiteboard sync. There's no server-side revocation list; rotate `WORKER_SHARED_SECRET` to invalidate all outstanding invites. **`SUPABASE_SERVICE_ROLE_KEY` must be set in Vercel** — the redeem route uses it to bypass the RLS UPDATE policy; if the var is missing the route hard-fails with 500 (deliberately, not a silent fallback).
 - **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) AND its `NavigationPanel` (the native zoom/minimap pill) are both nulled in our `components` override, so we render our own `ZoomControls` bottom-left (was bottom-right; moved so the video panel doesn't cover it). If `NavigationPanel` is ever un-nulled you get TWO zoom pills stacked bottom-left — that was the "duplicate zoom panel" bug.
+- **PWA manifest colours** follow the LMS: `background_color` is the cream `#FAF6EE`, `theme_color` the red `#C0392B`; `layout.tsx`'s viewport `themeColor` is the cream so the browser chrome matches the page.
 - **PWA orientation lock**: `public/manifest.webmanifest` sets `"orientation": "portrait"`. This is honoured for installed PWAs on Android Chrome; iOS Safari ignores it for non-installed sessions.
 - **PWA icons**: `public/icon.svg` is a vector recreation of the A Worthy brand mark — the arched A with the `+` inside, sitting above the W swoosh — drawn in `#2c5c8c` on a transparent field. The PNG set (`public/icon-{152,167,180,192}.png`, `public/icon.png` at 512, and the Next.js favicon source `src/app/icon.png`) is regenerated from that SVG via sharp (`~15` lines; see commit `7f81a18` for the original script pattern) and stays transparent across the board. iOS doesn't read the manifest icon list reliably on first install, so `src/app/layout.tsx` adds explicit `<link rel="apple-touch-icon" sizes="...">` tags for 152/167/180 so Safari picks the right one. **Maskable is a separate file**: `public/icon-maskable.png` is the same mark composited onto a white 512×512 background, and the manifest's `purpose: "maskable"` entry points at it (not `icon.png`). Transparent maskable icons fail the Android spec — the safe-zone has no fill, so the launcher composites the mark onto whatever system background the user's phone happens to use. Don't re-collapse the maskable entry back into `icon.png`. When regenerating from the SVG, output the transparent variants AND composite the SVG over a white 512×512 square for `icon-maskable.png`.
 - **Fonts: Nunito is the ONLY family, and an unused `next/font` variable is a preload, not a no-op.** `layout.tsx` used to also load Caveat (`--font-hand`) and JetBrains Mono (`--font-mono`), but nothing ever rendered in either: every Tailwind family maps to `--font-sans`, and `globals.css` forces Nunito on `*` plus tldraw's `--tl-font-*` and LiveKit's `--lk-font-family`. Because `next/font` preloads by default and both `variable` classes were on `<html>`, every page load fetched ~103 kB of woff2 for type that never appeared on screen. Both were removed. If a second family is ever genuinely wanted, add it back **and** give it a real consumer.
@@ -782,9 +804,11 @@ default stroke profile if the patch isn't applied.
     the `EndLessonModal` chat recap, and ChatBubble's "Say hi 👋" copy. The ones
     that WERE icons — OnboardingHint's four bullets, `PlaybackViewer`'s error
     glyph, `DocumentsDrawer`'s group-header folder — are now Phosphor.
-20. **Landing page background is deliberately not `--bg`.** `src/app/page.tsx` sets an
-    inline `background` on `<main>`: a soft `--accent-soft` radial bloom over
-    `--canvas` (the warm cream paper tone). Both `--bg` and `--bg-elev` are
-    `#ffffff`, so on the default background the landing card had nothing to sit on
-    and read as a seam rather than a surface. Pure CSS gradients — no image, no
-    added bytes. Don't "simplify" it back to `bg-[var(--bg)]`.
+20. **Landing page hero blooms.** `src/app/page.tsx` renders three
+    absolutely-positioned radial blooms behind the card — `--sun` top-left,
+    `--bloom` centre-right, `--sky` bottom-right — the LMS hero's, as
+    `pointer-events-none` divs with the alpha on `opacity` (a `var()` can't
+    take a hex-alpha suffix). The page itself is the cream `--bg` with the
+    body's paper-fibre dots; the card is a `rounded-3xl` sticker with the
+    large hard shadow. Don't collapse the blooms into one gradient on
+    `<main>` — three separate soft colours is what reads as the LMS.
