@@ -119,13 +119,22 @@ body {
 }
 
 /* Small-caps label — "WELCOME BACK", section eyebrows, form labels. */
+@layer components {
 .font-label {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-size: 10px;
 }
+}
 
+/* Custom utility classes live in Tailwind's `components` layer so a
+   plain utility on the same element (`rounded-2xl`, `px-3`, `text-xs`)
+   still wins — the `utilities` layer is emitted after `components`.
+   Declared as bare rules after @tailwind utilities they would tie on
+   specificity and win on source order, silently eating per-element
+   sizing tweaks. */
+@layer components {
 /* ━━━ Sticker primitives ━━━
    .sticker       white card, 2px navy outline, hard offset shadow
    .sticker-pill  same, pill-shaped (buttons, chips, floating controls)
@@ -168,14 +177,18 @@ body {
 /* Hide a scroller's bar without disabling scrolling — used by the
    PagesTabBar strip, which scrolls sideways under a thumb but must not
    show a bar inside a sticker pill. */
+@layer components {
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+}
 
 /* Glass sticky header — cream, not white, so it belongs to the paper. */
+@layer components {
 .glass-header {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   background: rgba(250, 246, 238, 0.86);
+}
 }
 
 /* Thin warm scrollbar + red selection, as on the LMS. */
@@ -184,6 +197,7 @@ body {
 ::-webkit-scrollbar-thumb { background: #D8D0BF; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #B9AE98; }
 ::selection { background: rgba(192, 57, 43, 0.18); color: #1C1B19; }
+}
 
 /* Modal / popover entrance — scale-pop, honoured by reduced-motion below. */
 @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
@@ -294,6 +308,7 @@ html[data-theme="light"] .tl-canvas {
   color: #ffffff !important;
 }
 
+@layer components {
 /* Button utility classes — the LMS's three pill tiers:
    - .btn-primary   red fill, white text, navy outline, hard red shadow
                     (the one "do this" action per surface)
@@ -348,6 +363,7 @@ html[data-theme="light"] .tl-canvas {
 .btn-primary:disabled,
 .btn-secondary:disabled,
 .btn-tertiary:disabled { opacity: 0.4; cursor: not-allowed; }
+}
 
 /* Larger eraser preview on coarse pointers (phone, tablet). tldraw
    keeps its hit-radius identical regardless of pointer kind, which
