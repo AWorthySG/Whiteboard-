@@ -182,10 +182,10 @@ export default function ChatBubble({
           >
             {messages.length === 0 ? (
               <div className="text-center text-xs font-semibold text-[var(--text-dim)] py-6">
-                {/* The chat panel is the room's "someone's looking after
-                    you" surface, which is what this sticker depicts. Kept
-                    small — the popover is only 320px wide. */}
-                <Sticker name="feeding" size={92} className="mx-auto mb-1" />
+                {/* The duo with the globe and speech bubbles — the one sticker
+                    in the set that is literally about talking. Kept small:
+                    the popover is only 320px wide. */}
+                <Sticker name="civics" size={92} className="mx-auto mb-1" />
                 No messages yet. Say hi 👋
               </div>
             ) : (

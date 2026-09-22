@@ -69,10 +69,10 @@ export default function TelegramLanding() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--bg)] p-6">
         {/* Pure brand splash — a wordmark, a spinner and one line of copy,
-            shown for the second or two before the redirect lands. That
-            makes it the one surface where a mascot is decoration and not
-            a statement about the person looking at it. */}
-        <Sticker name="dad" size={132} priority />
+            shown for the second or two before the redirect lands, so a
+            mascot here is decoration rather than a statement about the
+            person looking at it. The reading duo: a lesson is about to open. */}
+        <Sticker name="readingbuddies" size={132} priority />
         <BrandLogo size={36} variant="wordmark" />
         <div className="inline-block w-7 h-7 border-[3px] border-ink border-t-brand-600 rounded-full animate-spin" />
         <p className="text-sm font-semibold text-[var(--text-muted)]">Opening your lesson…</p>

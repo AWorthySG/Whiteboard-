@@ -13,6 +13,7 @@ import {
 import { getSupabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "./Toast";
+import Sticker from "@/components/Sticker";
 
 // A saved board template. `content` is a tldraw TLContent blob (shapes +
 // assets + bindings of one page) stored as jsonb — opaque here, cast back
@@ -312,9 +313,14 @@ export default function TemplatesModal({
                   </p>
                 )}
                 {templates !== null && templates.length === 0 && (
-                  <p className="text-xs text-[var(--text-dim)] py-2">
-                    No templates yet. Save a page above to start your library.
-                  </p>
+                  <>
+                    {/* Clipboard duo for an empty library — saved layouts are
+                        checklists you reuse. */}
+                    <Sticker name="checklist" size={110} className="mx-auto mb-2" />
+                    <p className="text-xs text-[var(--text-dim)] py-2">
+                      No templates yet. Save a page above to start your library.
+                    </p>
+                  </>
                 )}
                 {templates !== null && templates.length > 0 && (
                   // Each template is its own sticker card; the list gaps

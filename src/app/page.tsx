@@ -179,6 +179,17 @@ export default function Home() {
         style={{ background: "radial-gradient(circle, var(--sky) 0%, transparent 68%)" }}
       />
 
+      {/* The six-up sticker sheet from the collection, pressed into the
+          bottom-left of the paper at large widths — the LMS hero's
+          illustration slot. Behind the card in DOM order, so the card's
+          hard shadow paints over it if the two ever meet; hidden below
+          lg where there is no margin for it to sit in. */}
+      <Sticker
+        name="sheet"
+        size={200}
+        className="hidden lg:block pointer-events-none absolute left-[4%] bottom-[6%] -rotate-6"
+      />
+
       <div className="relative w-full max-w-xl rounded-3xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">

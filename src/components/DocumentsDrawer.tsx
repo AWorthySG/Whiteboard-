@@ -14,6 +14,7 @@ import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
 import DrawerSkeleton from "./Skeleton";
+import Sticker from "@/components/Sticker";
 
 // Group docs by local date string (yyyy-mm-dd). Returns the groups in
 // reverse-chronological order, with a human-friendly label for each
@@ -285,7 +286,10 @@ export default function DocumentsDrawer({
             <DrawerSkeleton />
           ) : docs.length === 0 ? (
             <div className="p-8 text-center">
-              <EmptyDocsIllustration />
+              {/* Worksheet duo — a checklist page and a lightbulb — for the
+                  "no documents yet" moment, in place of the old hand-drawn
+                  paper-stack SVG. */}
+              <Sticker name="essay" size={120} className="mx-auto" />
               <p className="text-sm font-bold mt-3">No documents yet</p>
               <p className="text-xs font-semibold text-[var(--text-dim)] mt-1">
                 Click the <span className="font-extrabold text-brand-600">Upload</span> button
@@ -398,67 +402,5 @@ export default function DocumentsDrawer({
         </div>
       </div>
     </div>
-  );
-}
-
-// Small inline illustration for the empty Documents drawer state.
-// Hand-crafted SVG so there's no extra asset to ship — three offset
-// document outlines suggesting "a place where things accumulate".
-function EmptyDocsIllustration() {
-  return (
-    <svg
-      width="88"
-      height="72"
-      viewBox="0 0 88 72"
-      fill="none"
-      aria-hidden="true"
-      className="mx-auto"
-    >
-      {/* Back paper */}
-      <rect
-        x="22"
-        y="18"
-        width="40"
-        height="50"
-        rx="4"
-        fill="var(--bg-elev-2)"
-        stroke="var(--ink)"
-        strokeWidth="2"
-      />
-      {/* Middle paper, slightly rotated */}
-      <g transform="rotate(-6 30 38)">
-        <rect
-          x="14"
-          y="14"
-          width="40"
-          height="50"
-          rx="4"
-          fill="var(--bg-elev)"
-          stroke="var(--ink)"
-          strokeWidth="2"
-        />
-        <line x1="20" y1="26" x2="46" y2="26" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="20" y1="34" x2="46" y2="34" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="20" y1="42" x2="38" y2="42" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round" />
-      </g>
-      {/* Front paper with corner fold */}
-      <g transform="rotate(5 60 42)">
-        <path
-          d="M44 26 L62 26 L70 34 L70 64 L44 64 Z"
-          fill="var(--bg-elev)"
-          stroke="var(--ink)"
-          strokeWidth="2"
-        />
-        <path
-          d="M62 26 L62 34 L70 34"
-          fill="var(--bg-elev-2)"
-          stroke="var(--ink)"
-          strokeWidth="2"
-        />
-        <line x1="50" y1="44" x2="64" y2="44" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="50" y1="50" x2="64" y2="50" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round" />
-        <line x1="50" y1="56" x2="58" y2="56" stroke="var(--ink-faint)" strokeWidth="2" strokeLinecap="round" />
-      </g>
-    </svg>
   );
 }
