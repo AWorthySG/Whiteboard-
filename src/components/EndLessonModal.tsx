@@ -5,7 +5,7 @@ import type { Editor } from "tldraw";
 import { useRouter } from "next/navigation";
 import { useToast } from "./Toast";
 import { getSupabase } from "@/lib/supabase";
-import { exportLessonPdf } from "@/lib/exportLessonPdf";
+import { exportLessonPdf, downloadPdfBlob } from "@/lib/exportLessonPdf";
 
 type Stage =
   | { kind: "idle" }
@@ -83,7 +83,7 @@ export default function EndLessonModal({
         );
       }
 
-      const { url, name } = await exportLessonPdf({
+      const { url, name, blob } = await exportLessonPdf({
         editor,
         roomId,
         roomTitle,
@@ -140,15 +140,12 @@ export default function EndLessonModal({
         }
       }
 
-      // Trigger a download for the host so they have a local copy.
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      a.target = "_blank";
-      a.rel = "noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      // Save a local copy for the host. This downloads the in-memory blob,
+      // NOT the public URL — an <a download> pointed at the Supabase origin
+      // is ignored (cross-origin) and the _blank it then needs is blocked as
+      // a popup, because the export has outlived the original click's user
+      // activation. See downloadPdfBlob.
+      downloadPdfBlob(blob, name);
 
       setStage({ kind: "done", url, name });
       toast.success("Lesson recap saved and shared in chat");

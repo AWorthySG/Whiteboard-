@@ -4,8 +4,10 @@
 // pdf-lib + tldraw's exportToBlob are both dynamic-imported so the
 // ~250KB of pdf-lib never enters the room's first-load bundle.
 //
-// Returns { url, name } so the caller can post the link in the room
-// chat / add a row to room_documents / trigger a download.
+// Returns { url, name, blob } — `url` for the chat recap and the
+// Documents drawer, `blob` for the caller's local download. Those are
+// NOT interchangeable: see downloadPdfBlob below for why the download
+// must come from the blob and never from the public URL.
 
 import type { Editor, TLPageId } from "tldraw";
 import { getSupabase } from "@/lib/supabase";
@@ -37,7 +39,7 @@ export async function exportLessonPdf({
     recordings: { title: string }[];
   };
   onProgress?: (p: Progress) => void;
-}): Promise<{ url: string; name: string }> {
+}): Promise<{ url: string; name: string; blob: Blob }> {
   const pages = editor.getPages();
   if (pages.length === 0) throw new Error("No pages to export");
 
@@ -231,6 +233,11 @@ export async function exportLessonPdf({
       .replace(/-+/g, "-");
   const storagePath = `${Date.now()}-${crypto.randomUUID()}.pdf`;
   const endpoint = `${supabaseUrl}/storage/v1/object/whiteboard-assets/${storagePath}`;
+  // One blob for both the upload and the caller's local download, so the
+  // file the host saves is byte-identical to the one in the drawer.
+  const pdfBlob = new Blob([new Uint8Array(pdfBytes)], {
+    type: "application/pdf",
+  });
   const upRes = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -239,7 +246,7 @@ export async function exportLessonPdf({
       "Content-Type": "application/pdf",
       "x-upsert": "false",
     },
-    body: new Blob([new Uint8Array(pdfBytes)], { type: "application/pdf" }),
+    body: pdfBlob,
   });
   if (!upRes.ok) {
     const body = await upRes.text();
@@ -261,5 +268,37 @@ export async function exportLessonPdf({
   }
 
   onProgress?.({ stage: "done", current: pages.length, total: pages.length });
-  return { url: publicUrl, name: fileName };
+  return { url: publicUrl, name: fileName, blob: pdfBlob };
+}
+
+/**
+ * Save a generated PDF to the host's device.
+ *
+ * This MUST be handed the blob, never the Supabase public URL. Two
+ * independent things break when an <a download> points at that URL, and
+ * together they made "Save PDF and leave" silently do nothing:
+ *
+ *  1. `download` is only honoured for same-origin (or blob:/data:) hrefs.
+ *     The public URL is on the Supabase domain, so the attribute is
+ *     ignored and the browser just navigates to the file instead.
+ *  2. By the time the export finishes — every page rendered, then
+ *     uploaded — the user activation from the original click has long
+ *     expired, so the `target="_blank"` that navigation needed is
+ *     blocked as a popup. On iOS Safari nothing happens at all.
+ *
+ * A blob: URL is same-origin, so `download` works and no new tab (and
+ * therefore no popup permission) is involved.
+ */
+export function downloadPdfBlob(blob: Blob, fileName: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  a.rel = "noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoking synchronously can cancel the download before the browser has
+  // finished reading the blob; give it a generous window, then free it.
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
 }
