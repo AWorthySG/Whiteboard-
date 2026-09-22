@@ -1252,28 +1252,28 @@ function CanvasFloatingPanel({
     >
       {beingFollowed && (
         <div
-          className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-amber-100 text-amber-800 border-amber-600 shadow-lg flex items-center gap-1.5"
+          className="rounded-full px-2.5 py-1 text-[11px] font-extrabold border-2 border-ink bg-sun-bg text-sun-deep shadow-sticker flex items-center gap-1.5"
           title="The host is leading the view — your pan/zoom is locked"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-sun-deep animate-pulse" />
           Following host
         </div>
       )}
       {isLeading && (
         <div
-          className="rounded-full px-2.5 py-1 text-[11px] font-medium uppercase tracking-wider bg-amber-500 text-white border border-amber-600 shadow-lg flex items-center gap-1.5"
+          className="rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-label bg-sun text-[var(--text)] border-2 border-ink shadow-sticker flex items-center gap-1.5"
           title="You're leading — every guest's canvas mirrors your view. Click the eye icon in the toolbar to stop."
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--text)] animate-pulse" />
           Leading view
         </div>
       )}
       {hasDrawGrant && (
         <div
-          className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-emerald-100 text-emerald-900 border-emerald-600 shadow-lg flex items-center gap-1.5"
+          className="rounded-full px-2.5 py-1 text-[11px] font-extrabold border-2 border-ink bg-grass-bg text-grass-deep shadow-sticker flex items-center gap-1.5"
           title="The host has given you drawing privilege — solve the problem on the shared canvas."
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-grass-deep animate-pulse" />
           You can draw
         </div>
       )}
@@ -1297,15 +1297,15 @@ function CanvasFloatingPanel({
           aria-expanded={styleOpen}
           aria-label={styleOpen ? "Hide stroke size and colour" : "Show stroke size and colour"}
           title="Stroke size & colour"
-          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-1.5 py-1 hover:bg-[var(--hover)]"
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-1.5 py-1 hover:bg-[var(--hover)]"
         >
           <span className="relative inline-flex items-center justify-center">
             <span
-              className="w-5 h-5 rounded-full ring-1 ring-[color:var(--border)]"
+              className="w-5 h-5 rounded-full ring-2 ring-ink"
               style={{ backgroundColor: activeColorHex }}
             />
             <span
-              className="absolute rounded-full bg-[var(--bg)]"
+              className="absolute rounded-full bg-[var(--bg-elev)]"
               style={{ width: activeSizeDot, height: activeSizeDot }}
             />
           </span>
@@ -1328,12 +1328,12 @@ function CanvasFloatingPanel({
           this control has no effect there — md:hidden removes it. */}
       <button
         onClick={onToggleTools}
-        className="md:hidden rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1 text-[11px] text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
+        className="md:hidden rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-2.5 py-1 text-[11px] font-bold text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
         title={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-label={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-pressed={!toolsCollapsed}
       >
-        <Toolbox size={14} aria-hidden weight={toolsCollapsed ? "regular" : "fill"} />
+        <Toolbox size={14} aria-hidden weight={toolsCollapsed ? undefined : "fill"} />
         <span>{toolsCollapsed ? "Tools" : "Hide tools"}</span>
       </button>
     </div>
@@ -1366,7 +1366,7 @@ function PenModeIndicator({ editor }: { editor: Editor | null }) {
   return (
     <button
       onClick={turnOff}
-      className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] shadow-lg flex items-center gap-1.5 hover:bg-[var(--hover)]"
+      className="rounded-full px-2.5 py-1 text-[11px] font-bold border-2 border-ink bg-[var(--bg-elev)] text-[var(--text)] shadow-sticker sticker-press flex items-center gap-1.5 hover:bg-[var(--hover)]"
       title={
         appSettings.penOnly
           ? "Pen-only mode is on (Settings → Whiteboard). Tap to let your finger draw again."
@@ -1375,7 +1375,7 @@ function PenModeIndicator({ editor }: { editor: Editor | null }) {
     >
       <Pencil weight="fill" aria-hidden size={12} />
       Pen mode
-      <span className="text-[9px] text-[var(--text-dim)] ml-1">tap to undo</span>
+      <span className="text-[9px] font-semibold text-[var(--text-muted)] ml-1">tap to undo</span>
     </button>
   );
 }
@@ -1415,18 +1415,18 @@ function ProgressBar({ progress }: { progress: Progress }) {
   if (!progress) return null;
   return (
     <div
-      className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[min(420px,90vw)] rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-3"
+      className="absolute left-1/2 -translate-x-1/2 bottom-6 w-[min(420px,90vw)] rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg p-3"
       style={{ zIndex: 9999 }}
     >
-      <div className="flex items-center justify-between text-xs mb-1.5">
+      <div className="flex items-center justify-between text-xs font-bold mb-1.5">
         <span className="truncate text-[var(--text)]">{progress.label}</span>
         <span className="text-[var(--text-muted)] tabular-nums shrink-0 ml-2">
           {progress.percent}%
         </span>
       </div>
-      <div className="w-full h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+      <div className="w-full h-3 rounded-full border-2 border-ink bg-[var(--bg-elev-2)] overflow-hidden">
         <div
-          className="h-full bg-brand-500 transition-all duration-200 ease-out"
+          className="h-full bg-brand-600 transition-all duration-200 ease-out"
           style={{ width: `${progress.percent}%` }}
         />
       </div>
@@ -2040,7 +2040,7 @@ function CustomToolbarButtons({ actions }: { actions: CanvasActionsCtx }) {
           type="button"
           className={`tlui-button tlui-button__icon ${
             actions.leaderMode
-              ? "!bg-amber-500 !text-white"
+              ? "!bg-brand-600 !text-white"
               : ""
           }`}
           onClick={() => void actions.onToggleLeader()}
@@ -2254,16 +2254,16 @@ function PointerModeButton({ editor }: { editor: Editor | null }) {
   return (
     <button
       onClick={toggle}
-      className={`rounded-full px-2.5 py-1 text-[11px] font-medium border shadow-lg flex items-center gap-1.5 ${
+      className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold border-2 border-ink sticker-press flex items-center gap-1.5 ${
         isPointing
-          ? "bg-red-500 text-white border-red-600 hover:bg-red-600"
-          : "bg-[var(--bg-elev)] text-[var(--text-muted)] border-[color:var(--border)] hover:bg-[var(--hover)]"
+          ? "bg-brand-600 text-white shadow-sticker-primary hover:bg-brand-700"
+          : "bg-[var(--bg-elev)] text-[var(--text)] shadow-sticker hover:bg-[var(--hover)]"
       }`}
       title={isPointing ? "Stop pointing (back to pan mode)" : "Point at the board (laser pointer)  (K)"}
       aria-label={isPointing ? "Stop pointer" : "Point at board"}
       aria-pressed={isPointing}
     >
-      <span aria-hidden className={`w-2 h-2 rounded-full ${isPointing ? "bg-white animate-pulse" : "bg-[var(--text-dim)]"}`} />
+      <span aria-hidden className={`w-2 h-2 rounded-full ${isPointing ? "bg-[var(--bg-elev)] animate-pulse" : "bg-[var(--text-dim)]"}`} />
       {isPointing ? "Pointing" : "Point at board"}
     </button>
   );
@@ -2327,7 +2327,7 @@ function ClearAnnotationsButton({ editor, userId }: { editor: Editor | null; use
   return (
     <button
       onClick={clear}
-      className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
+      className="rounded-full px-2.5 py-1 text-[11px] font-extrabold border-2 border-ink bg-danger-50 text-danger-700 shadow-sticker sticker-press flex items-center gap-1.5 hover:bg-danger-100"
       title={`Remove your ${count} shape${count === 1 ? "" : "s"} from this page`}
       aria-label="Clear my drawings from this page"
     >
@@ -2358,9 +2358,9 @@ function UndoRedoControls({ editor }: { editor: Editor | null }) {
   if (!editor) return null;
 
   const btn =
-    "w-9 h-9 inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] disabled:opacity-30 disabled:cursor-not-allowed";
+    "w-9 h-9 inline-flex items-center justify-center text-[var(--text)] hover:bg-[var(--hover)] disabled:opacity-30 disabled:cursor-not-allowed";
   return (
-    <div className="md:hidden inline-flex items-center rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg overflow-hidden">
+    <div className="md:hidden inline-flex items-center rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker overflow-hidden">
       <button
         onClick={() => editor.undo()}
         disabled={!canUndo}
@@ -2370,7 +2370,7 @@ function UndoRedoControls({ editor }: { editor: Editor | null }) {
       >
         <ArrowCounterClockwise size={16} aria-hidden />
       </button>
-      <span aria-hidden className="w-px h-5 bg-[var(--border)]" />
+      <span aria-hidden className="w-0.5 h-5 bg-ink-faint" />
       <button
         onClick={() => editor.redo()}
         disabled={!canRedo}
@@ -2410,7 +2410,7 @@ function DeleteSelectionButton({ editor }: { editor: Editor | null }) {
   return (
     <button
       onClick={del}
-      className="rounded-full px-2.5 py-1 text-[11px] font-medium border bg-red-50 text-red-800 border-red-400 shadow-lg flex items-center gap-1.5 hover:bg-red-100"
+      className="rounded-full px-2.5 py-1 text-[11px] font-extrabold border-2 border-ink bg-danger-50 text-danger-700 shadow-sticker sticker-press flex items-center gap-1.5 hover:bg-danger-100"
       title={count > 1 ? `Delete ${count} selected shapes` : "Delete selected shape"}
       aria-label="Delete selection"
     >
