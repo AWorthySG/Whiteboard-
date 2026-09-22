@@ -312,21 +312,21 @@ export default function HomeworkDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-[10000] flex justify-end bg-black/40"
+      className="fixed inset-0 z-[10000] flex justify-end bg-[rgba(28,27,25,0.4)]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md h-full bg-[var(--bg-elev)] border-l border-[color:var(--border)] shadow-2xl flex flex-col"
+        className="w-full max-w-md h-full bg-[var(--bg-sidebar)] border-l-2 border-ink md:border-y-2 md:rounded-l-3xl shadow-soft-3 flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
-          <h2 className="text-lg font-semibold">Homework</h2>
+        <header className="glass-header flex items-center justify-between px-5 py-4 border-b-2 border-dashed border-[color:var(--border)]">
+          <h2 className="text-lg font-extrabold tracking-display">Homework</h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
+            className="w-9 h-9 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text)]"
             aria-label="Close"
           >
-            <X size={22} aria-hidden />
+            <X size={20} aria-hidden />
           </button>
         </header>
 
@@ -338,26 +338,26 @@ export default function HomeworkDrawer({
                   empty state a STUDENT is most likely to land on, and a
                   friendlier frame beats "nothing here". */}
               <Sticker name="reading" size={120} className="mx-auto mb-2" />
-              <p className="text-sm font-medium">No homework yet</p>
-              <p className="text-xs text-[var(--text-dim)] mt-1">
+              <p className="text-sm font-bold">No homework yet</p>
+              <p className="text-xs font-semibold text-[var(--text-dim)] mt-1">
                 {isHost
                   ? "Add an assignment below — students see it as soon as you save."
                   : "Your teacher hasn't assigned anything for this lesson."}
               </p>
             </div>
           )}
-          <ul className="divide-y divide-[color:var(--border-subtle)]">
+          <ul className="px-4 py-3 space-y-2">
             {(items ?? []).map((h) => {
               const subs = submissionsByHomework(h.id);
               const mine = mySubmissionFor(h.id);
               const open = expanded === h.id;
               return (
-                <li key={h.id} className="px-4 py-3">
+                <li key={h.id} className="p-3 bg-[var(--bg-elev)] border-2 border-ink rounded-xl shadow-sticker-sm">
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">{h.title}</div>
+                      <div className="text-sm font-bold">{h.title}</div>
                       {h.description && (
-                        <div className="text-sm text-[var(--text-muted)] mt-1 whitespace-pre-wrap">
+                        <div className="text-sm font-semibold text-[var(--text-muted)] mt-1 whitespace-pre-wrap">
                           {h.description}
                         </div>
                       )}
@@ -366,7 +366,7 @@ export default function HomeworkDrawer({
                           href={h.attachment_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="mt-1 inline-flex items-center gap-1 text-xs text-brand-700 hover:underline"
+                          className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:underline"
                           title={`Worksheet: ${h.attachment_name}`}
                         >
                           <Paperclip aria-hidden size={12} />
@@ -391,10 +391,10 @@ export default function HomeworkDrawer({
                           });
                           return (
                             <div
-                              className={`text-xs mt-1 ${
+                              className={`inline-flex mt-1.5 rounded-full text-[11.5px] font-extrabold tracking-[.2px] px-3 py-1 border-[1.5px] border-ink-faint ${
                                 overdue
-                                  ? "text-danger-600 font-medium"
-                                  : "text-amber-700"
+                                  ? "bg-danger-50 text-danger-700"
+                                  : "bg-sun-bg text-sun-deep"
                               }`}
                             >
                               {overdue ? `Overdue · ${formatted}` : `Due ${formatted}`}
@@ -420,7 +420,7 @@ export default function HomeworkDrawer({
                             setSubmittingFor(null);
                             setSubmissionDraft(null);
                           }}
-                          className="text-xs text-[var(--text-dim)] hover:text-[var(--text)]"
+                          className="text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-1"
                         >
                           Cancel
                         </button>
@@ -430,7 +430,7 @@ export default function HomeworkDrawer({
                             setSubmittingFor(h.id);
                             setSubmissionDraft(null);
                           }}
-                          className="text-xs rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2.5 py-1"
+                          className="text-xs rounded-full bg-brand-600 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press hover:bg-brand-500 px-3 py-1"
                         >
                           {mine ? "Replace my submission" : "Attach my work"}
                         </button>
@@ -438,7 +438,7 @@ export default function HomeworkDrawer({
                     ) : (
                       <button
                         onClick={() => setExpanded(open ? null : h.id)}
-                        className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] inline-flex items-center gap-1"
+                        className="text-xs rounded-full bg-[var(--bg-elev)] border-2 border-ink font-extrabold shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] px-3 py-1 inline-flex items-center gap-1"
                       >
                         {subs.length} submission{subs.length === 1 ? "" : "s"}
                         {open ? (
@@ -453,7 +453,7 @@ export default function HomeworkDrawer({
                         href={mine.file_url ?? "#"}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-[var(--text-dim)] truncate max-w-[55%] inline-flex items-center gap-1"
+                        className="text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text)] truncate max-w-[55%] inline-flex items-center gap-1"
                         title={mine.file_name ?? ""}
                       >
                         <Check aria-hidden size={12} weight="bold" />
@@ -462,11 +462,11 @@ export default function HomeworkDrawer({
                     )}
                   </div>
                   {!isHost && mine?.feedback && (
-                    <div className="mt-2 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1 text-xs">
-                      <span className="text-[10px] uppercase tracking-wider text-emerald-700 mr-1.5">
+                    <div className="mt-2 rounded-lg bg-grass-bg border-2 border-ink px-2.5 py-1.5 text-xs">
+                      <span className="font-label text-grass-deep mr-1.5">
                         Feedback
                       </span>
-                      <span className="text-[var(--text)] whitespace-pre-wrap">
+                      <span className="font-semibold text-[var(--text)] whitespace-pre-wrap">
                         {mine.feedback}
                       </span>
                     </div>
@@ -486,7 +486,7 @@ export default function HomeworkDrawer({
                           onClick={() =>
                             void persistSubmission(h.id, submissionDraft)
                           }
-                          className="w-full text-xs rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2.5 py-1.5 font-medium"
+                          className="w-full text-xs rounded-full bg-brand-600 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press hover:bg-brand-500 px-3 py-2"
                         >
                           Submit
                         </button>
@@ -495,29 +495,29 @@ export default function HomeworkDrawer({
                   )}
 
                   {isHost && open && subs.length > 0 && (
-                    <ul className="mt-2 space-y-2 rounded-md bg-[var(--bg)] border border-[color:var(--border-subtle)] p-2">
+                    <ul className="mt-2 space-y-2 rounded-lg bg-[var(--bg-elev-2)] border-2 border-dashed border-[color:var(--border-strong)] p-2.5">
                       {subs.map((s) => (
                         <li key={s.id} className="text-xs space-y-1.5">
                           <div className="flex items-center gap-2">
                             <span className="flex-1 min-w-0">
-                              <span className="text-[var(--text)]">
+                              <span className="font-bold text-[var(--text)]">
                                 {s.student_name}
                               </span>
                               <a
                                 href={s.file_url ?? "#"}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="ml-2 text-brand-700 hover:underline truncate"
+                                className="ml-2 font-bold text-brand-600 hover:underline truncate"
                               >
                                 {s.file_name}
                               </a>
                             </span>
-                            <span className="text-[var(--text-dim)]">
+                            <span className="font-semibold text-[var(--text-dim)]">
                               {new Date(s.submitted_at).toLocaleString()}
                             </span>
                             <button
                               onClick={() => removeSubmission(s.id)}
-                              className="text-[var(--text-dim)] hover:text-danger-600 inline-flex"
+                              className="text-[var(--text-dim)] hover:text-danger-700 inline-flex"
                               title="Remove submission"
                               aria-label="Remove submission"
                             >
@@ -543,19 +543,19 @@ export default function HomeworkDrawer({
         </div>
 
         {isHost && (
-          <div className="border-t border-[color:var(--border-subtle)] p-4 space-y-2">
+          <div className="border-t-2 border-dashed border-[color:var(--border)] p-4 space-y-2.5">
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Homework title"
-              className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500"
+              className="w-full rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)] px-3.5 py-2.5 text-sm"
             />
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)"
               rows={3}
-              className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500 resize-none"
+              className="w-full rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)] px-3.5 py-2.5 text-sm resize-none"
             />
             <AttachmentPicker
               roomId={roomId}
@@ -568,12 +568,12 @@ export default function HomeworkDrawer({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500"
+                className="flex-1 min-w-0 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)] px-3.5 py-2.5 text-sm"
               />
               <button
                 onClick={add}
                 disabled={!title.trim() || saving}
-                className="rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-4 py-2 text-sm font-medium"
+                className="rounded-full bg-brand-600 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press hover:bg-brand-500 disabled:opacity-40 px-4 py-2 text-sm shrink-0"
               >
                 {saving ? "Adding…" : "Add"}
               </button>
@@ -596,11 +596,11 @@ function SubmissionFeedback({
   const [draft, setDraft] = useState(submission.feedback ?? "");
   if (!editing && submission.feedback) {
     return (
-      <div className="flex items-center gap-2 rounded-md bg-emerald-50 border border-emerald-200 px-2 py-1">
-        <span className="text-[11px] uppercase tracking-wider text-emerald-700 shrink-0">
+      <div className="flex items-center gap-2 rounded-lg bg-grass-bg border-2 border-ink px-2.5 py-1.5">
+        <span className="font-label text-grass-deep shrink-0">
           Feedback
         </span>
-        <span className="flex-1 text-[var(--text)] whitespace-pre-wrap">
+        <span className="flex-1 font-semibold text-[var(--text)] whitespace-pre-wrap">
           {submission.feedback}
         </span>
         <button
@@ -608,14 +608,14 @@ function SubmissionFeedback({
             setDraft(submission.feedback ?? "");
             setEditing(true);
           }}
-          className="text-[var(--text-dim)] hover:text-[var(--text)]"
+          className="font-bold text-[var(--text-muted)] hover:text-[var(--text)]"
           title="Edit feedback"
         >
           Edit
         </button>
         <button
           onClick={() => onSet(null)}
-          className="text-[var(--text-dim)] hover:text-danger-600"
+          className="font-bold text-[var(--text-muted)] hover:text-danger-700"
           title="Clear feedback"
         >
           Clear
@@ -630,7 +630,7 @@ function SubmissionFeedback({
           <button
             key={p.label}
             onClick={() => onSet(p.value)}
-            className="text-[11px] px-2 py-0.5 rounded-full border border-[color:var(--border)] hover:bg-[var(--hover)]"
+            className="text-[11px] px-2.5 py-1 rounded-full bg-[var(--bg-elev)] border-2 border-ink font-extrabold shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)]"
           >
             {p.label}
           </button>
@@ -640,7 +640,7 @@ function SubmissionFeedback({
             setDraft("");
             setEditing(true);
           }}
-          className="text-[11px] px-2 py-0.5 rounded-full border border-[color:var(--border)] hover:bg-[var(--hover)] text-[var(--text-muted)]"
+          className="text-[11px] px-2.5 py-1 rounded-full bg-[var(--bg-elev)] border-2 border-ink font-extrabold shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] text-[var(--text-muted)]"
         >
           Write…
         </button>
@@ -654,7 +654,7 @@ function SubmissionFeedback({
         onChange={(e) => setDraft(e.target.value)}
         rows={2}
         placeholder="Type feedback for the student…"
-        className="w-full text-xs rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1.5 outline-none focus:border-brand-500 resize-none"
+        className="w-full text-xs rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)] px-3 py-2 resize-none"
       />
       <div className="flex gap-1.5">
         <button
@@ -663,7 +663,7 @@ function SubmissionFeedback({
             onSet(v || null);
             setEditing(false);
           }}
-          className="text-[11px] rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2 py-1"
+          className="text-[11px] rounded-full bg-brand-600 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press hover:bg-brand-500 px-3 py-1"
         >
           Save
         </button>
@@ -672,7 +672,7 @@ function SubmissionFeedback({
             setDraft(submission.feedback ?? "");
             setEditing(false);
           }}
-          className="text-[11px] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2 py-1"
+          className="text-[11px] rounded-full bg-[var(--bg-elev)] border-2 border-ink font-extrabold shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] px-3 py-1"
         >
           Cancel
         </button>
