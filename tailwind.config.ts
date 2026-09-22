@@ -5,28 +5,68 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Deep forest teal — primary accent. Calm against the warm
-        // cream canvas; used for Invite, New page, Show video, host
-        // badge, and any "draw attention without alarm" surface.
+        // Red — the LMS's one accent, and now ours. `brand` is the
+        // name every component already uses, so keeping it re-colours
+        // Invite / New page / Create / Join in one move. 600 is the
+        // fill, 700 the hard shadow under a primary pill.
         brand: {
-          50: "#eef4f3",
-          100: "#dceae7",
-          500: "#3a716a",
-          600: "#1f4b43",
-          700: "#163730",
-          900: "#0c211c",
+          50: "#FFF0EE",
+          100: "#FBDBD6",
+          500: "#E05040",
+          600: "#C0392B",
+          700: "#962D22",
+          900: "#5D1C1C",
         },
-        // Muted carmine — destructive only. Used by End lesson and
-        // the active recording state. Distinct from brand so the eye
-        // can tell "do this" apart from "careful, this changes state".
+        // Destructive shares the red. The LMS tells "careful" apart from
+        // "go" by VARIANT, not hue: a destructive button is the pale
+        // fill (danger-50) with red text (danger-700) inside the same
+        // navy outline, never a second solid red. The only solid red
+        // that is not a primary action is the live REC indicator.
         danger: {
-          50: "#fdf2f2",
-          100: "#f8e6e6",
-          500: "#cc5757",
-          600: "#b83e3e",
-          700: "#962d2d",
-          900: "#5d1c1c",
+          50: "#FFF0EE",
+          100: "#FBDBD6",
+          500: "#E05040",
+          600: "#C0392B",
+          700: "#962D22",
+          900: "#5D1C1C",
         },
+        // Sticker ink — outlines and hard offset shadows only. Never
+        // body text (that is --text, near-black).
+        ink: {
+          DEFAULT: "#22304A",
+          shadow: "rgba(34,48,74,0.14)",
+          faint: "rgba(34,48,74,0.28)",
+        },
+        // Playful accent set for icon chips, badges, and subject tints.
+        sun: { DEFAULT: "#F5B82E", deep: "#8A6205", bg: "#FDF3DE" },
+        grass: { DEFAULT: "#3DAA5C", deep: "#1F7A3D", bg: "#E5F5E9" },
+        bloom: { DEFAULT: "#EF476F", deep: "#B32048", bg: "#FDE8EE" },
+        sky: { DEFAULT: "#5FAEE3", deep: "#1F6FA8", bg: "#E6F1FB" },
+        gold: { DEFAULT: "#B07D2A", light: "#FBF3E2", dark: "#8A6020" },
+        success: { DEFAULT: "#16A34A", bg: "#EDFAF4" },
+        warning: { DEFAULT: "#9A5C04", bg: "#FEF8E8" },
+      },
+      boxShadow: {
+        // Hard offset under a sticker. `sticker-primary` is the red
+        // one under a filled primary pill.
+        sticker: "0 4px 0 var(--ink-shadow)",
+        "sticker-sm": "0 3px 0 var(--ink-shadow)",
+        "sticker-lg":
+          "0 5px 0 var(--ink-shadow), 0 14px 28px rgba(70,50,20,0.10)",
+        "sticker-primary": "0 4px 0 #962D22",
+        "sticker-lift":
+          "0 6px 0 var(--ink-shadow), 0 12px 24px rgba(70,50,20,0.10)",
+        "soft-1": "0 1px 3px rgba(70,50,20,0.05)",
+        "soft-2": "0 4px 14px rgba(70,50,20,0.07)",
+        "soft-3": "0 12px 32px rgba(70,50,20,0.10)",
+        // Legacy names kept so nothing breaks; they now map to the warm
+        // ambient set instead of Tailwind's cool greys.
+        sm: "0 1px 3px rgba(70,50,20,0.05)",
+        DEFAULT: "0 1px 3px rgba(70,50,20,0.05)",
+        md: "0 4px 14px rgba(70,50,20,0.07)",
+        lg: "0 4px 14px rgba(70,50,20,0.07)",
+        xl: "0 12px 32px rgba(70,50,20,0.10)",
+        "2xl": "0 12px 32px rgba(70,50,20,0.10)",
       },
       fontFamily: {
         // All three families resolve to Nunito (loaded as the
@@ -47,35 +87,28 @@ export default {
           "Arial",
           "sans-serif",
         ],
-        hand: [
-          "var(--font-sans)",
-          "Nunito",
-          "ui-sans-serif",
-          "sans-serif",
-        ],
-        mono: [
-          "var(--font-sans)",
-          "Nunito",
-          "ui-sans-serif",
-          "sans-serif",
-        ],
+        hand: ["var(--font-sans)", "Nunito", "ui-sans-serif", "sans-serif"],
+        mono: ["var(--font-sans)", "Nunito", "ui-sans-serif", "sans-serif"],
       },
-      // Scaled-up radius scale — softer edges across the whole app
-      // without losing crispness. Buttons land around 8–10px, cards
-      // around 14px, modals around 18px, drawers around 24px. Tldraw's
-      // own chrome (which uses its own --radius-* variables) is
-      // bumped in globals.css to match. `full` is intentionally left
-      // alone so pills + avatars stay perfectly round.
+      // The LMS radius scale r1..r5 (10 / 14 / 20 / 26 / 32). md is a
+      // button or input, lg a small card, xl a card, 2xl a modal,
+      // 3xl a drawer. `full` stays perfectly round for pills/avatars.
+      // tldraw's own --radius-* variables are bumped in globals.css to
+      // the same ladder.
       borderRadius: {
         none: "0",
-        sm: "4px",
-        DEFAULT: "6px",
+        sm: "6px",
+        DEFAULT: "8px",
         md: "10px",
         lg: "14px",
-        xl: "18px",
-        "2xl": "24px",
+        xl: "20px",
+        "2xl": "26px",
         "3xl": "32px",
         full: "9999px",
+      },
+      letterSpacing: {
+        label: "0.06em",
+        display: "-0.02em",
       },
     },
   },

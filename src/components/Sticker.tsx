@@ -18,6 +18,13 @@ const STICKERS = {
   encourage: { src: "/sticker-encourage.webp", w: 357, h: 400 },
   dad: { src: "/sticker-dad.webp", w: 282, h: 400 },
   feeding: { src: "/sticker-feeding.webp", w: 315, h: 400 },
+  // Subject stickers — tutor + student per subject. The landing hero's
+  // sticker sheet and the room's welcome screen draw from these.
+  calculus: { src: "/sticker-calculus.webp", w: 380, h: 400 },
+  economics: { src: "/sticker-economics.webp", w: 465, h: 400 },
+  chemistry: { src: "/sticker-chemistry.webp", w: 408, h: 400 },
+  finance: { src: "/sticker-finance.webp", w: 426, h: 400 },
+  mathematics: { src: "/sticker-mathematics.webp", w: 427, h: 400 },
   // Solo stickers — also used as the faded canvas watermark.
   avocado: { src: "/sticker-avocado.webp", w: 183, h: 240 },
   heart: { src: "/sticker-heart.webp", w: 155, h: 240 },
@@ -26,6 +33,15 @@ const STICKERS = {
 } as const;
 
 export type StickerName = keyof typeof STICKERS;
+
+/** The five subject stickers, in the order they read best left-to-right. */
+export const SUBJECT_STICKERS = [
+  "mathematics",
+  "calculus",
+  "chemistry",
+  "economics",
+  "finance",
+] as const satisfies readonly StickerName[];
 
 export default function Sticker({
   name,

@@ -441,6 +441,11 @@ Sticker.tsx            next/image wrapper for the mascot stickers, addressed by
                        `alt` defaults to "" (decorative). Two groups:
                        - Scene stickers (400px tall sources): teaching,
                          reading, encourage, dad, feeding.
+                       - Subject stickers (400px tall, tutor + student per
+                         subject): mathematics, calculus, chemistry, economics,
+                         finance — exported together as `SUBJECT_STICKERS` in
+                         reading order. Used for the landing hero's sticker
+                         sheet and the room welcome modal.
                        - Solo stickers (240px tall sources): avocado, heart,
                          rocket, icecream — also the CanvasWatermark set.
                        Placed at: landing hero (teaching), OnboardingHint
@@ -466,6 +471,13 @@ Sticker.tsx            next/image wrapper for the mascot stickers, addressed by
 ThemeApplier.tsx       Toggles html.theme-light based on useSettings().theme. Default
                        theme is "light" — dark mode still exists but isn't the default,
                        and active UI tuning targets light contrast.
+
+IconDefaults.tsx       Client wrapper mounted in the root layout: a Phosphor
+                       IconContext.Provider with `weight: "bold"`. The LMS draws
+                       every icon bold (its Iconify names are all `ph:*-bold`),
+                       and that heavier stroke is what lets an icon sit inside
+                       a 2px-outlined sticker without looking thinner than its
+                       own frame. An explicit `weight` on an icon still wins.
 
 PwaRegister.tsx        Registers /sw.js client-side.
 
@@ -501,31 +513,79 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 - `captionsStore.ts` — singleton store for live caption lines. `pushCaption()` writes; `subscribeToCaptions()` / `getCaptionsSnapshot()` are consumed by `CaptionsHost` via `useSyncExternalStore`. The store lives outside React because caption updates arrive 5-10×/sec during active speech, and putting that churn into RoomShell state was forcing a full-tree re-render on every interim. Moving it out also frees ~10-30ms of frame budget per interim, which directly improves pen latency while someone is speaking.
 - `fileValidation.ts` — centralised upload allow-list used by every upload path (WhiteboardCanvas, DocumentsDrawer, AttachmentPicker). `validateFileForUpload(file)` throws with a user-facing message for disallowed types; `getSafeMimeType(file)` returns a safe `Content-Type` for the Storage PUT (falls back to `application/octet-stream` rather than echoing untrusted browser MIME). **SVG is intentionally absent**: `image/svg+xml` files served from the public Supabase CDN and opened via `target=_blank` execute embedded `<script>` tags — stored XSS. Do not add SVG back without serving it through a sanitising proxy.
 
-## Theming
+## Theming — the LMS "sticker-book" design system
 
-CSS variables in `globals.css`:
+The whiteboard shares its visual language with **lms.a-worthy.com** (the
+company's learning platform). Its tokens are copied verbatim from the LMS's
+`src/theme/theme.js` / inline `:root` block, so the two apps read as one
+product. If the LMS restyles, re-sync from there — do not invent values here.
+
+**The look**: warm cream paper (`#FAF6EE`, with a faint 22px dot "paper fibre"
+texture on `body`) on which every surface is a **die-cut sticker** — white
+fill, a **2px navy outline** (`--ink` `#22304A`), and a **hard offset shadow
+straight down** (`0 4px 0 rgba(34,48,74,.14)`). Cards are `rounded-xl` (20px),
+buttons and floating canvas controls are pills. Text is near-black; the ONE
+accent is red `#C0392B`. Primary buttons are red pills with a darker-red hard
+shadow, white text, weight 800. Headings are Nunito 800 with −0.02em tracking.
+Eyebrow labels are `.font-label` (10px / 600 / uppercase / 0.06em). Icons are
+Phosphor **bold** (app-wide default via `IconDefaults`). Pills push into the
+paper on press (`.sticker-press`); clickable cards lift on hover (`.card-lift`).
+
+CSS variables in `globals.css` (legacy names kept as the API — every existing
+`var(--…)` consumer re-themed for free when the palette was swapped):
 
 ```css
 :root {
-  --bg / --bg-elev / --bg-elev-2  /* surfaces */
-  --text / --text-muted / --text-dim  /* text tiers */
-  --border / --border-subtle  /* line tiers */
-  --hover  /* subtle hover overlay */
+  --bg / --bg-elev / --bg-elev-2 / --bg-sidebar   /* cream page · white card · muted inset · rail/drawer tint */
+  --canvas                                        /* the whiteboard fill — same cream, solid (no dots under ink) */
+  --text / --text-muted / --text-dim              /* text tiers */
+  --border / --border-subtle / --border-strong    /* hairlines (dividers only — outlines are --ink) */
+  --hover                                         /* warm hover tint #EEE7D6 */
+  --accent / --accent-dark / --accent-mid / --accent-soft   /* the red */
+  --ink / --ink-shadow / --ink-faint              /* sticker outline + hard shadow. NEVER text. */
+  --sun / --grass / --bloom / --sky (+ -deep, -bg) /* pastel chip set */
+  --success / --warning / --danger (+ -bg)
+  --shadow-sticker / -sm / -lg, --shadow-1/2/3
 }
-html.theme-light { /* same vars, light values */ }
 ```
 
-`ThemeApplier` flips `html.theme-light` based on settings. Default theme
-is `"light"` (set in `useSettings.ts`). tldraw's own colors follow via
-`editor.user.updateUserPreferences({ colorScheme: "light" })` in `WhiteboardCanvas.onMount`.
+Tailwind (`tailwind.config.ts`) mirrors them: `brand-*` is the **red** scale
+(600 fill, 700 hard shadow), `danger-*` is the **same red** (see rule below),
+`ink` / `ink-shadow` / `ink-faint`, the pastel set, `shadow-sticker*`,
+`shadow-sticker-primary`, and the LMS radius ladder `md`=10 `lg`=14 `xl`=20
+`2xl`=26 `3xl`=32. tldraw's `--radius-1..4` and LiveKit's `--lk-border-radius`
+are bumped to the same ladder in globals.css.
 
-**Convention**: never hardcode `bg-[#11141b]`, `text-white/70`, `border-white/10`,
-etc. Use `bg-[var(--bg-elev)]`, `text-[var(--text-muted)]`, `border-[color:var(--border)]`.
+Utility classes in `globals.css`: `.sticker` · `.sticker-pill` · `.sticker-sm` ·
+`.sticker-press` · `.card-lift` · `.squiggle` (the red hand-drawn underline, as
+an inline heading span) · `.font-label` · `.glass-header` · `.scale-pop` ·
+`.fade-up` · and the three button tiers `.btn-primary` (red pill) /
+`.btn-secondary` (white pill) / `.btn-tertiary` (ghost).
 
-**Brand-button rule**: any `bg-brand-600` button MUST also set `text-white`
-explicitly. The brand fill is dark saturated indigo, so inheriting `text-[var(--text)]`
-in light mode gives dark-on-dark. The full contrast sweep covering this lives in
-commit `45a340e` (15+ classes swept).
+`ThemeApplier` still flips `html.theme-light`, but light is the only palette —
+`html.theme-light` is an alias of `:root`. tldraw's own colours follow via
+`editor.user.updateUserPreferences({ colorScheme: "light" })` in
+`WhiteboardCanvas.onMount`; its active-tool highlight is `var(--accent)`.
+
+**Conventions**
+
+- Never hardcode a hex or a `white/xx` / `black/xx` class. Use tokens
+  (`bg-[var(--bg-elev)]`, `text-[var(--text-muted)]`, `border-ink`…). The one
+  exception is `src/app/global-error.tsx`, which ships before the theme
+  variables can mount and carries the LMS values inline with a comment.
+- **Brand-button rule**: any `bg-brand-600` / `bg-brand-500` element MUST set
+  `text-white` explicitly. The fill is saturated red, so inheriting
+  `text-[var(--text)]` gives dark-on-dark.
+- **Destructive is a variant, not a hue.** `brand` and `danger` are the same
+  red on purpose (as on the LMS). A destructive action — End lesson, Delete,
+  Remove, Deny — is the PALE variant: `bg-danger-50 text-danger-700` inside the
+  same `border-2 border-ink` pill. Never a second solid red: solid red means
+  "go". The single non-button solid red is the live REC indicator.
+- `--ink` is for outlines and hard shadows only. Body text is `--text`.
+- Icons stay Phosphor; don't pass `weight="regular"` — bold is the context
+  default. `weight="fill"` for an active/on state still wins.
+- A 2px outline adds 4px to a control; on phone controls that were already at
+  the 40px touch minimum, trim padding rather than let the pill grow.
 
 ## Operational gotchas
 

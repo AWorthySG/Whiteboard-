@@ -2,48 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Paper-and-ink palette — warm cream canvas, deep forest teal as the
-   single calm accent, carmine red reserved for actual destructive
-   states (recording, end lesson). Light mode is the only theme —
-   dark mode caused contrast issues across tldraw + LiveKit + drawer
-   overlays. */
+/* ━━━ "Sticker-book" palette — shared with lms.a-worthy.com ━━━
+   The whiteboard and the LMS are one product family, so this is the
+   LMS's token set verbatim (its src/theme/theme.js resolves to the same
+   values). Warm cream paper, near-black ink for text, and — the
+   signature — a NAVY "sticker ink" used only for outlines and the hard
+   offset shadow under a card, so every surface reads as a die-cut
+   sticker sitting on paper. Red is the one accent. Light is the only
+   theme (dark caused contrast issues across tldraw + LiveKit overlays).
+
+   Legacy names (--bg, --bg-elev, --text-muted, --hover, --accent …) are
+   kept as the API so every existing var() consumer re-themes without
+   edits; the LMS-named tokens below them are the additions. */
 :root {
-  --bg: #ffffff;          /* page / surfaces */
-  --bg-elev: #ffffff;     /* elevated cards */
-  --bg-elev-2: #faf6ed;   /* subtle warm tint for inset surfaces */
-  --canvas: #f7f2e8;      /* warm cream paper — the whiteboard itself */
-  --text: #1e1b17;        /* ink */
-  --text-muted: #807868;
-  --text-dim: #bfb6a3;
-  --border: #ece6d6;
-  --border-subtle: rgba(60, 45, 25, 0.06);
-  --border-strong: #ddd4bd;
-  --hover: rgba(60, 45, 25, 0.05);
-  --accent: #1f4b43;      /* deep forest teal — buttons, links, active */
-  --accent-soft: #e6efed;
-  --destructive: #b83e3e;     /* muted carmine — recording, end lesson */
-  --destructive-soft: #f8e6e6;
-  --presence: #5a8f3d;    /* green dot for "online" */
+  --bg: #FAF6EE;            /* page — cream paper */
+  --bg-elev: #FFFFFF;       /* cards / floating chrome */
+  --bg-elev-2: #F5F0E6;     /* muted inset surfaces */
+  --bg-sidebar: #F3EDE0;    /* rails, drawers, aside panels */
+  --canvas: #FAF6EE;        /* the whiteboard itself — same paper */
+  --text: #1C1B19;          /* ink */
+  --text-muted: #6B6760;
+  --text-dim: #A09C94;
+  --border: rgba(28, 27, 25, 0.13);
+  --border-subtle: rgba(28, 27, 25, 0.07);
+  --border-strong: rgba(28, 27, 25, 0.26);
+  --hover: #EEE7D6;         /* warm tint for hover rows / icon chips */
+  --accent: #C0392B;        /* red — the one accent */
+  --accent-dark: #962D22;   /* hard shadow under a primary pill */
+  --accent-mid: #E05040;
+  --accent-soft: rgba(192, 57, 43, 0.08);
+  --destructive: #C0392B;   /* same red; destructive uses the PALE variant */
+  --destructive-soft: #FFF0EE;
+  --presence: #16A34A;      /* green dot for "online" */
+
+  /* Sticker ink — outlines + hard offset shadows only, never text. */
+  --ink: #22304A;
+  --ink-shadow: rgba(34, 48, 74, 0.14);
+  --ink-faint: rgba(34, 48, 74, 0.28);
+
+  /* Playful accent set — icon chips, badges, subject tints. */
+  --sun: #F5B82E;   --sun-deep: #8A6205;   --sun-bg: #FDF3DE;
+  --grass: #3DAA5C; --grass-deep: #1F7A3D; --grass-bg: #E5F5E9;
+  --bloom: #EF476F; --bloom-deep: #B32048; --bloom-bg: #FDE8EE;
+  --sky: #5FAEE3;   --sky-deep: #1F6FA8;   --sky-bg: #E6F1FB;
+  --gold: #B07D2A;  --gold-light: #FBF3E2;
+
+  /* Semantic */
+  --success: #16A34A; --success-bg: #EDFAF4;
+  --warning: #9A5C04; --warning-bg: #FEF8E8;
+  --danger: #C0392B;  --danger-bg: #FFF0EE;
+
+  /* Shadows. Sticker = hard offset (the die-cut look); soft = ambient. */
+  --shadow-sticker: 0 4px 0 var(--ink-shadow);
+  --shadow-sticker-sm: 0 3px 0 var(--ink-shadow);
+  --shadow-sticker-lg: 0 5px 0 var(--ink-shadow), 0 14px 28px rgba(70, 50, 20, 0.10);
+  --shadow-1: 0 1px 3px rgba(70, 50, 20, 0.05);
+  --shadow-2: 0 4px 14px rgba(70, 50, 20, 0.07);
+  --shadow-3: 0 12px 32px rgba(70, 50, 20, 0.10);
 }
 
 html.theme-light {
   /* kept as alias for any external references; same values as :root */
-  --bg: #ffffff;
-  --bg-elev: #ffffff;
-  --bg-elev-2: #faf6ed;
-  --canvas: #f7f2e8;
-  --text: #1e1b17;
-  --text-muted: #807868;
-  --text-dim: #bfb6a3;
-  --border: #ece6d6;
-  --border-subtle: rgba(60, 45, 25, 0.06);
-  --border-strong: #ddd4bd;
-  --hover: rgba(60, 45, 25, 0.05);
-  --accent: #1f4b43;
-  --accent-soft: #e6efed;
-  --destructive: #b83e3e;
-  --destructive-soft: #f8e6e6;
-  --presence: #5a8f3d;
+  --bg: #FAF6EE;
+  --bg-elev: #FFFFFF;
+  --bg-elev-2: #F5F0E6;
+  --canvas: #FAF6EE;
+  --text: #1C1B19;
+  --text-muted: #6B6760;
+  --text-dim: #A09C94;
+  --border: rgba(28, 27, 25, 0.13);
+  --border-subtle: rgba(28, 27, 25, 0.07);
+  --border-strong: rgba(28, 27, 25, 0.26);
+  --hover: #EEE7D6;
+  --accent: #C0392B;
+  --accent-soft: rgba(192, 57, 43, 0.08);
+  --destructive: #C0392B;
+  --destructive-soft: #FFF0EE;
+  --presence: #16A34A;
 }
 
 html,
@@ -67,6 +102,89 @@ body,
   font-family: inherit;
 }
 
+/* Faint paper fibre on the cream page so white sticker cards sit on a
+   surface rather than on flat colour. The whiteboard canvas paints its
+   own solid --canvas fill on top, so handwriting never sits on dots. */
+body {
+  background-image: radial-gradient(circle at 1px 1px, rgba(70, 50, 20, 0.030) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+/* Display type: Nunito 800 with tightened tracking, as on the LMS.
+   Scoped away from tldraw's and LiveKit's own DOM so their internal
+   headings (dialog titles, tile labels) keep vendor sizing. */
+:where(h1, h2, h3):not(.tl-container *, [data-lk-theme] *) {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Small-caps label — "WELCOME BACK", section eyebrows, form labels. */
+.font-label {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* ━━━ Sticker primitives ━━━
+   .sticker       white card, 2px navy outline, hard offset shadow
+   .sticker-pill  same, pill-shaped (buttons, chips, floating controls)
+   .sticker-press push-into-the-paper on :active (pills / buttons)
+   .card-lift     lifts on hover (clickable cards)
+   .squiggle      hand-drawn red underline under a heading */
+.sticker,
+.sticker-pill {
+  background: var(--bg-elev);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-sticker);
+}
+.sticker { border-radius: 20px; }
+.sticker-pill { border-radius: 9999px; }
+.sticker-sm { box-shadow: var(--shadow-sticker-sm); }
+.sticker-press { transition: transform 0.1s ease, box-shadow 0.1s ease; }
+.sticker-press:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--ink-shadow) !important;
+}
+.card-lift { transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.22s ease; }
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 var(--ink-shadow), 0 12px 24px rgba(70, 50, 20, 0.10);
+}
+.card-lift:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 var(--ink-shadow);
+  transition-duration: 0.1s;
+}
+.squiggle {
+  display: inline-block;
+  padding-bottom: 8px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 9' preserveAspectRatio='none'><path d='M2.5 6C20 2 33 7.5 50 4.5 67 1.5 82 7.5 98 4.5 106 2.8 113 5 117.5 4' fill='none' stroke='%23C0392B' stroke-width='4' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 100% 9px;
+}
+
+/* Glass sticky header — cream, not white, so it belongs to the paper. */
+.glass-header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(250, 246, 238, 0.86);
+}
+
+/* Thin warm scrollbar + red selection, as on the LMS. */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D8D0BF; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #B9AE98; }
+::selection { background: rgba(192, 57, 43, 0.18); color: #1C1B19; }
+
+/* Modal / popover entrance — scale-pop, honoured by reduced-motion below. */
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.scale-pop { animation: scaleIn 0.25s ease both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.fade-up { animation: fadeUp 0.4s ease both; }
+
 /* Tldraw ships its own font set: 'tldraw_sans' for chrome labels,
    'tldraw_mono' for code-style bits, 'tldraw_draw' for the
    handwriting-style draw font users pick INSIDE a text shape.
@@ -81,10 +199,10 @@ body,
   /* Bump tldraw's internal radius scale ~1.5× so the canvas chrome
      (toolbar, color picker, dialogs) matches our app-wide rounder
      feel. Pairs with the Tailwind borderRadius rescale. */
-  --radius-1: 6px;
-  --radius-2: 10px;
-  --radius-3: 14px;
-  --radius-4: 18px;
+  --radius-1: 10px;
+  --radius-2: 14px;
+  --radius-3: 20px;
+  --radius-4: 26px;
 }
 
 /* LiveKit's stylesheet hardcodes --lk-font-family to system-ui via
@@ -96,7 +214,7 @@ body,
 [data-lk-theme][data-lk-theme] {
   --lk-font-family: var(--font-sans), "Nunito", ui-sans-serif, system-ui,
     -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --lk-border-radius: 0.625rem;
+  --lk-border-radius: 14px;
 }
 
 /* Phase 4: hide tldraw's native bottom toolbar at md+ since we
@@ -161,7 +279,7 @@ html[data-theme="light"] .tl-canvas {
 .tlui-toolbar__tools .tlui-button[aria-pressed="true"],
 .tlui-toolbar__tools .tlui-button[data-state="selected"],
 .tlui-toolbar__tools .tlui-button[data-isactive="true"] {
-  background: #2563eb !important;
+  background: var(--accent) !important;
   color: #ffffff !important;
 }
 .tlui-toolbar__tools .tlui-button[aria-pressed="true"] svg,
@@ -170,65 +288,60 @@ html[data-theme="light"] .tl-canvas {
   color: #ffffff !important;
 }
 
-/* Button utility classes — the three tiers used across the app:
-   - .btn-primary: bg-brand-600 + white text (primary action,
-     e.g. Save PDF, Create, Join, Sign in)
-   - .btn-secondary: light brand fill + dark brand text (secondary
-     action, e.g. Pages dropdown, Continue as guest)
-   - .btn-tertiary: outlined, no fill (cancel / dismiss / less-
-     important commands)
-   All three keep their styling consistent in dark/light, get touch-
-   target sizing on coarse pointers, and integrate with the focus
-   ring below. Use these instead of one-off Tailwind chains so the
-   visual language doesn't drift component-by-component. */
+/* Button utility classes — the LMS's three pill tiers:
+   - .btn-primary   red fill, white text, navy outline, hard red shadow
+                    (the one "do this" action per surface)
+   - .btn-secondary white fill, ink text, navy outline, sticker shadow
+   - .btn-tertiary  ghost — no fill, no outline (cancel / dismiss)
+   Destructive actions are NOT a fourth tier: use .btn-secondary plus
+   `bg-danger-50 text-danger-700` (pale red fill, red text) so "careful"
+   reads differently from "go" while staying in the same sticker family.
+   All three press into the paper on :active via .sticker-press rules. */
+.btn-primary,
+.btn-secondary,
+.btn-tertiary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 9999px;
+  padding: 0.5rem 1.05rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1.2;
+  border: 2px solid transparent;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.12s ease, color 0.12s ease;
+}
 .btn-primary {
-  background-color: rgb(37 99 235);
+  background-color: var(--accent);
   color: #fff;
-  border-radius: 0.625rem;
-  padding: 0.375rem 0.875rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  transition: background-color 120ms ease;
+  border-color: var(--ink);
+  box-shadow: 0 4px 0 var(--accent-dark);
 }
-.btn-primary:hover:not(:disabled) {
-  background-color: rgb(59 130 246);
-}
-.btn-primary:disabled {
-  opacity: 0.5;
-}
+.btn-primary:hover:not(:disabled) { background-color: #A93226; }
 .btn-secondary {
-  background-color: rgb(219 234 254);
-  color: rgb(30 64 175);
-  border-radius: 0.625rem;
-  padding: 0.375rem 0.875rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
+  background-color: var(--bg-elev);
+  color: var(--text);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-sticker);
 }
-.btn-secondary:hover:not(:disabled) {
-  background-color: rgb(191 219 254);
-}
+.btn-secondary:hover:not(:disabled) { background-color: var(--bg-elev-2); }
 .btn-tertiary {
   background-color: transparent;
   color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 0.625rem;
-  padding: 0.375rem 0.875rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
 }
 .btn-tertiary:hover:not(:disabled) {
   background-color: var(--hover);
   color: var(--text);
 }
+.btn-primary:active:not(:disabled),
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--ink-shadow);
+}
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-tertiary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Larger eraser preview on coarse pointers (phone, tablet). tldraw
    keeps its hit-radius identical regardless of pointer kind, which
@@ -253,7 +366,7 @@ html[data-theme="light"] .tl-canvas {
    that LiveKit renders in the metadata strip below still identifies
    who's behind the placeholder. */
 .lk-participant-placeholder {
-  background: linear-gradient(135deg, rgb(37 99 235) 0%, rgb(99 102 241) 100%);
+  background: linear-gradient(135deg, #1C1B19 0%, #3a3835 100%);
   color: rgba(255, 255, 255, 0.95);
 }
 .lk-participant-placeholder svg {
@@ -296,7 +409,7 @@ html[data-theme="light"] .tl-canvas {
    navigation but not for mouse clicks, so it doesn't add visual noise
    for the common case. */
 :focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 6px;
 }

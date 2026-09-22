@@ -7,6 +7,7 @@ import "@livekit/components-styles";
 import PwaRegister from "@/components/PwaRegister";
 import { ToastProvider } from "@/components/Toast";
 import ThemeApplier from "@/components/ThemeApplier";
+import IconDefaults from "@/components/IconDefaults";
 
 // Self-hosted via next/font: zero render-blocking, automatic
 // font-display: swap, and the family name is exposed as a CSS variable
@@ -56,7 +57,7 @@ export const viewport: Viewport = {
   // landscape PWA mode. Pairs with the safe-area-inset paddings in
   // globals.css so interactive UI doesn't slide under the cutout.
   viewportFit: "cover",
-  themeColor: "#ffffff",
+  themeColor: "#FAF6EE",
 };
 
 // Compute https origins for preconnect from the env vars that point at
@@ -113,11 +114,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
-        <ToastProvider>
-          <ThemeApplier />
-          {children}
-          <PwaRegister />
-        </ToastProvider>
+        <IconDefaults>
+          <ToastProvider>
+            <ThemeApplier />
+            {children}
+            <PwaRegister />
+          </ToastProvider>
+        </IconDefaults>
       </body>
     </html>
   );
