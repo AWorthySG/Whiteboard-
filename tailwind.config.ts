@@ -12,9 +12,13 @@ export default {
         brand: {
           50: "#FFF0EE",
           100: "#FBDBD6",
+          200: "#F5BDB5",
+          300: "#EC9488",
+          400: "#E56E5E",
           500: "#E05040",
           600: "#C0392B",
           700: "#962D22",
+          800: "#7A2419",
           900: "#5D1C1C",
         },
         // Destructive shares the red. The LMS tells "careful" apart from
@@ -25,9 +29,13 @@ export default {
         danger: {
           50: "#FFF0EE",
           100: "#FBDBD6",
+          200: "#F5BDB5",
+          300: "#EC9488",
+          400: "#E56E5E",
           500: "#E05040",
           600: "#C0392B",
           700: "#962D22",
+          800: "#7A2419",
           900: "#5D1C1C",
         },
         // Sticker ink — outlines and hard offset shadows only. Never
