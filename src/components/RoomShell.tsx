@@ -28,6 +28,7 @@ import { useWhiteboardRecorder } from "@/hooks/useWhiteboardRecorder";
 import { useHomeworkReviewCount } from "@/hooks/useHomeworkReviewCount";
 import { useToast } from "./Toast";
 import BrandLogo from "./BrandLogo";
+import Sticker from "./Sticker";
 import ErrorBoundary from "./ErrorBoundary";
 
 const WhiteboardCanvas = dynamic(() => import("./WhiteboardCanvas"), { ssr: false });
@@ -646,9 +647,12 @@ export default function RoomShell({
       {/* Welcome screen — let the participant choose how to join before
           they're dropped into the room. Shown once per session. */}
       {!entryChoiceMade && (
-        <div className="fixed inset-0 z-[14000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border-subtle)] shadow-2xl p-6 text-center">
-            <h2 className="text-lg font-semibold tracking-tight">
+        <div className="fixed inset-0 z-[14000] flex items-center justify-center bg-[rgba(28,27,25,0.4)] backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg p-6 text-center scale-pop">
+            {/* One subject sticker above the heading — the only mascot on
+                this surface, per the LMS's restrained sticker placement. */}
+            <Sticker name="mathematics" size={96} className="mx-auto mb-3" />
+            <h2 className="text-lg font-extrabold tracking-display">
               Join {meta.title || "the room"}
             </h2>
             <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -657,19 +661,19 @@ export default function RoomShell({
             <div className="mt-5 flex flex-col gap-2.5">
               <button
                 onClick={() => chooseJoin("video")}
-                className="touch-target w-full rounded-lg bg-brand-600 hover:bg-brand-500 text-white px-4 py-2.5 text-sm font-medium"
+                className="touch-target w-full rounded-full bg-brand-600 hover:bg-brand-500 text-white border-2 border-ink shadow-sticker-primary sticker-press px-4 py-2 text-sm font-extrabold"
               >
                 Join with video
               </button>
               <button
                 onClick={() => chooseJoin("audio")}
-                className="touch-target w-full rounded-lg border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2.5 text-sm font-medium"
+                className="touch-target w-full rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press hover:bg-[var(--bg-elev-2)] px-4 py-2 text-sm font-extrabold"
               >
                 Join with audio only
               </button>
               <button
                 onClick={chooseWhiteboardOnly}
-                className="touch-target w-full rounded-lg border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2.5 text-sm font-medium"
+                className="touch-target w-full rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press hover:bg-[var(--bg-elev-2)] px-4 py-2 text-sm font-extrabold"
               >
                 Whiteboard only — don&apos;t join the call
               </button>
@@ -681,10 +685,13 @@ export default function RoomShell({
           </div>
         </div>
       )}
-      <header className="flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-1.5 bg-[var(--bg-elev)] border-b border-[color:var(--border)] z-10 safe-pt">
+      {/* Cream glass, not white, so the bar belongs to the paper. py-2 (was
+          1.5) gives the 4px hard shadow under each header pill room to land
+          inside the bar instead of on the SubNav strip below. */}
+      <header className="glass-header flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 border-b border-[color:var(--border-strong)] z-10 safe-pt">
         <Link
           href="/"
-          className="font-semibold tracking-tight shrink-0 flex items-center gap-2"
+          className="font-extrabold tracking-display shrink-0 flex items-center gap-2"
           title="Back to home"
         >
           {/* Wordmark where there's room; the compact mark on phones, where
@@ -719,7 +726,7 @@ export default function RoomShell({
                 toast.error(`Couldn't add page: ${(e as Error).message}`);
               }
             }}
-            className="touch-target shrink-0 text-[13px] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-2.5 py-1 flex items-center gap-1.5 font-medium"
+            className="touch-target shrink-0 text-[13px] rounded-full bg-brand-600 hover:bg-brand-500 text-white border-2 border-ink shadow-sticker-primary sticker-press px-3 py-1 flex items-center gap-1.5 font-extrabold"
             title="Add a new blank page to this whiteboard"
             aria-label="Add a new page"
           >
@@ -735,7 +742,7 @@ export default function RoomShell({
           <div ref={pagesMenuRef} className="relative shrink-0">
             <button
               onClick={() => setPagesMenuOpen((o) => !o)}
-              className="touch-target text-[13px] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 flex items-center gap-1.5 font-medium"
+              className="touch-target text-[13px] rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] px-3 py-1 flex items-center gap-1.5 font-extrabold"
               title="Switch pages"
               aria-label="Switch page"
               aria-haspopup="listbox"
@@ -757,7 +764,7 @@ export default function RoomShell({
             {pagesMenuOpen && (
               <div
                 role="listbox"
-                className="absolute top-full left-0 mt-1 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 overflow-y-auto rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1 z-[90]"
+                className="absolute top-full left-0 mt-1.5 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 overflow-y-auto rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-1.5 z-[90] scale-pop"
               >
                 {pagesState.pages.map((p, i) => {
                   const active = p.id === pagesState.currentId;
@@ -771,9 +778,9 @@ export default function RoomShell({
                       key={p.id}
                       role="option"
                       aria-selected={active}
-                      className={`group w-full text-left text-sm rounded-md flex items-center gap-3 ${
+                      className={`group w-full text-left text-sm rounded-lg flex items-center gap-3 ${
                         active
-                          ? "bg-brand-100 text-brand-800 font-medium"
+                          ? "bg-brand-50 text-brand-700 font-extrabold"
                           : renaming
                             ? "bg-[var(--hover)] text-[var(--text)]"
                             : "hover:bg-[var(--hover)] text-[var(--text)]"
@@ -782,11 +789,11 @@ export default function RoomShell({
                       {renaming ? (
                         <>
                           <div
-                            className={`shrink-0 ml-2 my-2 w-16 h-12 rounded overflow-hidden border ${
+                            className={`shrink-0 ml-2 my-2 w-16 h-12 rounded-md overflow-hidden border-2 ${
                               active
-                                ? "border-brand-500"
-                                : "border-[color:var(--border-subtle)]"
-                            } bg-white flex items-center justify-center`}
+                                ? "border-brand-600"
+                                : "border-ink-faint"
+                            } bg-[var(--bg-elev)] flex items-center justify-center`}
                           >
                             {thumb ? (
                               <img
@@ -815,7 +822,7 @@ export default function RoomShell({
                               if (e.key === "Escape") setRenamingPageId(null);
                             }}
                             onFocus={(e) => e.currentTarget.select()}
-                            className="min-w-0 flex-1 mr-2 my-2 rounded-md bg-[var(--bg)] border border-brand-500 text-[var(--text)] px-2 py-1 text-sm outline-none"
+                            className="min-w-0 flex-1 mr-2 my-2 rounded-md bg-[var(--bg-elev)] border-2 border-brand-600 shadow-[0_0_0_3px_var(--accent-soft)] text-[var(--text)] px-2 py-1 text-sm font-semibold outline-none"
                             aria-label="Rename page"
                           />
                         </>
@@ -829,11 +836,11 @@ export default function RoomShell({
                             className="flex-1 min-w-0 text-left flex items-center gap-3 px-2 py-2"
                           >
                             <div
-                              className={`shrink-0 w-16 h-12 rounded overflow-hidden border ${
+                              className={`shrink-0 w-16 h-12 rounded-md overflow-hidden border-2 ${
                                 active
-                                  ? "border-brand-500"
-                                  : "border-[color:var(--border-subtle)]"
-                              } bg-white flex items-center justify-center`}
+                                  ? "border-brand-600"
+                                  : "border-ink-faint"
+                              } bg-[var(--bg-elev)] flex items-center justify-center`}
                             >
                               {thumb ? (
                                 <img
@@ -864,7 +871,7 @@ export default function RoomShell({
                                 setRenamePageDraft(p.name);
                                 setRenamingPageId(p.id);
                               }}
-                              className="shrink-0 mr-2 my-2 p-1.5 rounded text-[var(--text-dim)] hover:bg-[var(--bg-elev-2)] hover:text-[var(--text)]"
+                              className="shrink-0 mr-2 my-2 p-1.5 rounded-full text-[var(--text-dim)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
                               aria-label={`Rename ${p.name}`}
                               title="Rename page"
                             >
@@ -904,7 +911,7 @@ export default function RoomShell({
                 if (e.key === "Escape") setEditingTitle(false);
               }}
               placeholder={roomId}
-              className="min-w-0 flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-0.5 text-[13px] outline-none focus:border-brand-500"
+              className="min-w-0 flex-1 rounded-md bg-[var(--bg-elev)] border-2 border-ink px-2 py-0.5 text-[13px] font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
             />
           ) : (
             <button
@@ -913,7 +920,7 @@ export default function RoomShell({
                 setTitleDraft(meta.title);
                 setEditingTitle(true);
               }}
-              className={`truncate min-w-0 text-left font-semibold text-[var(--text)] text-[13px] sm:text-[14px] ${
+              className={`truncate min-w-0 text-left font-extrabold text-[var(--text)] text-[13px] sm:text-[14px] ${
                 isHost ? "cursor-text hover:underline decoration-dotted" : "cursor-default"
               }`}
               title={isHost ? "Click to rename" : headerTitle}
@@ -925,12 +932,12 @@ export default function RoomShell({
 
         {isHost && (
           <span
-            className="text-[10px] uppercase tracking-wider bg-[var(--accent-soft)] text-[color:var(--accent)] px-1.5 py-0.5 rounded-full shrink-0 inline-flex items-center gap-1 font-bold"
+            className="text-[10px] uppercase tracking-label bg-danger-50 text-danger-700 border-[1.5px] border-ink-faint px-2 py-0.5 rounded-full shrink-0 inline-flex items-center gap-1 font-extrabold"
             title="You're the host of this room"
           >
             <span
               aria-hidden
-              className="w-1.5 h-1.5 rounded-full bg-[color:var(--accent)]"
+              className="w-1.5 h-1.5 rounded-full bg-brand-600"
             />
             <span className="hidden sm:inline">Host</span>
           </span>
@@ -970,16 +977,19 @@ export default function RoomShell({
             onClick={() => setInviteOpen(true)}
             label="Invite"
             icon={<ShareNetwork size={16} aria-hidden />}
+            primary
           />
+          {/* In-call state is a grass "live" chip rather than a second solid
+              red — the bar already carries two red primaries (New page, Invite). */}
           <button
             onClick={() => {
               if (!callJoined) joinCall();
               else setVideoPanelVisible((v) => !v);
             }}
-            className={`touch-target text-sm rounded-md px-2.5 lg:px-3 py-1 flex items-center gap-1.5 ${
+            className={`touch-target text-[13px] rounded-full border-2 border-ink shadow-sticker-sm sticker-press px-3 py-1 flex items-center gap-1.5 font-extrabold ${
               callJoined
-                ? "bg-brand-600 hover:bg-brand-500 text-white"
-                : "border border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
+                ? "bg-grass-bg text-grass-deep hover:bg-grass-bg"
+                : "bg-[var(--bg-elev)] text-[var(--text)] hover:bg-[var(--bg-elev-2)]"
             }`}
             title={
               !callJoined
@@ -1021,15 +1031,15 @@ export default function RoomShell({
               <DotsThree size={18} weight="bold" aria-hidden />
             </IconBtn>
             {deskMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-60 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2 z-[90]">
-                <label className="block text-[10px] uppercase tracking-wider text-[var(--text-dim)] px-1 mb-1">
+              <div className="absolute right-0 top-full mt-1.5 w-60 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-2 z-[90] scale-pop">
+                <label className="block font-label text-[var(--text-muted)] px-1 mb-1.5">
                   Display name
                 </label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Display name"
-                  className="w-full mb-2 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] px-2 py-1.5 text-sm outline-none focus:border-brand-500"
+                  className="w-full mb-2 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3 py-1.5 text-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
                 />
                 <MenuItem
                   onClick={() => {
@@ -1043,7 +1053,7 @@ export default function RoomShell({
                   onClick={() =>
                     setSettings({ captionsEnabled: !settings.captionsEnabled })
                   }
-                  className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-[var(--hover)] flex items-center justify-between gap-2"
+                  className="w-full text-left text-sm font-semibold rounded-lg px-2.5 py-1.5 hover:bg-[var(--hover)] flex items-center justify-between gap-2"
                   title={
                     !localCaptionsSupportedSync
                       ? "Live captions: you'll see captions from Chrome/Edge speakers, but your own speech isn't transcribed on this browser. Open the room in Google Chrome to caption your own voice."
@@ -1066,7 +1076,7 @@ export default function RoomShell({
                     )}
                   </span>
                   <span
-                    className={`text-xs font-medium ${
+                    className={`text-xs font-extrabold ${
                       settings.captionsEnabled
                         ? "text-brand-700"
                         : "text-[var(--text-dim)]"
@@ -1096,10 +1106,10 @@ export default function RoomShell({
               <span aria-hidden className="w-px h-6 bg-[var(--border)] mx-0.5" />
               <button
                 onClick={() => setEndLessonOpen(true)}
-                className="touch-target text-[13px] rounded-md border border-[color:var(--destructive)] text-[color:var(--destructive)] hover:bg-[var(--destructive-soft)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 font-medium"
+                className="touch-target text-[13px] rounded-full bg-danger-50 text-danger-700 border-2 border-ink shadow-sticker-sm sticker-press hover:bg-danger-100 px-3 py-1 flex items-center gap-1.5 font-extrabold"
                 title="End the lesson — exports the whiteboard as a PDF, shares it in the room chat, and leaves the room"
               >
-                <span className="w-2 h-2 rounded-full bg-[color:var(--destructive)]" />
+                <span className="w-2 h-2 rounded-full bg-brand-600" />
                 <span className="hidden lg:inline">End lesson</span>
               </button>
             </>
@@ -1139,12 +1149,12 @@ export default function RoomShell({
               <List size={18} aria-hidden />
             </IconBtn>
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2 z-[90]">
+              <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-2 z-[90] scale-pop">
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Display name"
-                  className="w-full mb-2 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] px-2 py-1.5 text-sm outline-none focus:border-brand-500"
+                  className="w-full mb-2 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3 py-1.5 text-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
                 />
                 <MenuItem onClick={() => { setInviteOpen(true); setMenuOpen(false); }}>
                   Invite (QR + link)
@@ -1165,7 +1175,7 @@ export default function RoomShell({
                   Settings
                 </MenuItem>
                 {isHost && (
-                  <div className="pt-2 mt-1 border-t border-[color:var(--border-subtle)]">
+                  <div className="pt-2 mt-1 border-t-2 border-dashed border-[color:var(--border)]">
                     <MenuItem onClick={() => { canvasBringEveryoneRef.current?.(); setMenuOpen(false); }}>
                       Bring everyone to my view
                     </MenuItem>
@@ -1226,7 +1236,7 @@ export default function RoomShell({
               calm 'loading whiteboard' state. */}
           {!pagesState && (
             <div className="absolute inset-0 z-[40] flex flex-col items-center justify-center gap-3 bg-[var(--bg)] pointer-events-none">
-              <div className="inline-block w-10 h-10 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
+              <div className="inline-block w-10 h-10 border-[3px] border-ink-faint border-t-brand-600 rounded-full animate-spin" />
               <p className="text-sm text-[var(--text-muted)]">
                 Loading whiteboard…
               </p>
@@ -1240,7 +1250,7 @@ export default function RoomShell({
               the × dismiss button is tappable. */}
           {isHost && pagesState && emptyRoomHintVisible && (
             <div className="absolute inset-0 z-[35] flex items-center justify-center px-6 pointer-events-none">
-              <div className="relative rounded-2xl border border-[color:var(--border)] bg-[var(--bg-elev)]/95 backdrop-blur-sm px-6 py-5 max-w-sm text-center shadow-xl pointer-events-auto">
+              <div className="relative rounded-2xl border-2 border-ink bg-[var(--bg-elev)] px-6 py-5 max-w-sm text-center shadow-sticker-lg pointer-events-auto scale-pop">
                 <button
                   onClick={dismissEmptyRoomHint}
                   aria-label="Dismiss this hint"
@@ -1249,19 +1259,19 @@ export default function RoomShell({
                 >
                   <X size={14} aria-hidden />
                 </button>
-                <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
-                  <PencilSimple size={26} className="text-[var(--text-dim)]" aria-hidden />
+                <div className="mx-auto w-14 h-14 rounded-full border-2 border-ink bg-sky-bg text-sky-deep flex items-center justify-center mb-3">
+                  <PencilSimple size={26} aria-hidden />
                 </div>
-                <p className="text-sm font-medium">Your whiteboard is empty</p>
+                <p className="text-sm font-extrabold tracking-display">Your whiteboard is empty</p>
                 <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
                   Draw with the pen, drag a PDF onto the canvas, click
-                  <span className="font-medium"> Documents</span> to
-                  upload, or tap <span className="font-medium">+ New page</span>{" "}
+                  <span className="font-bold"> Documents</span> to
+                  upload, or tap <span className="font-bold">+ New page</span>{" "}
                   to start a fresh sheet. Then invite a student.
                 </p>
                 <button
                   onClick={dismissEmptyRoomHint}
-                  className="mt-3 text-xs text-[var(--text-muted)] hover:text-[var(--text)] underline underline-offset-2"
+                  className="mt-3 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text)] underline underline-offset-2"
                 >
                   Got it, hide this
                 </button>
@@ -1317,8 +1327,8 @@ export default function RoomShell({
           <aside
             className={
               videoPip && videoPanelVisible
-                ? "hidden md:flex fixed z-[9999] flex-col rounded-xl overflow-hidden border border-[color:var(--border)] shadow-2xl bg-[var(--bg-elev-2)]"
-                : "hidden md:flex shrink-0 flex-col relative bg-[var(--bg-elev-2)] overflow-hidden"
+                ? "hidden md:flex fixed z-[9999] flex-col rounded-xl overflow-hidden border-2 border-ink shadow-sticker-lg bg-[var(--bg-sidebar)]"
+                : "hidden md:flex shrink-0 flex-col relative bg-[var(--bg-sidebar)] overflow-hidden"
             }
             style={
               videoPip && videoPanelVisible
@@ -1330,7 +1340,7 @@ export default function RoomShell({
                         : videoPanelWidth
                       : 0,
                     borderLeft: videoPanelVisible
-                      ? "1px solid var(--border-subtle)"
+                      ? "2px solid var(--ink)"
                       : "none",
                     transition: "width 220ms ease-in-out",
                   }
@@ -1347,15 +1357,15 @@ export default function RoomShell({
             {videoPip && videoPanelVisible ? (
               <div
                 onPointerDown={startPipDrag}
-                className="absolute top-0 left-0 right-0 z-20 h-7 flex items-center justify-between px-2 bg-[var(--bg-elev)]/85 backdrop-blur-sm cursor-grab active:cursor-grabbing select-none"
+                className="absolute top-0 left-0 right-0 z-20 h-7 flex items-center justify-between px-2 glass-header border-b-2 border-ink cursor-grab active:cursor-grabbing select-none"
               >
-                <span className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] pointer-events-none">
+                <span className="font-label text-[var(--text-muted)] pointer-events-none">
                   Call
                 </span>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setVideoPip(false)}
-                    className="w-5 h-5 rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs"
+                    className="w-5 h-5 rounded-full text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs"
                     aria-label="Dock call to side panel"
                     title="Dock to side"
                   >
@@ -1363,7 +1373,7 @@ export default function RoomShell({
                   </button>
                   <button
                     onClick={() => setVideoPanelVisible(false)}
-                    className="w-5 h-5 rounded text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs"
+                    className="w-5 h-5 rounded-full text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs"
                     aria-label="Hide video"
                     title="Hide video (stay in call)"
                   >
@@ -1375,7 +1385,7 @@ export default function RoomShell({
               <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-1">
                 <button
                   onClick={() => setVideoPip(true)}
-                  className="w-7 h-7 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs shadow"
+                  className="w-7 h-7 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-elev-2)] flex items-center justify-center text-xs"
                   aria-label="Pop out call into a floating window"
                   title="Pop out (free the whiteboard width)"
                 >
@@ -1383,7 +1393,7 @@ export default function RoomShell({
                 </button>
                 <button
                   onClick={() => setVideoCompact(!videoCompact)}
-                  className="w-7 h-7 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] flex items-center justify-center text-xs shadow"
+                  className="w-7 h-7 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-elev-2)] flex items-center justify-center text-xs"
                   aria-label={videoCompact ? "Expand video panel" : "Shrink video panel"}
                   title={videoCompact ? "Expand video panel" : "Shrink video panel"}
                 >
@@ -1413,24 +1423,24 @@ export default function RoomShell({
 
         {callJoined && videoPanelVisible && (
           <div
-            className="md:hidden shrink-0 border-t border-[color:var(--border)] bg-[var(--bg-elev-2)] shadow-2xl flex flex-col safe-pb"
+            className="md:hidden shrink-0 border-t-2 border-ink bg-[var(--bg-sidebar)] flex flex-col safe-pb"
             style={{ height: videoCompact ? "24dvh" : "42dvh" }}
           >
             <div className="flex items-center justify-between px-3 py-1 border-b border-[color:var(--border-subtle)]">
-              <span className="text-xs uppercase tracking-wider text-[var(--text-dim)]">
+              <span className="font-label text-[var(--text-muted)]">
                 Call
               </span>
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setVideoCompact(!videoCompact)}
-                  className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-0.5"
+                  className="text-xs font-bold rounded-full text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] px-2 py-0.5"
                   title={videoCompact ? "Larger" : "Smaller"}
                 >
                   {videoCompact ? "Larger" : "Smaller"}
                 </button>
                 <button
                   onClick={() => setVideoPanelVisible(false)}
-                  className="text-xs text-[var(--text-muted)] hover:text-[var(--text)] px-2 py-0.5"
+                  className="text-xs font-bold rounded-full text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover)] px-2 py-0.5"
                 >
                   Hide
                 </button>
@@ -1545,7 +1555,7 @@ export default function RoomShell({
   if (!nameBootstrapped) {
     return (
       <main className="h-app w-screen flex items-center justify-center">
-        <div className="inline-block w-8 h-8 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
+        <div className="inline-block w-8 h-8 border-[3px] border-ink-faint border-t-brand-600 rounded-full animate-spin" />
       </main>
     );
   }
@@ -1584,16 +1594,16 @@ function GuestNameEntry({
   };
   return (
     <main className="h-app w-screen flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border-subtle)] shadow-xl p-6 sm:p-8">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Joining {roomTitle}
+      <div className="w-full max-w-sm rounded-2xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg p-6 sm:p-8 scale-pop">
+        <h1 className="text-xl font-extrabold tracking-display">
+          <span className="squiggle">Joining {roomTitle}</span>
         </h1>
         <p className="text-sm text-[var(--text-muted)] mt-1">
           No account needed — just tell us what to call you and we'll
           ask the host to let you in.
         </p>
         <label className="block mt-5">
-          <span className="text-xs text-[var(--text-muted)]">Your name</span>
+          <span className="font-label text-[var(--text-muted)]">Your name</span>
           <input
             autoFocus
             value={draft}
@@ -1602,13 +1612,13 @@ function GuestNameEntry({
               if (e.key === "Enter") submit();
             }}
             placeholder="e.g. Alex"
-            className="mt-1 w-full rounded-lg bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-base outline-none focus:border-brand-500"
+            className="mt-1.5 w-full rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3.5 py-2.5 text-base font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
           />
         </label>
         <button
           onClick={submit}
           disabled={!draft.trim()}
-          className="mt-4 w-full rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-4 py-2.5 text-sm font-medium"
+          className="btn-primary mt-5 w-full py-2.5 text-sm"
         >
           Join room
         </button>
@@ -1636,8 +1646,8 @@ function IconBtn({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`touch-target w-9 h-9 flex items-center justify-center rounded-md border border-[color:var(--border)] ${
-        active ? "bg-brand-100 text-brand-800" : "hover:bg-[var(--hover)]"
+      className={`touch-target w-9 h-9 flex items-center justify-center rounded-full border-2 border-ink shadow-sticker-sm sticker-press ${
+        active ? "bg-[var(--hover)]" : "bg-[var(--bg-elev)] hover:bg-[var(--bg-elev-2)]"
       }`}
     >
       {children}
@@ -1650,18 +1660,25 @@ function HeaderBtn({
   label,
   title,
   icon,
+  primary,
 }: {
   onClick: () => void;
   label: string;
   title?: string;
   icon: React.ReactNode;
+  /** Red primary pill (Invite) instead of the white secondary pill. */
+  primary?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       title={title ?? label}
       aria-label={label}
-      className="touch-target text-[13px] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 flex items-center gap-1.5 font-medium text-[var(--text)]"
+      className={`touch-target text-[13px] rounded-full border-2 border-ink sticker-press px-3 py-1 flex items-center gap-1.5 font-extrabold ${
+        primary
+          ? "bg-brand-600 hover:bg-brand-500 text-white shadow-sticker-primary"
+          : "bg-[var(--bg-elev)] hover:bg-[var(--bg-elev-2)] text-[var(--text)] shadow-sticker-sm"
+      }`}
     >
       {icon}
       <span className="hidden lg:inline">{label}</span>
@@ -1673,7 +1690,7 @@ function MenuItem({ onClick, children }: { onClick: () => void; children: React.
   return (
     <button
       onClick={onClick}
-      className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-[var(--hover)]"
+      className="w-full text-left text-sm font-semibold rounded-lg px-2.5 py-1.5 hover:bg-[var(--hover)]"
     >
       {children}
     </button>
@@ -1692,23 +1709,23 @@ function VideoErrorFallback({
 }) {
   return (
     <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 p-4 text-center text-[var(--text-muted)]">
-      <div className="w-12 h-12 rounded-full bg-[var(--hover)] flex items-center justify-center">
+      <div className="w-12 h-12 rounded-full border-2 border-ink bg-bloom-bg text-bloom-deep flex items-center justify-center">
         <VideoCameraSlash size={24} aria-hidden />
       </div>
-      <p className="text-sm font-medium text-[var(--text)]">Video had a problem</p>
+      <p className="text-sm font-extrabold tracking-display text-[var(--text)]">Video had a problem</p>
       <p className="text-xs text-[var(--text-dim)] max-w-[14rem]">
         The call panel hit an error. Your whiteboard is unaffected.
       </p>
       <div className="flex gap-2">
         <button
           onClick={onRetry}
-          className="rounded-md bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 text-xs font-medium"
+          className="rounded-full bg-brand-600 hover:bg-brand-500 text-white border-2 border-ink shadow-sticker-primary sticker-press px-3.5 py-1.5 text-xs font-extrabold"
         >
           Reload video
         </button>
         <button
           onClick={onLeave}
-          className="rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-3 py-1.5 text-xs"
+          className="rounded-full bg-[var(--bg-elev)] text-[var(--text)] border-2 border-ink shadow-sticker sticker-press hover:bg-[var(--bg-elev-2)] px-3.5 py-1.5 text-xs font-extrabold"
         >
           Whiteboard only
         </button>
@@ -1721,21 +1738,21 @@ function VideoErrorFallback({
 // rendered (it threw), so this supplies a minimal one with a way out.
 function DrawerErrorFallback({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[rgba(28,27,25,0.4)] p-4" onClick={onClose}>
       <div
-        className="w-full max-w-xs rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-6 text-center"
+        className="w-full max-w-xs rounded-2xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg p-6 text-center scale-pop"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto w-12 h-12 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
-          <WarningCircle size={24} className="text-danger-600" aria-hidden />
+        <div className="mx-auto w-12 h-12 rounded-full border-2 border-ink bg-danger-50 text-danger-700 flex items-center justify-center mb-3">
+          <WarningCircle size={24} aria-hidden />
         </div>
-        <p className="text-sm font-medium">This panel hit an error</p>
+        <p className="text-sm font-extrabold tracking-display">This panel hit an error</p>
         <p className="text-xs text-[var(--text-dim)] mt-1">
           The rest of the room is unaffected.
         </p>
         <button
           onClick={onClose}
-          className="mt-4 rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
+          className="mt-4 rounded-full bg-brand-600 hover:bg-brand-500 text-white border-2 border-ink shadow-sticker-primary sticker-press px-4 py-2 text-sm font-extrabold"
         >
           Close
         </button>
