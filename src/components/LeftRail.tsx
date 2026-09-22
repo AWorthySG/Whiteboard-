@@ -142,7 +142,7 @@ export default function LeftRail({
 
   return (
     <aside
-      className="hidden md:flex w-14 shrink-0 flex-col items-center gap-1 py-3 bg-[var(--bg-elev)] border-r border-[color:var(--border)] overflow-y-auto"
+      className="hidden md:flex w-14 shrink-0 flex-col items-center gap-1 py-2.5 ml-3 my-3 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker overflow-y-auto"
       aria-label="Drawing tools"
     >
       <RailBtn onClick={() => editor.undo()} label="Undo" shortcut="⌘Z" disabled={!canUndo}>
@@ -155,28 +155,28 @@ export default function LeftRail({
       <Divider />
 
       <RailBtn active={active === "select"} onClick={() => select("select")} label="Select" shortcut="V">
-        <Cursor size={18} weight={active === "select" ? "fill" : "regular"} />
+        <Cursor size={18} weight={active === "select" ? "fill" : undefined} />
       </RailBtn>
       <RailBtn active={active === "hand"} onClick={() => select("hand")} label="Hand (pan canvas)" shortcut="H">
-        <Hand size={18} weight={active === "hand" ? "fill" : "regular"} />
+        <Hand size={18} weight={active === "hand" ? "fill" : undefined} />
       </RailBtn>
 
       <Divider />
 
       <RailBtn active={active === "draw"} onClick={() => select("draw")} label="Pen" shortcut="D">
-        <PencilSimple size={18} weight={active === "draw" ? "fill" : "regular"} />
+        <PencilSimple size={18} weight={active === "draw" ? "fill" : undefined} />
       </RailBtn>
       <RailBtn active={active === "highlight"} onClick={() => select("highlight")} label="Highlighter" shortcut="Q">
-        <Highlighter size={18} weight={active === "highlight" ? "fill" : "regular"} />
+        <Highlighter size={18} weight={active === "highlight" ? "fill" : undefined} />
       </RailBtn>
       <RailBtn active={active === "eraser"} onClick={() => select("eraser")} label="Eraser" shortcut="E">
-        <Eraser size={18} weight={active === "eraser" ? "fill" : "regular"} />
+        <Eraser size={18} weight={active === "eraser" ? "fill" : undefined} />
       </RailBtn>
 
       <Divider />
 
       <RailBtn active={active === "note"} onClick={() => select("note")} label="Sticky note" shortcut="N">
-        <Note size={18} weight={active === "note" ? "fill" : "regular"} />
+        <Note size={18} weight={active === "note" ? "fill" : undefined} />
       </RailBtn>
       <RailBtn onClick={onUpload} label="Upload document or image">
         <Upload size={18} />
@@ -194,7 +194,7 @@ export default function LeftRail({
             onClick={onToggleAnnotations}
             label={annotationsHidden ? "Show student drawings" : "Hide student drawings"}
           >
-            <EyeSlash size={18} weight={annotationsHidden ? "fill" : "regular"} />
+            <EyeSlash size={18} weight={annotationsHidden ? "fill" : undefined} />
           </RailBtn>
           <RailBtn
             active={leaderMode}
@@ -202,7 +202,7 @@ export default function LeftRail({
             onClick={() => void onToggleLeader()}
             label={leaderMode ? "Stop leading the view" : "Lead the view"}
           >
-            <Eye size={18} weight={leaderMode ? "fill" : "regular"} />
+            <Eye size={18} weight={leaderMode ? "fill" : undefined} />
           </RailBtn>
         </>
       )}
@@ -226,7 +226,7 @@ export default function LeftRail({
       >
         <span className="relative inline-flex items-center justify-center">
           <span
-            className="w-5 h-5 rounded-full ring-1 ring-[color:var(--border)]"
+            className="w-5 h-5 rounded-full ring-2 ring-ink"
             style={{ backgroundColor: activeColorHex }}
           />
           <span
@@ -260,14 +260,12 @@ export default function LeftRail({
                 title={s.label}
                 className={`w-[26px] h-[26px] rounded-md inline-flex items-center justify-center transition-colors ${
                   activeSize === s.value
-                    ? "bg-[var(--text)]"
+                    ? "bg-[var(--bg-elev-2)] ring-2 ring-ink"
                     : "hover:bg-[var(--hover)]"
                 }`}
               >
                 <span
-                  className={`rounded-full block ${
-                    activeSize === s.value ? "bg-[var(--bg)]" : "bg-[var(--text)]"
-                  }`}
+                  className="rounded-full block bg-[var(--text)]"
                   style={{ width: s.dot, height: s.dot }}
                 />
               </button>
@@ -291,8 +289,8 @@ export default function LeftRail({
                 title={c.label}
                 className={`w-[24px] h-[24px] rounded-full transition-transform ${
                   activeColor === c.name
-                    ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
-                    : "hover:scale-105"
+                    ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-ink scale-110"
+                    : "ring-1 ring-ink-faint hover:scale-105"
                 }`}
                 style={{ backgroundColor: c.hex }}
               />
@@ -323,8 +321,8 @@ function RailBtn({
 }) {
   const activeClasses =
     activeTone === "amber"
-      ? "bg-amber-500 text-white"
-      : "bg-[color:var(--accent)] text-white";
+      ? "bg-sun text-[var(--text)]"
+      : "bg-brand-600 text-white";
   const tooltip = shortcut ? `${label}  (${shortcut})` : label;
   return (
     <button
@@ -347,6 +345,6 @@ function RailBtn({
 
 function Divider() {
   return (
-    <span aria-hidden className="block w-7 h-px bg-[var(--border)] my-1.5" />
+    <span aria-hidden className="block w-7 border-t-2 border-dashed border-[color:var(--border)] my-1.5" />
   );
 }

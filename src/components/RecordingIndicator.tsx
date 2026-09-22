@@ -19,13 +19,15 @@ export default function RecordingIndicator({
           floating pills (z-[60]) but below modals / chat (z-[8000]+). */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 z-[70] border-2 border-[color:var(--destructive)] rounded-sm"
+        className="pointer-events-none absolute inset-0 z-[70] border-2 border-brand-600 rounded-md"
       />
-      {/* REC pill — mono caps, small, gets the attention without
-          screaming. Pulsing dot signals 'live, not paused'. */}
+      {/* REC pill — small caps, gets the attention without screaming.
+          Pulsing dot signals 'live, not paused'. This is the one solid
+          red that isn't a primary button, so it keeps the red fill but
+          wears the sticker outline + hard red shadow like a primary pill. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute top-3 left-3 z-[70] inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase bg-[color:var(--destructive)] text-white shadow-md"
+        className="pointer-events-none absolute top-3 left-3 z-[70] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border-2 border-ink text-[10px] font-extrabold tracking-widest uppercase bg-brand-600 text-white shadow-sticker-primary"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
         REC

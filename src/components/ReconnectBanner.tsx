@@ -39,10 +39,13 @@ export default function ReconnectBanner({ status, connectionStatus }: Props) {
 
   return (
     <div
-      className={`absolute top-3 left-1/2 -translate-x-1/2 z-[9998] flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium shadow-2xl border ${
+      // Warning sticker: pale tint + dark tinted text inside the ink
+      // outline. Error uses the PALE red (destructive variant), never a
+      // second solid red — solid red is reserved for primary + REC.
+      className={`absolute top-3 left-1/2 -translate-x-1/2 z-[9998] flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-extrabold shadow-sticker border-2 border-ink ${
         tone === "error"
-          ? "bg-danger-600/90 text-white border-danger-500/40"
-          : "bg-amber-500/90 text-black border-amber-300/40"
+          ? "bg-danger-50 text-danger-700"
+          : "bg-warning-bg text-warning"
       }`}
     >
       <span className="w-2 h-2 rounded-full bg-current animate-pulse" />

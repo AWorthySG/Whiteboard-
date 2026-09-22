@@ -136,7 +136,7 @@ export default function PagesTabBar({
       // bottom pill on a narrow screen overlaps the ZoomControls. From
       // tablet up (md), the bottom tabs are still nicer for fast
       // switching between many pages.
-      className="flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-1.5 py-1 max-w-[min(92vw,620px)]"
+      className="flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker px-1.5 py-1 max-w-[min(92vw,620px)]"
     >
       <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
         {pages.map((page) => {
@@ -157,17 +157,21 @@ export default function PagesTabBar({
                   onFocus={(e) => e.currentTarget.select()}
                   // Match the tab button's vertical rhythm so the pill
                   // doesn't jump in height while editing.
-                  className="text-xs px-3 py-1.5 rounded-full bg-[var(--bg)] border border-brand-500 text-[var(--text)] outline-none w-32 max-w-[10rem]"
+                  className="text-xs font-bold px-3 py-1 rounded-full bg-[var(--bg-elev-2)] border-2 border-brand-600 shadow-[0_0_0_3px_var(--accent-soft)] text-[var(--text)] outline-none w-32 max-w-[10rem]"
                   aria-label="Rename page"
                 />
               ) : (
                 <button
                   onClick={() => editor.setCurrentPage(page.id)}
                   onDoubleClick={() => startRename(page.id)}
-                  className={`text-xs px-3 py-1.5 rounded-full transition truncate max-w-[10rem] ${
+                  // Segmented-toggle recipe: the active tab is a red pill
+                  // inside an ink outline (no offset shadow — it sits inside
+                  // the bar's own sticker). Inactive tabs keep a transparent
+                  // 2px border so every tab is the same height.
+                  className={`text-xs font-bold px-3 py-1 rounded-full border-2 transition truncate max-w-[10rem] ${
                     active
-                      ? "bg-brand-600 text-white"
-                      : "text-[var(--text-muted)] hover:bg-[var(--hover)]"
+                      ? "bg-brand-600 text-white border-ink font-extrabold"
+                      : "border-transparent text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
                   }`}
                   title={
                     isHost
@@ -195,7 +199,7 @@ export default function PagesTabBar({
               {active && pages.length > 1 && !renaming && (
                 <button
                   onClick={() => removePage(page.id)}
-                  className="text-[var(--text-dim)] hover:text-danger-600 text-xs px-1"
+                  className="text-[var(--text-dim)] hover:text-danger-600 text-xs font-extrabold px-1"
                   aria-label="Delete page"
                   title="Delete page"
                 >
@@ -213,7 +217,7 @@ export default function PagesTabBar({
               saves a click vs. opening the template menu. */}
           <button
             onClick={() => addPage("blank")}
-            className="text-xs px-3 py-1.5 rounded-full bg-brand-600 hover:bg-brand-500 text-white font-medium flex items-center gap-1.5 shrink-0"
+            className="text-xs px-3 py-1 rounded-full bg-brand-600 hover:bg-brand-500 text-white font-extrabold border-2 border-ink flex items-center gap-1.5 shrink-0"
             aria-label="Add a new blank page"
             title="Add a new blank page"
           >
@@ -223,7 +227,7 @@ export default function PagesTabBar({
           {/* Secondary: open template picker for grid / lined / coords / etc. */}
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="ml-1 px-2 py-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--text-muted)] shrink-0 inline-flex items-center"
+            className="ml-1 px-2 py-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--text-muted)] hover:text-[var(--text)] shrink-0 inline-flex items-center"
             aria-label="New page from template"
             title="New page from template"
           >
@@ -231,8 +235,8 @@ export default function PagesTabBar({
           </button>
         </div>
         {menuOpen && (
-          <div className="absolute bottom-full mb-2 right-0 w-52 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-1 z-50">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] px-2 pt-1 pb-1">
+          <div className="absolute bottom-full mb-2 right-0 w-52 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-1.5 z-50 scale-pop">
+            <div className="font-label text-[var(--text-muted)] px-2 pt-1 pb-1.5">
               New page from template
             </div>
             <TemplateBtn onClick={() => addPage("blank")} icon={<FileIcon size={16} aria-hidden />}>
@@ -255,7 +259,7 @@ export default function PagesTabBar({
             </TemplateBtn>
             {onImportPdf && (
               <>
-                <div className="my-1 border-t border-[color:var(--border-subtle)]" />
+                <div className="my-1.5 border-t-2 border-dashed border-[color:var(--border)]" />
                 <TemplateBtn
                   onClick={() => {
                     setMenuOpen(false);
@@ -286,7 +290,7 @@ function TemplateBtn({
   return (
     <button
       onClick={onClick}
-      className="w-full text-left text-sm rounded-md px-2 py-1.5 hover:bg-[var(--hover)] flex items-center gap-2"
+      className="w-full text-left text-sm font-bold rounded-md px-2 py-1.5 hover:bg-[var(--hover)] flex items-center gap-2"
     >
       <span className="shrink-0 text-[var(--text-muted)] inline-flex">{icon}</span>
       <span>{children}</span>

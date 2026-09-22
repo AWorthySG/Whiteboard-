@@ -83,12 +83,12 @@ export default function ColorPickerRow({
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-1.5 py-1 hover:bg-[var(--hover)]"
+        className="inline-flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-1.5 py-1 hover:bg-[var(--hover)]"
         aria-label="Show colour palette"
         title="Show colour palette"
       >
         <span
-          className="w-5 h-5 rounded-full ring-1 ring-[var(--border)]"
+          className="w-5 h-5 rounded-full ring-2 ring-ink"
           style={{ backgroundColor: activeHex }}
         />
         <CaretDown size={10} weight="bold" aria-hidden className="text-[var(--text-muted)]" />
@@ -98,14 +98,14 @@ export default function ColorPickerRow({
 
   return (
     <div
-      className="relative rounded-md border p-1.5 shadow-lg bg-[var(--bg-elev)] border-[color:var(--border)]"
+      className="relative rounded-lg border-2 border-ink p-1.5 shadow-sticker bg-[var(--bg-elev)]"
       role="toolbar"
       aria-label="Color"
     >
       {!embedded && (
         <button
           onClick={() => setExpanded(false)}
-          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)]"
+          className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
           aria-label="Hide colour palette"
           title="Hide colour palette"
         >
@@ -121,8 +121,8 @@ export default function ColorPickerRow({
             title={c.label}
             className={`w-5 h-5 rounded-full transition-transform ${
               active === c.name
-                ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-[var(--text)] scale-110"
-                : "hover:scale-105"
+                ? "ring-2 ring-offset-1 ring-offset-[var(--bg-elev)] ring-ink scale-110"
+                : "ring-1 ring-ink-faint hover:scale-105"
             }`}
             style={{ backgroundColor: c.hex }}
           />
