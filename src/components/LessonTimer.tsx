@@ -174,7 +174,7 @@ export default function LessonTimer({
         {isHost && (
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-3 py-1 text-xs font-extrabold text-[var(--text)] hover:bg-[var(--bg-elev-2)] inline-flex items-center gap-1.5"
+            className="touch-target rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-3 py-1 text-xs font-extrabold text-[var(--text)] hover:bg-[var(--bg-elev-2)] inline-flex items-center justify-center gap-1.5"
             title="Start a lesson timer everyone can see"
             aria-expanded={menuOpen}
           >

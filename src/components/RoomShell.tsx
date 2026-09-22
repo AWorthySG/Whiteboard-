@@ -18,6 +18,7 @@ import {
   VideoCameraSlash,
   WarningCircle,
   X,
+  SignOut,
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useSettings } from "@/hooks/useSettings";
@@ -726,20 +727,23 @@ export default function RoomShell({
       <header className="bg-[var(--bg)] flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 border-b-2 border-ink z-10 safe-pt">
         <Link
           href="/"
-          className="font-extrabold tracking-display shrink-0 flex items-center gap-2"
+          className="touch-target font-extrabold tracking-display shrink-0 flex items-center gap-2"
           title="Back to home"
         >
           {/* Wordmark where there's room; the compact mark on phones, where
               a ~117px lockup would crowd the header controls. The wordmark
               carries the company name itself, so the old "A Worthy" text
               span was dropped — keeping it printed the name twice. */}
+          {/* The wordmark is a ~117px lockup. It only earns its space from
+              xl; from phone through iPad landscape the square mark stands
+              in, which is what keeps the control cluster on one row. */}
           <BrandLogo
             size={28}
             variant="wordmark"
             priority
-            className="hidden sm:block"
+            className="hidden xl:block"
           />
-          <BrandLogo size={32} priority className="sm:hidden rounded-md" />
+          <BrandLogo size={32} priority className="xl:hidden rounded-md" />
         </Link>
 
         {/* Vertical divider — visual rhythm between sections */}
@@ -928,12 +932,12 @@ export default function RoomShell({
             as one connected string, matching the design's header
             information hierarchy. */}
         <div className="min-w-0 flex-1 sm:flex-none flex items-center gap-1.5 sm:gap-2 text-[13px] text-[var(--text-muted)] sm:max-w-[28rem]">
-          <span className="hidden sm:inline">Lessons</span>
+          <span className="hidden xl:inline">Lessons</span>
           <CaretDown
             aria-hidden
             size={10}
             weight="bold"
-            className="hidden sm:inline -rotate-90 text-[var(--text-dim)]"
+            className="hidden xl:inline -rotate-90 text-[var(--text-dim)]"
           />
           {isHost && editingTitle ? (
             <input
@@ -955,7 +959,7 @@ export default function RoomShell({
                 setTitleDraft(meta.title);
                 setEditingTitle(true);
               }}
-              className={`truncate min-w-0 text-left font-extrabold text-[var(--text)] text-[13px] sm:text-[14px] ${
+              className={`truncate min-w-0 py-1.5 text-left font-extrabold text-[var(--text)] text-[13px] sm:text-[14px] ${
                 isHost ? "cursor-text hover:underline decoration-dotted" : "cursor-default"
               }`}
               title={isHost ? "Click to rename" : headerTitle}
@@ -1021,7 +1025,7 @@ export default function RoomShell({
               if (!callJoined) joinCall();
               else setVideoPanelVisible((v) => !v);
             }}
-            className={`touch-target text-[13px] rounded-full border-2 border-ink shadow-sticker-sm sticker-press px-3 py-1 flex items-center gap-1.5 font-extrabold ${
+            className={`touch-target shrink-0 whitespace-nowrap text-[13px] rounded-full border-2 border-ink shadow-sticker-sm sticker-press px-3 py-1 flex items-center gap-1.5 font-extrabold ${
               callJoined
                 ? "bg-grass-bg text-grass-deep hover:bg-grass-bg"
                 : "bg-[var(--bg-elev)] text-[var(--text)] hover:bg-[var(--bg-elev-2)]"
@@ -1048,7 +1052,7 @@ export default function RoomShell({
             ) : (
               <VideoCamera size={18} aria-hidden />
             )}
-            <span className="hidden lg:inline">
+            <span className="hidden xl:inline">
               {!callJoined
                 ? "Join call"
                 : videoPanelVisible
@@ -1141,11 +1145,14 @@ export default function RoomShell({
               <span aria-hidden className="w-px h-6 bg-[var(--border)] mx-0.5" />
               <button
                 onClick={() => setEndLessonOpen(true)}
-                className="touch-target text-[13px] rounded-full bg-danger-50 text-danger-700 border-2 border-ink shadow-sticker-sm sticker-press hover:bg-danger-100 px-3 py-1 flex items-center gap-1.5 font-extrabold"
+                className="touch-target shrink-0 whitespace-nowrap text-[13px] rounded-full bg-danger-50 text-danger-700 border-2 border-ink shadow-sticker-sm sticker-press hover:bg-danger-100 px-3 py-1 flex items-center gap-1.5 font-extrabold"
                 title="End the lesson — exports the whiteboard as a PDF, shares it in the room chat, and leaves the room"
+                aria-label="End lesson"
               >
-                <span className="w-2 h-2 rounded-full bg-brand-600" />
-                <span className="hidden lg:inline">End lesson</span>
+                {/* An icon, not just the live dot: below xl the label is
+                    display:none, and a bare dot names nothing. */}
+                <SignOut size={16} aria-hidden />
+                <span className="hidden xl:inline">End lesson</span>
               </button>
             </>
           )}
@@ -1709,14 +1716,18 @@ function HeaderBtn({
       onClick={onClick}
       title={title ?? label}
       aria-label={label}
-      className={`touch-target text-[13px] rounded-full border-2 border-ink sticker-press px-3 py-1 flex items-center gap-1.5 font-extrabold ${
+      className={`touch-target shrink-0 whitespace-nowrap text-[13px] rounded-full border-2 border-ink sticker-press px-3 py-1 flex items-center gap-1.5 font-extrabold ${
         primary
           ? "bg-brand-600 hover:bg-brand-500 text-white shadow-sticker-primary"
           : "bg-[var(--bg-elev)] hover:bg-[var(--bg-elev-2)] text-[var(--text)] shadow-sticker-sm"
       }`}
     >
       {icon}
-      <span className="hidden lg:inline">{label}</span>
+      {/* Labels only from xl. At lg (1024 = iPad landscape, the tutor's
+          main device) the full cluster plus labels overflowed the bar and
+          pushed "End lesson" off-screen; icon-only between lg and xl
+          keeps every control reachable. */}
+      <span className="hidden xl:inline">{label}</span>
     </button>
   );
 }
