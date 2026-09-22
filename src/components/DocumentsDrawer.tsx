@@ -246,6 +246,16 @@ export default function DocumentsDrawer({
       className="fixed inset-0 z-[10000] flex justify-end bg-[rgba(28,27,25,0.4)]"
       onClick={onClose}
     >
+      {/*
+        Drawer shell. Deliberately `shadow-soft-3` (ambient) rather than the
+        card recipe's hard `shadow-sticker-lg`: that shadow is a straight-down
+        offset, which on a full-height panel pinned to the right viewport edge
+        would paint a 5px ink bar along the bottom that gets clipped by the
+        viewport and reads as a rendering glitch, not a sticker. The 2px ink
+        outline + rounded-l-3xl carry the sticker look; the soft shadow just
+        lifts the panel off the canvas. Keep in step with HomeworkDrawer and
+        RecordingsDrawer, which use the same shell.
+      */}
       <div
         className="w-full max-w-md h-full bg-[var(--bg-sidebar)] border-l-2 border-ink md:border-y-2 md:rounded-l-3xl shadow-soft-3 flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}

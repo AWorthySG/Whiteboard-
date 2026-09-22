@@ -234,7 +234,7 @@ function PlayerModal({
 
   return (
     <div
-      className="fixed inset-0 z-[20000] flex items-center justify-center bg-[rgba(28,27,25,0.7)] backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[20000] flex items-center justify-center bg-[rgba(28,27,25,0.4)] backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div

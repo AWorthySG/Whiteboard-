@@ -217,7 +217,7 @@ export default function PagesTabBar({
               saves a click vs. opening the template menu. */}
           <button
             onClick={() => addPage("blank")}
-            className="text-xs px-3 py-1 rounded-full bg-brand-600 hover:bg-brand-500 text-white font-extrabold border-2 border-ink flex items-center gap-1.5 shrink-0"
+            className="text-xs px-3 py-1 rounded-full bg-brand-600 hover:bg-brand-700 text-white font-extrabold border-2 border-ink shadow-sticker-primary sticker-press flex items-center gap-1.5 shrink-0"
             aria-label="Add a new blank page"
             title="Add a new blank page"
           >

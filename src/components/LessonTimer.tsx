@@ -183,7 +183,14 @@ export default function LessonTimer({
           </button>
         )}
         {isHost && menuOpen && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-60 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-2.5 z-50 scale-pop">
+          // Two layers on purpose: the OUTER div owns the centring
+          // (`-translate-x-1/2` is a `transform`), the INNER div owns
+          // `scale-pop`. The scaleIn keyframes animate `transform` with
+          // fill-mode `both`, so putting both on one element lets the
+          // animated `scale(1)` overwrite the translate and the menu
+          // lands 120px right of centre (and off-screen on phones).
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-60 z-50">
+            <div className="rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-2.5 scale-pop">
             <div className="font-label text-[var(--text-muted)] mb-1.5">
               Start a timer
             </div>
@@ -218,6 +225,7 @@ export default function LessonTimer({
               >
                 Start
               </button>
+            </div>
             </div>
           </div>
         )}

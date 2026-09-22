@@ -1328,7 +1328,7 @@ function CanvasFloatingPanel({
           this control has no effect there — md:hidden removes it. */}
       <button
         onClick={onToggleTools}
-        className="md:hidden rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-2.5 py-1 text-[11px] font-bold text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
+        className="md:hidden rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-2.5 py-1 text-[11px] font-extrabold text-[var(--text)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
         title={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-label={toolsCollapsed ? "Show drawing tools" : "Hide drawing tools"}
         aria-pressed={!toolsCollapsed}
@@ -1366,7 +1366,7 @@ function PenModeIndicator({ editor }: { editor: Editor | null }) {
   return (
     <button
       onClick={turnOff}
-      className="rounded-full px-2.5 py-1 text-[11px] font-bold border-2 border-ink bg-[var(--bg-elev)] text-[var(--text)] shadow-sticker sticker-press flex items-center gap-1.5 hover:bg-[var(--hover)]"
+      className="rounded-full px-2.5 py-1 text-[11px] font-extrabold border-2 border-ink bg-[var(--bg-elev)] text-[var(--text)] shadow-sticker sticker-press flex items-center gap-1.5 hover:bg-[var(--hover)]"
       title={
         appSettings.penOnly
           ? "Pen-only mode is on (Settings → Whiteboard). Tap to let your finger draw again."
@@ -1510,22 +1510,26 @@ function readImageDims(file: File): Promise<{ w: number; h: number }> {
 
 // Builds a blank ruled "answer sheet" SVG sized to (w × h) page units, so a
 // sheet placed beside an A4 PDF page (≈595×842 pt) is itself A4. White paper,
-// faint grey horizontal rules, a soft pink margin line, a light border. It's
+// faint warm horizontal rules, a pale red margin line, a light warm border. It's
 // a self-contained data: URL (no upload, no Supabase CDN — so the SVG-XSS
 // concern in fileValidation doesn't apply; it only renders inside tldraw).
+// Hex literals are unavoidable inside a data-URL SVG (no CSS vars); they are
+// the SAME warm palette as PagesTabBar's renderTemplateSvg (rule #D8D0BF,
+// soft #ECE6D6, margin brand-200 #F5BDB5) so a sheet beside a PDF matches a
+// lined page template. Change both together.
 function makeLinedSheetDataUrl(w: number, h: number): string {
   const lineGap = 36;
   const marginX = Math.min(56, Math.round(w * 0.1));
   let rules = "";
   for (let y = Math.round(lineGap * 1.5); y < h - 8; y += lineGap) {
-    rules += `<line x1="${marginX}" y1="${y}" x2="${w - 16}" y2="${y}" stroke="#d7dee8" stroke-width="1"/>`;
+    rules += `<line x1="${marginX}" y1="${y}" x2="${w - 16}" y2="${y}" stroke="#D8D0BF" stroke-width="1"/>`;
   }
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
     `<rect width="${w}" height="${h}" fill="#ffffff"/>` +
     rules +
-    `<line x1="${marginX}" y1="0" x2="${marginX}" y2="${h}" stroke="#f2cccc" stroke-width="1.5"/>` +
-    `<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" fill="none" stroke="#dde3ec" stroke-width="1"/>` +
+    `<line x1="${marginX}" y1="0" x2="${marginX}" y2="${h}" stroke="#F5BDB5" stroke-width="1.5"/>` +
+    `<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" fill="none" stroke="#ECE6D6" stroke-width="1"/>` +
     `</svg>`;
   return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
@@ -2420,15 +2424,19 @@ function DeleteSelectionButton({ editor }: { editor: Editor | null }) {
   );
 }
 
+// Collaborator cursor / presence colour handed to tldraw userInfo. Hex
+// literals because tldraw paints these itself (no CSS vars); the set is the
+// sticker accent palette from globals.css — accent, sun, grass, bloom, sky,
+// gold, sky-deep — so remote cursors read as part of the cream board.
 function pickColor(seed: string) {
   const palette = [
-    "#ef4444",
-    "#f59e0b",
-    "#10b981",
-    "#3b82f6",
-    "#8b5cf6",
-    "#ec4899",
-    "#14b8a6",
+    "#C0392B",
+    "#F5B82E",
+    "#3DAA5C",
+    "#EF476F",
+    "#5FAEE3",
+    "#B07D2A",
+    "#1F6FA8",
   ];
   let h = 0;
   for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;

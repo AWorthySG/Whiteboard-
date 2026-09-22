@@ -685,10 +685,16 @@ export default function RoomShell({
           </div>
         </div>
       )}
-      {/* Cream glass, not white, so the bar belongs to the paper. py-2 (was
-          1.5) gives the 4px hard shadow under each header pill room to land
-          inside the bar instead of on the SubNav strip below. */}
-      <header className="glass-header flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 border-b border-[color:var(--border-strong)] z-10 safe-pt">
+      {/* Opaque cream (page --bg), NOT .glass-header: backdrop-filter creates a
+          stacking context, which would trap the Pages / More / mobile menus
+          (z-[90]) inside the static header and paint them UNDER the centred
+          LessonTimer (z-[80]) — see the CLAUDE.md z-order gotcha. Nothing sits
+          behind the top bar to blur anyway. Cream rather than white so the bar
+          belongs to the paper; border-b-2 border-ink matches the SubNav strip
+          and the call headers. py-2 (was 1.5) gives the 4px hard shadow under
+          each header pill room to land inside the bar instead of on the SubNav
+          strip below. */}
+      <header className="bg-[var(--bg)] flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 border-b-2 border-ink z-10 safe-pt">
         <Link
           href="/"
           className="font-extrabold tracking-display shrink-0 flex items-center gap-2"
@@ -911,7 +917,7 @@ export default function RoomShell({
                 if (e.key === "Escape") setEditingTitle(false);
               }}
               placeholder={roomId}
-              className="min-w-0 flex-1 rounded-md bg-[var(--bg-elev)] border-2 border-ink px-2 py-0.5 text-[13px] font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+              className="min-w-0 flex-1 rounded-md bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-2 py-0.5 text-[13px] font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
             />
           ) : (
             <button
@@ -1053,7 +1059,7 @@ export default function RoomShell({
                   onClick={() =>
                     setSettings({ captionsEnabled: !settings.captionsEnabled })
                   }
-                  className="w-full text-left text-sm font-semibold rounded-lg px-2.5 py-1.5 hover:bg-[var(--hover)] flex items-center justify-between gap-2"
+                  className="w-full text-left text-sm font-bold rounded-lg px-2.5 py-1.5 hover:bg-[var(--hover)] flex items-center justify-between gap-2"
                   title={
                     !localCaptionsSupportedSync
                       ? "Live captions: you'll see captions from Chrome/Edge speakers, but your own speech isn't transcribed on this browser. Open the room in Google Chrome to caption your own voice."
@@ -1426,7 +1432,7 @@ export default function RoomShell({
             className="md:hidden shrink-0 border-t-2 border-ink bg-[var(--bg-sidebar)] flex flex-col safe-pb"
             style={{ height: videoCompact ? "24dvh" : "42dvh" }}
           >
-            <div className="flex items-center justify-between px-3 py-1 border-b border-[color:var(--border-subtle)]">
+            <div className="flex items-center justify-between px-3 py-1 border-b-2 border-ink">
               <span className="font-label text-[var(--text-muted)]">
                 Call
               </span>
@@ -1690,7 +1696,7 @@ function MenuItem({ onClick, children }: { onClick: () => void; children: React.
   return (
     <button
       onClick={onClick}
-      className="w-full text-left text-sm font-semibold rounded-lg px-2.5 py-1.5 hover:bg-[var(--hover)]"
+      className="w-full text-left text-sm font-bold rounded-lg px-2.5 py-1.5 hover:bg-[var(--hover)]"
     >
       {children}
     </button>

@@ -205,7 +205,6 @@ export default function Home() {
                 priority
                 className="mb-3"
               />
-              <p className="font-label text-[var(--text-muted)] mb-1">Welcome</p>
               <h1 className="text-2xl sm:text-3xl font-black tracking-display">
                 A Worthy <span className="squiggle">Whiteboard</span>
               </h1>
@@ -268,7 +267,7 @@ export default function Home() {
             </button>
           </div>
 
-          <p className="text-xs text-[var(--text-dim)]">
+          <p className="text-xs font-semibold text-[var(--text-muted)]">
             {user
               ? "Signed in — any rooms you create are tied to your account, so you stay the host on every device."
               : "Tip: sign in with your host username and password before creating a room to keep host access on every device."}
@@ -280,7 +279,7 @@ export default function Home() {
                 setPendingSignIn(true);
                 void start(generateRoomId(), true);
               }}
-              className="text-xs font-semibold text-[var(--text-dim)] hover:text-[var(--text-muted)] underline underline-offset-2"
+              className="text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text)] underline underline-offset-2"
             >
               Continue as guest (host status only on this browser)
             </button>
@@ -303,7 +302,7 @@ export default function Home() {
             </div>
 
             {filtered.length === 0 ? (
-              <p className="text-sm font-semibold text-[var(--text-dim)] px-2 py-3">
+              <p className="text-sm font-semibold text-[var(--text-muted)] px-2 py-3">
                 No rooms match “{search.trim()}”.
               </p>
             ) : (
@@ -385,7 +384,7 @@ function AccountChip({
       </div>
       <button
         onClick={onSignOut}
-        className="text-[var(--text-dim)] font-semibold hover:text-[var(--text-muted)] underline underline-offset-2 mt-0.5"
+        className="text-[var(--text-muted)] font-semibold hover:text-[var(--text)] underline underline-offset-2 mt-0.5"
       >
         Sign out
       </button>
@@ -453,7 +452,7 @@ function RoomSection({
   return (
     <div className="mb-4 last:mb-0">
       {label && (
-        <div className="font-label text-[var(--text-dim)] mb-1.5 px-1">
+        <div className="font-label text-[var(--text-muted)] mb-1.5 px-1">
           {label}
         </div>
       )}

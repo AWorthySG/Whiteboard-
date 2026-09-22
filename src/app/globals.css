@@ -173,6 +173,7 @@ body {
   background-position: left bottom;
   background-size: 100% 9px;
 }
+}
 
 /* Hide a scroller's bar without disabling scrolling — used by the
    PagesTabBar strip, which scrolls sideways under a thumb but must not
@@ -197,7 +198,6 @@ body {
 ::-webkit-scrollbar-thumb { background: #D8D0BF; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #B9AE98; }
 ::selection { background: rgba(192, 57, 43, 0.18); color: #1C1B19; }
-}
 
 /* Modal / popover entrance — scale-pop, honoured by reduced-motion below. */
 @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
@@ -360,9 +360,36 @@ html[data-theme="light"] .tl-canvas {
   transform: translateY(3px);
   box-shadow: 0 0 0 var(--ink-shadow);
 }
+/* Disabled is styled explicitly, not via opacity: a 40%-opacity red pill
+   turns into pale pink with white text (~1.6:1) and a muddy pink shadow
+   band, which reads as a rendering glitch. Instead the pill goes to the
+   muted inset surface with dim text inside a faint outline — visibly
+   "off", still legible. */
 .btn-primary:disabled,
-.btn-secondary:disabled,
-.btn-tertiary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-secondary:disabled {
+  background-color: var(--bg-elev-2);
+  color: var(--text-dim);
+  border-color: var(--ink-faint);
+  box-shadow: 0 4px 0 var(--ink-shadow);
+  cursor: not-allowed;
+}
+.btn-tertiary:disabled {
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+}
+
+/* Same disabled treatment for inline red pills built from utilities
+   (`bg-brand-600 … disabled:opacity-*`). Top level, after the utilities
+   layer, so it wins over a `disabled:opacity-50` on the same element. */
+.bg-brand-600:disabled,
+.bg-brand-500:disabled {
+  background-color: var(--bg-elev-2);
+  color: var(--text-dim);
+  border-color: var(--ink-faint);
+  box-shadow: 0 4px 0 var(--ink-shadow);
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 /* Larger eraser preview on coarse pointers (phone, tablet). tldraw
@@ -433,20 +460,32 @@ html[data-theme="light"] .tl-canvas {
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 6px;
+}
+/* Form fields carry their own focus treatment (2px ink border turns red +
+   a 3px --accent-soft halo via `focus:border-brand-600 focus:shadow-…`).
+   The global outline on top of that drew a DOUBLE red ring around the
+   autofocused guest-name field and every tabbed-to input, so it's
+   suppressed here; the red border is the ring. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
 }
 /* tldraw renders its own interaction layer with its own focus styles, so
    suppress the global outline only INSIDE tldraw's own container
    (.tl-container). Our custom canvas controls (ZoomControls, PagesTabBar,
    CanvasFloatingPanel) live in .tldraw-shell but OUTSIDE .tl-container, so
    they keep the keyboard focus ring — important for accessibility.
-   bg-brand surfaces use the lighter brand colour for visibility. */
+   Red pills get the navy ink as their ring: red-on-red is invisible, and
+   a white ring 2px outside a navy border vanishes on cream / white. */
 .tldraw-shell .tl-container *:focus-visible {
   outline: none;
 }
+.btn-primary:focus-visible,
 .bg-brand-600:focus-visible,
 .bg-brand-500:focus-visible {
-  outline-color: white;
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
 }
 
 html,
