@@ -454,20 +454,20 @@ export default function RoomShell({
     if (!editor) { toast.error("Canvas not ready"); return; }
     toast.info("Building PDF… this may take a moment");
     try {
-      const { exportLessonPdf } = await import("@/lib/exportLessonPdf");
-      const { url, name: pdfName } = await exportLessonPdf({
+      const { exportLessonPdf, downloadPdfBlob } = await import(
+        "@/lib/exportLessonPdf"
+      );
+      const { name: pdfName, blob } = await exportLessonPdf({
         editor,
         roomId,
         roomTitle: meta.title,
         hostName: name || "Host",
         hostUserId: userId,
       });
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = pdfName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      // The blob, not the public URL — see downloadPdfBlob. Pointing the
+      // anchor at Supabase ignored `download` and navigated the host away
+      // from the live room to the raw PDF.
+      downloadPdfBlob(blob, pdfName);
       toast.success("PDF downloaded");
     } catch (e) {
       toast.error(`PDF failed: ${(e as Error).message}`);
