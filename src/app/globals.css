@@ -471,3 +471,203 @@ body {
     min-width: 40px;
   }
 }
+
+/* ━━━ LiveKit chrome ━━━
+   Restyles the elements LiveKit renders INSIDE our VideoPanel that
+   Tailwind can't reach (they're built by @livekit/components-react):
+   participant tiles, the name/mute chip on each tile, the focus toggle,
+   the pagination pill, the device menu, and — for completeness, should a
+   stock LiveKit ControlBar / PreJoin ever be mounted — .lk-button and
+   .lk-control-bar. Our own RoomCoordinatorBar is styled in VideoPanel.tsx.
+   Doubled attribute selectors beat LiveKit's [data-lk-theme=default]
+   block (0,1,0) which is imported after this file — see the earlier
+   --lk-font-family note. Colour tokens only; #fff is the one literal,
+   for text on a red fill. */
+[data-lk-theme][data-lk-theme] {
+  /* Speaking ring + "active" fills use LiveKit's accent, which ships as
+     a cool blue. Point it at the one accent so a speaking tile glows red. */
+  --lk-accent-bg: var(--accent);
+  --lk-accent2: var(--accent-dark);
+  --lk-danger: var(--accent);
+  --lk-border-color: var(--ink-faint);
+  --lk-border-radius: 20px;
+  --lk-box-shadow: var(--shadow-sticker);
+  --lk-control-bg: var(--bg-elev);
+  --lk-control-hover-bg: var(--bg-elev-2);
+  --lk-control-active-bg: var(--accent);
+  --lk-control-active-hover-bg: var(--accent-dark);
+  --lk-control-fg: var(--text);
+}
+
+/* Participant tiles: die-cut stickers. Border sits inside the tile's own
+   overflow:hidden box, and the speaking ::after ring (LiveKit's) draws
+   just inside it in the accent red. */
+.lk-participant-tile {
+  border: 2px solid var(--ink);
+  border-radius: 20px;
+  box-shadow: var(--shadow-sticker);
+  background: var(--bg-elev-2);
+}
+.lk-participant-tile::after {
+  border-radius: 18px;
+}
+
+/* Name + mute-indicator chip at the foot of each tile: a badge chip
+   instead of LiveKit's translucent black box. Wins over the earlier
+   white .lk-participant-name rule by specificity (0,2,0 vs 0,1,0). */
+.lk-participant-metadata-item {
+  background-color: var(--bg-elev);
+  color: var(--text);
+  border: 1.5px solid var(--ink-faint);
+  border-radius: 9999px;
+  padding: 2px 9px;
+  gap: 4px;
+}
+.lk-participant-metadata-item .lk-participant-name {
+  color: var(--text);
+  font-weight: 800;
+  font-size: 11.5px;
+  letter-spacing: 0.2px;
+}
+.lk-participant-metadata-item .lk-track-muted-indicator-camera,
+.lk-participant-metadata-item .lk-track-muted-indicator-microphone {
+  color: var(--text-muted);
+}
+/* Connection-quality bars sit in their own chip on the right. */
+.lk-participant-metadata-item .lk-connection-quality {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+/* Focus toggle (hover corner button on a tile): small icon pill. */
+.lk-participant-tile .lk-focus-toggle-button {
+  background-color: var(--bg-elev);
+  color: var(--text);
+  border: 2px solid var(--ink);
+  border-radius: 9999px;
+  box-shadow: var(--shadow-sticker-sm);
+  padding: 0.35rem;
+}
+
+/* Generic LiveKit buttons (ControlBar / device menu / pagination) become
+   2px-ink white pills with the small sticker shadow and press into the
+   paper on :active, like every other pill in the app. */
+.lk-button,
+.lk-start-audio-button,
+.lk-chat-toggle,
+.lk-disconnect-button {
+  background-color: var(--bg-elev);
+  color: var(--text);
+  border: 2px solid var(--ink);
+  border-radius: 9999px;
+  box-shadow: var(--shadow-sticker-sm);
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.95rem;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.12s ease;
+}
+.lk-button:not(:disabled):hover,
+.lk-start-audio-button:not(:disabled):hover,
+.lk-chat-toggle:not(:disabled):hover {
+  background-color: var(--bg-elev-2);
+}
+.lk-button:not(:disabled):active,
+.lk-start-audio-button:not(:disabled):active,
+.lk-chat-toggle:not(:disabled):active,
+.lk-disconnect-button:not(:disabled):active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--ink-shadow);
+}
+/* Pressed / enabled = the primary look: red fill, white text, red shadow. */
+.lk-button[aria-pressed="true"],
+.lk-button[data-lk-source="screen_share"][data-lk-enabled="true"],
+.lk-start-audio-button {
+  background-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--accent-dark);
+}
+.lk-button[aria-pressed="true"]:hover,
+.lk-button[data-lk-source="screen_share"][data-lk-enabled="true"]:hover,
+.lk-start-audio-button:not(:disabled):hover {
+  background-color: var(--accent-dark);
+  color: #fff;
+}
+/* Leave: pale-red destructive, never a second solid red. */
+.lk-disconnect-button {
+  background-color: var(--danger-bg);
+  color: var(--accent-dark);
+  border-color: var(--ink);
+}
+.lk-disconnect-button:not(:disabled):hover {
+  --lk-control-hover-bg: var(--danger-bg);
+  background-color: var(--danger-bg);
+  color: var(--accent);
+}
+/* Stock control bar, if ever mounted: sidebar cream with a 2px ink rule. */
+.lk-control-bar {
+  background-color: var(--bg-sidebar);
+  border-top: 2px solid var(--ink);
+  gap: 0.375rem;
+  padding: 0.5rem 0.5rem 0.625rem;
+}
+
+/* Pagination (grid overflow): one pill with the arrows and count inside,
+   so the inner buttons drop their own outline + shadow. */
+.lk-pagination-control {
+  background-color: var(--bg-elev);
+  border: 2px solid var(--ink);
+  border-radius: 9999px;
+  box-shadow: var(--shadow-sticker);
+  overflow: hidden;
+  color: var(--text);
+}
+.lk-pagination-control > .lk-button,
+.lk-pagination-control > .lk-button:first-child,
+.lk-pagination-control > .lk-button:last-child {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0.35rem 0.6rem;
+}
+.lk-pagination-control > .lk-button:not(:disabled):active {
+  transform: none;
+}
+.lk-pagination-count {
+  border-inline: 2px solid var(--ink);
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+.lk-pagination-indicator {
+  background-color: var(--bg-elev);
+  border: 1.5px solid var(--ink-faint);
+}
+.lk-pagination-indicator span {
+  background-color: var(--text);
+}
+
+/* Device picker / toast: sticker cards. */
+.lk-device-menu,
+.lk-toast {
+  background-color: var(--bg-elev);
+  color: var(--text);
+  border: 2px solid var(--ink);
+  border-radius: 20px;
+  box-shadow: var(--shadow-sticker);
+}
+.lk-device-menu-heading {
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 1;
+}
+.lk-media-device-select li > .lk-button {
+  box-shadow: none;
+  border-color: transparent;
+}
+.lk-media-device-select [data-lk-active="true"] > .lk-button {
+  background-color: var(--accent);
+  color: #fff;
+  border-color: var(--ink);
+}

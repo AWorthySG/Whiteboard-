@@ -154,19 +154,21 @@ export default function PresenceBadge({
       <button
         ref={triggerRef}
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-600/40 hover:bg-emerald-200 transition-colors"
+        // Badge chip in the "ok" grass tint with the live presence dot.
+        // The outline darkens to full ink on hover as the click affordance.
+        className="inline-flex items-center gap-1.5 text-[11.5px] font-extrabold tracking-[.2px] px-3 py-1 rounded-full bg-grass-bg text-grass-deep border-[1.5px] border-ink-faint hover:border-ink transition-colors"
         title={`${counts.total} ${peopleLabel} in this room${
           currentPageId ? ` · ${counts.here} on this page` : ""
         }`}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-        <span className="font-medium tabular-nums">{counts.total}</span>
+        <span className="w-2 h-2 rounded-full bg-[var(--presence)] animate-pulse" />
+        <span className="tabular-nums">{counts.total}</span>
         <span className="hidden sm:inline">online</span>
         {currentPageId && counts.total > 1 && (
           <>
-            <span className="text-emerald-700/50">·</span>
+            <span className="opacity-50">·</span>
             <span className="tabular-nums">{counts.here}</span>
             <span className="hidden sm:inline">here</span>
           </>
@@ -176,9 +178,9 @@ export default function PresenceBadge({
         <div
           role="dialog"
           aria-label="People in this room"
-          className="absolute top-full left-0 sm:left-auto sm:right-0 mt-1 w-64 max-w-[calc(100vw-1.5rem)] rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-2 z-50"
+          className="absolute top-full left-0 sm:left-auto sm:right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-2 z-50 scale-pop"
         >
-          <div className="px-1.5 pb-2 text-[10px] uppercase tracking-wider text-[var(--text-dim)]">
+          <div className="px-1.5 pb-2 font-label text-[var(--text-muted)]">
             {counts.total} in this room
           </div>
           <ul className="max-h-72 overflow-y-auto space-y-0.5">
@@ -188,10 +190,12 @@ export default function PresenceBadge({
               return (
                 <li
                   key={p.userId}
-                  className="flex items-center gap-2 rounded-md px-1.5 py-1.5"
+                  className="flex items-center gap-2 rounded-lg px-1.5 py-1.5"
                 >
+                  {/* Avatar chip sits inside a 2px ink circle like the
+                      LMS's pastel icon chips; the per-user hue stays. */}
                   <span
-                    className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-white"
+                    className="shrink-0 w-6 h-6 rounded-full border-2 border-ink flex items-center justify-center text-[10px] font-extrabold text-white"
                     style={{ background: colorForId(p.userId) }}
                     aria-hidden
                   >
@@ -203,22 +207,22 @@ export default function PresenceBadge({
                       .join("")
                       .toUpperCase() || "?"}
                   </span>
-                  <span className="text-sm truncate flex-1">
+                  <span className="text-sm font-bold truncate flex-1">
                     {p.name}
                     {isYou && (
-                      <span className="text-[var(--text-dim)] ml-1">(you)</span>
+                      <span className="text-[var(--text-dim)] font-semibold ml-1">(you)</span>
                     )}
                   </span>
                   {onCurrent ? (
                     <span
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800"
+                      className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border-[1.5px] border-ink-faint bg-grass-bg text-grass-deep"
                       title="On the same page as you"
                     >
                       here
                     </span>
                   ) : p.pageId ? (
                     <span
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--hover)] text-[var(--text-muted)]"
+                      className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border-[1.5px] border-ink-faint bg-[var(--bg-elev-2)] text-[var(--text-muted)]"
                       title="Viewing a different page"
                     >
                       elsewhere
@@ -232,7 +236,7 @@ export default function PresenceBadge({
                     drawGrantUserId === p.userId ? (
                       <button
                         onClick={() => onSetDrawGrant(null)}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600"
+                        className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border-[1.5px] border-ink-faint bg-sun-bg text-sun-deep hover:border-ink"
                         title="Currently drawing — tap to revoke"
                         aria-label={`Revoke drawing privilege from ${p.name}`}
                       >
@@ -241,7 +245,7 @@ export default function PresenceBadge({
                     ) : (
                       <button
                         onClick={() => onSetDrawGrant(p.userId)}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--hover)] text-[var(--text-muted)] hover:bg-brand-100 hover:text-brand-800"
+                        className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border-[1.5px] border-ink-faint bg-[var(--bg-elev)] text-[var(--text-muted)] hover:bg-brand-50 hover:text-brand-700 hover:border-ink"
                         title="Grant this student drawing privilege (they default to the draw tool)"
                         aria-label={`Grant drawing privilege to ${p.name}`}
                       >

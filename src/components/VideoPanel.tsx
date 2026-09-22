@@ -89,6 +89,13 @@ const ROOM_OPTIONS: RoomOptions = {
   reconnectPolicy: PATIENT_LIVEKIT_RECONNECT_POLICY,
 };
 
+// The join / rejoin / dropped prompts all share one sticker card so the
+// panel reads as a single "card on the sidebar" whichever state it is in.
+// max-w keeps the card ~the old 14rem button width plus padding; the
+// buttons inside are w-full so they line up edge to edge.
+const PROMPT_CARD_CLASS =
+  "sticker scale-pop w-full max-w-[17rem] p-5 flex flex-col items-center gap-2";
+
 // Human-friendly label for the disconnect reason livekit-client gives
 // us in onDisconnected. We surface this in the "Call dropped" panel
 // so a drop carries enough context to diagnose (esp. DUPLICATE_IDENTITY,
@@ -244,14 +251,14 @@ export default function VideoPanel({
 
   if (error) {
     return (
-      <div role="alert" className="p-4 text-sm text-danger-700">
+      <div role="alert" className="p-4 text-sm font-bold text-danger-700">
         Couldn't connect to video: {error}
-        <p className="mt-2 text-[var(--text-dim)]">
+        <p className="mt-2 text-[var(--text-muted)] font-semibold">
           Make sure{" "}
-          <code className="bg-[var(--bg)] rounded px-1">LIVEKIT_API_KEY</code>,{" "}
-          <code className="bg-[var(--bg)] rounded px-1">LIVEKIT_API_SECRET</code>,
+          <code className="bg-[var(--bg-elev-2)] rounded-md px-1">LIVEKIT_API_KEY</code>,{" "}
+          <code className="bg-[var(--bg-elev-2)] rounded-md px-1">LIVEKIT_API_SECRET</code>,
           and{" "}
-          <code className="bg-[var(--bg)] rounded px-1">NEXT_PUBLIC_LIVEKIT_URL</code>{" "}
+          <code className="bg-[var(--bg-elev-2)] rounded-md px-1">NEXT_PUBLIC_LIVEKIT_URL</code>{" "}
           are set.
         </p>
       </div>
@@ -259,7 +266,7 @@ export default function VideoPanel({
   }
 
   if (!token || !serverUrl) {
-    return <div className="p-4 text-sm text-[var(--text-muted)]">Joining call…</div>;
+    return <div className="p-4 text-sm font-semibold text-[var(--text-muted)]">Joining call…</div>;
   }
 
   if (!inCall) {
@@ -270,14 +277,48 @@ export default function VideoPanel({
       // to take is different (close the other tab/device, not wait).
       if (dropWasDuplicateIdentity) {
         return (
-          <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
-            <p className="text-sm font-medium text-[var(--text)]">
-              You joined this call from another tab or device.
+          <div className="flex flex-col h-full items-center justify-center p-4 text-center">
+            <div className={PROMPT_CARD_CLASS}>
+              <p className="text-base font-extrabold tracking-display text-[var(--text)]">
+                You joined this call from another tab or device.
+              </p>
+              <p className="text-xs font-semibold text-[var(--text-muted)] max-w-[18rem]">
+                The other window is now in the call. Close it (or just
+                switch to it) — auto-reconnect is paused here so the two
+                don&apos;t keep kicking each other.
+              </p>
+              <button
+                onClick={() => {
+                  setDropped(false);
+                  setDropReason(undefined);
+                  setInCall(true);
+                }}
+                className="btn-primary touch-target w-full mt-2"
+              >
+                Take the call back here
+              </button>
+              <button
+                onClick={() => {
+                  setDropped(false);
+                  setDropReason(undefined);
+                  onLeaveCall?.();
+                }}
+                className="btn-secondary touch-target w-full"
+              >
+                Stay on whiteboard only
+              </button>
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div className="flex flex-col h-full items-center justify-center p-4 text-center">
+          <div className={PROMPT_CARD_CLASS}>
+            <p className="text-base font-extrabold tracking-display text-[var(--text)]">
+              Call dropped. Reconnecting…
             </p>
-            <p className="text-xs text-[var(--text-muted)] max-w-[18rem]">
-              The other window is now in the call. Close it (or just
-              switch to it) — auto-reconnect is paused here so the two
-              don&apos;t keep kicking each other.
+            <p className="text-xs font-semibold text-[var(--text-muted)]">
+              Reason: {describeDisconnectReason(dropReason)}
             </p>
             <button
               onClick={() => {
@@ -285,9 +326,9 @@ export default function VideoPanel({
                 setDropReason(undefined);
                 setInCall(true);
               }}
-              className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium mt-2"
+              className="btn-primary touch-target w-full mt-2"
             >
-              Take the call back here
+              Reconnect now
             </button>
             <button
               onClick={() => {
@@ -295,41 +336,11 @@ export default function VideoPanel({
                 setDropReason(undefined);
                 onLeaveCall?.();
               }}
-              className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
+              className="btn-secondary touch-target w-full"
             >
               Stay on whiteboard only
             </button>
           </div>
-        );
-      }
-      return (
-        <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
-          <p className="text-sm text-[var(--text-muted)]">
-            Call dropped. Reconnecting…
-          </p>
-          <p className="text-xs text-[var(--text-dim)]">
-            Reason: {describeDisconnectReason(dropReason)}
-          </p>
-          <button
-            onClick={() => {
-              setDropped(false);
-              setDropReason(undefined);
-              setInCall(true);
-            }}
-            className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
-          >
-            Reconnect now
-          </button>
-          <button
-            onClick={() => {
-              setDropped(false);
-              setDropReason(undefined);
-              onLeaveCall?.();
-            }}
-            className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
-          >
-            Stay on whiteboard only
-          </button>
         </div>
       );
     }
@@ -338,77 +349,81 @@ export default function VideoPanel({
     // know they can use the whiteboard without the call.
     if (!hasJoinedBeforeRef.current) {
       return (
-        <div className="flex flex-col h-full items-center justify-center gap-3 p-6 text-center">
-          <p className="text-sm font-medium text-[var(--text)]">
-            Join the call
-          </p>
-          <p className="text-xs text-[var(--text-muted)] -mt-1">
-            You're on the whiteboard. Add audio &amp; video when you're ready.
-          </p>
-          <button
-            onClick={() => {
-              setAudioOnlyMode(false);
-              setInCall(true);
-            }}
-            className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
-          >
-            Join with video
-          </button>
-          <button
-            onClick={() => {
-              setAudioOnlyMode(true);
-              setInCall(true);
-            }}
-            className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
-          >
-            Audio only
-          </button>
-          <p className="text-xs text-[var(--text-dim)]">
-            Audio only saves bandwidth on phone data.
-          </p>
-          <button
-            onClick={() => onLeaveCall?.()}
-            className="touch-target w-full max-w-[14rem] text-xs text-[var(--text-dim)] hover:text-[var(--text-muted)] py-1 underline underline-offset-2"
-          >
-            Whiteboard only — skip the call
-          </button>
+        <div className="flex flex-col h-full items-center justify-center p-4 text-center">
+          <div className={`${PROMPT_CARD_CLASS} gap-3`}>
+            <p className="text-lg font-extrabold tracking-display text-[var(--text)]">
+              Join the call
+            </p>
+            <p className="text-xs font-semibold text-[var(--text-muted)] -mt-1">
+              You're on the whiteboard. Add audio &amp; video when you're ready.
+            </p>
+            <button
+              onClick={() => {
+                setAudioOnlyMode(false);
+                setInCall(true);
+              }}
+              className="btn-primary touch-target w-full"
+            >
+              Join with video
+            </button>
+            <button
+              onClick={() => {
+                setAudioOnlyMode(true);
+                setInCall(true);
+              }}
+              className="btn-secondary touch-target w-full"
+            >
+              Audio only
+            </button>
+            <p className="text-xs font-semibold text-[var(--text-dim)]">
+              Audio only saves bandwidth on phone data.
+            </p>
+            <button
+              onClick={() => onLeaveCall?.()}
+              className="btn-tertiary touch-target w-full text-xs"
+            >
+              Whiteboard only — skip the call
+            </button>
+          </div>
         </div>
       );
     }
 
     // User has joined before and intentionally left — offer to rejoin.
     return (
-      <div className="flex flex-col h-full items-center justify-center gap-2 p-6 text-center">
-        <p className="text-sm text-[var(--text-muted)]">
-          You've left the call. The whiteboard is still active.
-        </p>
-        <button
-          onClick={() => {
-            setAudioOnlyMode(false);
-            setInCall(true);
-          }}
-          className="touch-target w-full max-w-[14rem] rounded-md bg-brand-600 hover:bg-brand-500 text-white px-4 py-2 text-sm font-medium"
-        >
-          Rejoin with video
-        </button>
-        <button
-          onClick={() => {
-            setAudioOnlyMode(true);
-            setInCall(true);
-          }}
-          className="touch-target w-full max-w-[14rem] rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-4 py-2 text-sm font-medium"
-        >
-          Rejoin audio only
-        </button>
-        <button
-          onClick={() => onLeaveCall?.()}
-          className="touch-target w-full max-w-[14rem] text-xs text-[var(--text-dim)] hover:text-[var(--text-muted)] py-1"
-        >
-          Close panel · stay on whiteboard
-        </button>
-        <p className="text-xs text-[var(--text-dim)]">
-          Audio only saves bandwidth on phone data.
-        </p>
+      <div className="flex flex-col h-full items-center justify-center p-4 text-center">
+        <div className={PROMPT_CARD_CLASS}>
+          <p className="text-base font-extrabold tracking-display text-[var(--text)]">
+            You've left the call. The whiteboard is still active.
+          </p>
+          <button
+            onClick={() => {
+              setAudioOnlyMode(false);
+              setInCall(true);
+            }}
+            className="btn-primary touch-target w-full mt-1"
+          >
+            Rejoin with video
+          </button>
+          <button
+            onClick={() => {
+              setAudioOnlyMode(true);
+              setInCall(true);
+            }}
+            className="btn-secondary touch-target w-full"
+          >
+            Rejoin audio only
+          </button>
+          <button
+            onClick={() => onLeaveCall?.()}
+            className="btn-tertiary touch-target w-full text-xs"
+          >
+            Close panel · stay on whiteboard
+          </button>
+          <p className="text-xs font-semibold text-[var(--text-dim)]">
+            Audio only saves bandwidth on phone data.
+          </p>
+        </div>
       </div>
     );
   }
@@ -490,7 +505,7 @@ function Tiles() {
       {/* Participant count badge — gives the host instant feedback
           that the call has more than one person, even when remote
           tiles are scrolled out of view. */}
-      <div className="absolute top-2 left-2 z-10 text-[10px] font-medium uppercase tracking-wider bg-black/60 text-white rounded px-1.5 py-0.5 pointer-events-none">
+      <div className="absolute top-2 left-2 z-10 font-label text-[var(--text-muted)] bg-[var(--bg-elev)] border-[1.5px] border-ink-faint rounded-full px-2 py-0.5 pointer-events-none">
         {participants.length} in call
       </div>
       {/* Connection-quality warnings: a named chip appears for any
@@ -513,7 +528,7 @@ function Tiles() {
         <button
           type="button"
           onClick={() => setDismissedAt(Date.now())}
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 text-[11px] text-white/90 bg-black/55 rounded-full pl-2.5 pr-1.5 py-0.5 whitespace-nowrap inline-flex items-center gap-1.5 hover:bg-black/70 transition-colors"
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 text-[11px] font-extrabold text-[var(--text-muted)] bg-[var(--bg-elev)] border-[1.5px] border-ink-faint shadow-sticker-sm rounded-full pl-3 pr-2 py-0.5 whitespace-nowrap inline-flex items-center gap-1.5 hover:border-ink hover:text-[var(--text)] transition-colors"
           aria-label="Dismiss 'alone in call' hint"
           title="Dismiss"
         >
@@ -527,8 +542,8 @@ function Tiles() {
 
 // Per-participant connection-quality chip. Renders nothing unless the
 // participant's LiveKit connection drops to poor or lost — then a named
-// chip surfaces it (amber for poor, red for lost) so the host can tell a
-// freeze is a network problem, not the app.
+// chip surfaces it (sun tint for poor, pale red for lost) so the host can
+// tell a freeze is a network problem, not the app.
 function ConnectionQualityChip({ participant }: { participant: Participant }) {
   const { quality } = useConnectionQualityIndicator({ participant });
   if (quality !== ConnectionQuality.Poor && quality !== ConnectionQuality.Lost) {
@@ -540,8 +555,8 @@ function ConnectionQualityChip({ participant }: { participant: Participant }) {
     : participant.name?.trim() || participant.identity;
   return (
     <span
-      className={`text-[10px] font-medium rounded px-1.5 py-0.5 text-white shadow ${
-        lost ? "bg-red-600" : "bg-amber-600"
+      className={`text-[10px] font-extrabold rounded-full px-2.5 py-0.5 border-[1.5px] border-ink-faint shadow-sticker-sm ${
+        lost ? "bg-danger-50 text-danger-700" : "bg-sun-bg text-sun-deep"
       }`}
     >
       {who}: {lost ? "connection lost" : "weak connection"}
@@ -704,7 +719,7 @@ function RoomCoordinatorBar({
   };
 
   return (
-    <div className="relative border-t border-[color:var(--border)] bg-[var(--bg-elev)] text-[var(--text)]">
+    <div className="relative border-t-2 border-ink bg-[var(--bg-sidebar)] text-[var(--text)]">
       {/* Floating reactions — anchored to the top of the bar and
           animate up out of frame. pointer-events-none so they
           don't block toolbar taps. */}
@@ -716,7 +731,7 @@ function RoomCoordinatorBar({
           {reactions.map((r) => (
             <span
               key={r.id}
-              className="inline-flex items-center gap-1 bg-black/65 text-white rounded-full px-2 py-0.5 text-xs animate-[reactionRise_2.4s_ease-out_forwards]"
+              className="inline-flex items-center gap-1 bg-[var(--bg-elev)] text-[var(--text)] border-2 border-ink shadow-sticker-sm rounded-full px-2.5 py-0.5 text-xs font-bold animate-[reactionRise_2.4s_ease-out_forwards]"
             >
               <span aria-hidden className="text-base leading-none">
                 {r.emoji}
@@ -731,14 +746,14 @@ function RoomCoordinatorBar({
           {[...raisedHands.entries()].map(([id, info]) => (
             <li
               key={id}
-              className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-md px-2 py-1"
+              className="flex items-center gap-2 bg-sun-bg border-[1.5px] border-ink-faint rounded-full px-2.5 py-1"
             >
-              <Hand weight="fill" aria-hidden className="text-amber-700 shrink-0" />
-              <span className="flex-1 truncate text-amber-900">{info.name}</span>
+              <Hand weight="fill" aria-hidden className="text-sun-deep shrink-0" />
+              <span className="flex-1 truncate font-bold text-sun-deep">{info.name}</span>
               {isHost && (
                 <button
                   onClick={() => lowerHand(id)}
-                  className="text-xs text-amber-800 hover:text-amber-950 font-medium"
+                  className="text-xs text-sun-deep hover:underline underline-offset-2 font-extrabold"
                 >
                   Lower
                 </button>
@@ -751,7 +766,9 @@ function RoomCoordinatorBar({
       <div
         role="toolbar"
         aria-label="Call controls"
-        className="flex items-center gap-1 px-1.5 py-1.5 overflow-x-auto"
+        // pb-2.5 (not 1.5) leaves room for the 4px hard shadow under each
+        // pill so it isn't clipped by the bar's overflow-x scroll box.
+        className="flex items-center gap-1.5 px-2 pt-2 pb-2.5 overflow-x-auto"
       >
         <BarButton
           label={isMicrophoneEnabled ? "Mute mic" : "Unmute mic"}
@@ -796,7 +813,7 @@ function RoomCoordinatorBar({
           label={handUp ? "Lower hand" : "Raise hand"}
           icon={<Hand weight="fill" />}
           active={handUp}
-          activeClass="bg-amber-500 text-black border-amber-400"
+          activeClass="bg-sun text-[var(--text)] border-ink"
           onClick={toggleHand}
         />
         {isHost && (
@@ -804,13 +821,13 @@ function RoomCoordinatorBar({
             label={muteAllArmed ? "Tap to confirm" : "Mute all"}
             icon={
               muteAllArmed ? (
-                <Check weight="bold" />
+                <Check />
               ) : (
                 <BellSlash weight="fill" />
               )
             }
             active={muteAllArmed}
-            activeClass="bg-amber-500 text-black border-amber-400"
+            activeClass="bg-sun text-[var(--text)] border-ink"
             onClick={armMuteAll}
             collapseTextBelow="sm"
           />
@@ -824,7 +841,7 @@ function RoomCoordinatorBar({
             onClick={() => sendReaction(r)}
             aria-label={`Send ${r} reaction`}
             title={`Send ${r}`}
-            className="shrink-0 inline-flex items-center justify-center rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] min-w-[36px] min-h-[40px] text-base"
+            className="shrink-0 inline-flex items-center justify-center rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press hover:bg-[var(--bg-elev-2)] min-w-[40px] min-h-[40px] text-base"
           >
             <span aria-hidden>{r}</span>
           </button>
@@ -834,7 +851,7 @@ function RoomCoordinatorBar({
           label="Leave call"
           icon={<SignOut weight="fill" />}
           onClick={onLeave}
-          className="bg-danger-600 text-white border-danger-600 hover:bg-danger-500"
+          destructive
           collapseTextBelow="sm"
         />
       </div>
@@ -854,6 +871,7 @@ function BarButton({
   onClick,
   className,
   collapseTextBelow,
+  destructive,
 }: {
   label: string;
   icon: ReactNode;
@@ -866,22 +884,32 @@ function BarButton({
   // on phone-sized screens. Use 'sm' for less-important buttons that
   // should keep their text longer.
   collapseTextBelow?: "sm" | "md";
+  // Pale-red destructive variant (Leave). A prop rather than a passed-in
+  // className because the idle state now carries its own `bg-*`, and two
+  // competing Tailwind bg utilities resolve by stylesheet order, not
+  // className order — so the fill has to be chosen here.
+  destructive?: boolean;
 }) {
   const hideText =
     collapseTextBelow === "sm" ? "hidden sm:inline" : "hidden md:inline";
+  // Every state is a 2px-ink sticker pill; only the fill changes. Active =
+  // solid red + white text (the primary look) with the darker-red hard
+  // shadow; destructive = pale red + red text; idle = white.
   const stateClass =
     active && activeClass
-      ? activeClass
+      ? `${activeClass} shadow-sticker`
       : active
-        ? "bg-brand-600 text-white border-brand-600"
-        : "border-[color:var(--border)] text-[var(--text)] hover:bg-[var(--hover)]";
+        ? "bg-brand-600 text-white border-ink shadow-sticker-primary hover:bg-brand-700"
+        : destructive
+          ? "bg-danger-50 text-danger-700 border-ink shadow-sticker hover:bg-danger-100"
+          : "bg-[var(--bg-elev)] text-[var(--text)] border-ink shadow-sticker hover:bg-[var(--bg-elev-2)]";
   return (
     <button
       onClick={onClick}
       aria-label={label}
       aria-pressed={active}
       title={label}
-      className={`touch-target shrink-0 inline-flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm min-w-[44px] min-h-[40px] ${stateClass} ${className ?? ""}`}
+      className={`touch-target sticker-press shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border-2 px-2.5 py-1 text-sm font-extrabold min-w-[44px] min-h-[40px] ${stateClass} ${className ?? ""}`}
     >
       <span aria-hidden className="text-[18px] leading-none inline-flex">
         {icon}

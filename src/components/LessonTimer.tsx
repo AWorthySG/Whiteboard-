@@ -68,14 +68,16 @@ export default function LessonTimer({
   // host or student, whether or not a countdown is running.
   const clockPill = (
     <div
-      className="flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-2.5 py-1.5 text-xs text-[var(--text-muted)]"
+      // Sticker pill. py-1 (not 1.5) because the 2px outline adds back the
+      // height, so the pill stays the same size as before the restyle.
+      className="flex items-center gap-1.5 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker px-2.5 py-1 text-xs text-[var(--text-muted)]"
       title="Current time — Singapore (GMT+8)"
     >
       <Clock size={14} aria-hidden />
-      <span className="tabular-nums font-medium text-[var(--text)]">
+      <span className="tabular-nums font-extrabold text-[var(--text)]">
         {formatSGT(now)}
       </span>
-      <span className="text-[10px] text-[var(--text-dim)] uppercase tracking-wide">
+      <span className="font-label text-[var(--text-dim)]">
         SGT
       </span>
     </div>
@@ -172,7 +174,7 @@ export default function LessonTimer({
         {isHost && (
           <button
             onClick={() => setMenuOpen((o) => !o)}
-            className="rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-3 py-1.5 text-xs text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center gap-1.5"
+            className="rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker sticker-press px-3 py-1 text-xs font-extrabold text-[var(--text)] hover:bg-[var(--bg-elev-2)] inline-flex items-center gap-1.5"
             title="Start a lesson timer everyone can see"
             aria-expanded={menuOpen}
           >
@@ -181,22 +183,22 @@ export default function LessonTimer({
           </button>
         )}
         {isHost && menuOpen && (
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 w-60 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-2.5 z-50">
-            <div className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] mb-1.5">
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-60 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-2.5 z-50 scale-pop">
+            <div className="font-label text-[var(--text-muted)] mb-1.5">
               Start a timer
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               {PRESETS_MIN.map((m) => (
                 <button
                   key={m}
                   onClick={() => startWith(m * 60_000)}
-                  className="rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] text-sm py-1.5 font-medium tabular-nums"
+                  className="rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] text-sm py-1 font-extrabold tabular-nums"
                 >
                   {m}m
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-1.5 mt-2">
+            <div className="flex items-center gap-2 mt-3">
               <input
                 type="number"
                 min={1}
@@ -207,12 +209,12 @@ export default function LessonTimer({
                   if (e.key === "Enter") startCustom();
                 }}
                 placeholder="Custom"
-                className="min-w-0 flex-1 rounded-md bg-[var(--bg-elev)] border border-[color:var(--border)] px-2 py-1 text-sm outline-none focus:border-brand-500"
+                className="min-w-0 flex-1 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-2.5 py-1 text-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
               />
-              <span className="text-xs text-[var(--text-dim)]">min</span>
+              <span className="font-label text-[var(--text-muted)]">min</span>
               <button
                 onClick={startCustom}
-                className="rounded-md bg-brand-600 hover:bg-brand-500 text-white text-sm px-2.5 py-1 font-medium"
+                className="rounded-full bg-brand-600 hover:bg-brand-700 text-white border-2 border-ink shadow-sticker-primary sticker-press text-sm px-3 py-1 font-extrabold"
               >
                 Start
               </button>
@@ -226,16 +228,19 @@ export default function LessonTimer({
   // Active → countdown pill (+ host controls).
   const total = timer.durationMs || 1;
   const frac = Math.max(0, Math.min(1, remainingMs / total));
-  const borderClass = finished
-    ? "border-[color:var(--destructive)]"
+  // State is carried by the pill's FILL, not its outline — the outline is
+  // always the 2px sticker ink. Time's up = pale red (the destructive
+  // variant), paused = sun tint, running = plain white.
+  const stateClass = finished
+    ? "bg-danger-50 text-danger-700"
     : !timer.running
-      ? "border-amber-600"
-      : "border-[color:var(--border)]";
+      ? "bg-sun-bg"
+      : "bg-[var(--bg-elev)]";
   const fillClass = finished
-    ? "bg-[color:var(--destructive)]"
+    ? "bg-danger-600"
     : !timer.running
-      ? "bg-amber-600"
-      : "bg-brand-500";
+      ? "bg-sun"
+      : "bg-brand-600";
 
   return (
     <div
@@ -246,27 +251,29 @@ export default function LessonTimer({
           so the clock hides there; it stays on tablet/desktop (sm+). */}
       <div className="hidden sm:block">{clockPill}</div>
       <div
-        className={`flex items-center gap-2 rounded-full border shadow-lg px-3 py-1.5 bg-[var(--bg-elev)] ${borderClass}`}
+        className={`flex items-center gap-2 rounded-full border-2 border-ink shadow-sticker px-3 py-1 ${stateClass}`}
       >
       <TimerIcon
         size={15}
         aria-hidden
         className={
           finished
-            ? "text-[color:var(--destructive)]"
+            ? "text-danger-700"
             : "text-[var(--text-muted)]"
         }
       />
-      <div className="flex flex-col leading-none gap-0.5">
+      <div className="flex flex-col leading-none gap-1">
         <span
-          className={`text-sm font-semibold tabular-nums ${
-            finished ? "text-[color:var(--destructive)]" : "text-[var(--text)]"
+          className={`text-sm font-extrabold tabular-nums ${
+            finished ? "text-danger-700" : "text-[var(--text)]"
           }`}
         >
           {finished ? "Time's up" : formatMs(remainingMs)}
         </span>
-        {/* Progress track */}
-        <span className="block w-24 h-1 rounded-full bg-[var(--border)] overflow-hidden">
+        {/* Progress track — a miniature of the sticker progress bar
+            (outlined track, solid fill); 1px faint ink because a 2px
+            outline would swallow a 6px-tall track. */}
+        <span className="block w-24 h-1.5 rounded-full border border-ink-faint bg-[var(--bg-elev-2)] overflow-hidden">
           <span
             className={`block h-full transition-[width] duration-300 ease-linear ${fillClass}`}
             style={{ width: `${frac * 100}%` }}
@@ -274,12 +281,12 @@ export default function LessonTimer({
         </span>
       </div>
       {!timer.running && !finished && (
-        <span className="text-[10px] uppercase tracking-wider text-amber-600 font-semibold">
+        <span className="font-label text-sun-deep">
           Paused
         </span>
       )}
       {isHost && (
-        <div className="flex items-center gap-0.5 ml-0.5">
+        <div className="flex items-center gap-1 ml-0.5">
           {!finished &&
             (timer.running ? (
               <TimerCtrl onClick={pause} label="Pause timer">
@@ -292,11 +299,11 @@ export default function LessonTimer({
             ))}
           {!finished && (
             <TimerCtrl onClick={addMinute} label="Add one minute">
-              <Plus size={14} weight="bold" aria-hidden />
+              <Plus size={14} aria-hidden />
             </TimerCtrl>
           )}
           <TimerCtrl onClick={clear} label="Clear timer">
-            <X size={14} weight="bold" aria-hidden />
+            <X size={14} aria-hidden />
           </TimerCtrl>
         </div>
       )}
@@ -319,7 +326,9 @@ function TimerCtrl({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className="w-6 h-6 rounded-md inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
+      // Small icon pill nested inside the countdown pill: 28px so three of
+      // them fit beside the readout on a phone without widening the pill.
+      className="w-7 h-7 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text)] hover:bg-[var(--bg-elev-2)]"
     >
       {children}
     </button>
