@@ -165,6 +165,12 @@ body {
   background-size: 100% 9px;
 }
 
+/* Hide a scroller's bar without disabling scrolling — used by the
+   PagesTabBar strip, which scrolls sideways under a thumb but must not
+   show a bar inside a sticker pill. */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Glass sticky header — cream, not white, so it belongs to the paper. */
 .glass-header {
   backdrop-filter: blur(12px);

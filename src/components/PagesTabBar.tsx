@@ -345,8 +345,8 @@ async function applyTemplate(editor: Editor, template: Template) {
 
 function renderTemplateSvg(template: Template, w: number, h: number): string {
   const bg = "#ffffff";
-  const line = "#cdd5e2";
-  const lineSoft = "#e6ebf3";
+  const line = "#D8D0BF"; // warm rule, same tone as the LMS scrollbar thumb
+  const lineSoft = "#ECE6D6";
   switch (template) {
     case "grid": {
       const step = 40;
@@ -380,7 +380,7 @@ function renderTemplateSvg(template: Template, w: number, h: number): string {
       for (let y = step; y < h; y += step) {
         lines += `<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="${line}" stroke-width="1"/>`;
       }
-      lines += `<line x1="80" y1="0" x2="80" y2="${h}" stroke="#f0a8a8" stroke-width="1.2"/>`;
+      lines += `<line x1="80" y1="0" x2="80" y2="${h}" stroke="#F5BDB5" stroke-width="1.2"/>`;
       return svgWrap(w, h, bg, lines);
     }
     case "coords": {
@@ -395,10 +395,10 @@ function renderTemplateSvg(template: Template, w: number, h: number): string {
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#g)"/>
-        <line x1="0" y1="${cy}" x2="${w}" y2="${cy}" stroke="#2563eb" stroke-width="1.5"/>
-        <line x1="${cx}" y1="0" x2="${cx}" y2="${h}" stroke="#2563eb" stroke-width="1.5"/>
-        <text x="${w - 14}" y="${cy - 6}" font-size="14" fill="#2563eb" text-anchor="end">x</text>
-        <text x="${cx + 6}" y="14" font-size="14" fill="#2563eb">y</text>
+        <line x1="0" y1="${cy}" x2="${w}" y2="${cy}" stroke="#22304A" stroke-width="1.5"/>
+        <line x1="${cx}" y1="0" x2="${cx}" y2="${h}" stroke="#22304A" stroke-width="1.5"/>
+        <text x="${w - 14}" y="${cy - 6}" font-size="14" fill="#22304A" text-anchor="end">x</text>
+        <text x="${cx + 6}" y="14" font-size="14" fill="#22304A">y</text>
       `;
       return svgWrap(w, h, bg, content);
     }
@@ -411,7 +411,7 @@ function renderTemplateSvg(template: Template, w: number, h: number): string {
       while (y + staffHeight < h - 60) {
         for (let i = 0; i < 5; i++) {
           const yy = y + i * lineSpacing;
-          staves += `<line x1="40" y1="${yy}" x2="${w - 40}" y2="${yy}" stroke="#1a1d24" stroke-width="1"/>`;
+          staves += `<line x1="40" y1="${yy}" x2="${w - 40}" y2="${yy}" stroke="#1C1B19" stroke-width="1"/>`;
         }
         y += staffHeight + groupSpacing;
       }
