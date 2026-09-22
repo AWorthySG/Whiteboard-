@@ -26,7 +26,9 @@ export default function InitialsAvatar({
   const bg = colorForId(id);
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full text-white font-semibold shrink-0 ${className ?? ""}`}
+      // 2px ink ring so the avatar reads as a sticker chip like every other
+      // circle in the app; text stays white on the saturated per-user fill.
+      className={`inline-flex items-center justify-center rounded-full border-2 border-ink text-white font-extrabold shrink-0 ${className ?? ""}`}
       style={{
         width: size,
         height: size,

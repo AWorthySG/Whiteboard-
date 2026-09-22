@@ -145,22 +145,25 @@ export default function AdmissionPanel({
 
   return (
     <div
-      className={`absolute top-16 right-4 z-[100] max-w-[calc(100vw-2rem)] rounded-lg bg-[var(--bg-elev)] shadow-2xl overflow-hidden ${
+      // Sticker card while knocks are pending or the roster is open; the
+      // idle "Class roster (n)" state is a sticker PILL, so it goes fully
+      // round only while nothing is listed beneath it.
+      className={`absolute top-16 right-4 z-[100] max-w-[calc(100vw-2rem)] bg-[var(--bg-elev)] border-2 border-ink overflow-hidden ${
         urgent
-          ? "w-80 border-2 border-brand-600"
-          : "w-56 border border-[color:var(--border)]"
+          ? "w-80 rounded-xl shadow-sticker-lg"
+          : `w-56 shadow-sticker ${rosterOpen ? "rounded-xl" : "rounded-full"}`
       }`}
     >
       {urgent && (
         <>
-          <header className="px-3 py-2 border-b border-[color:var(--border-subtle)] bg-brand-100 flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-brand-800">
+          <header className="px-3 py-2.5 border-b-2 border-dashed border-[color:var(--border)] flex items-center justify-between gap-2">
+            <h3 className="rounded-full text-[11.5px] font-extrabold tracking-[.2px] px-3 py-1 border-[1.5px] border-ink-faint bg-brand-50 text-brand-700 truncate">
               {pending.length} waiting to join
             </h3>
             {pending.length > 1 && (
               <button
                 onClick={() => void admitAll()}
-                className="text-xs px-2 py-1 rounded bg-brand-600 text-white hover:bg-brand-500 font-medium shrink-0"
+                className="text-xs px-3 py-1 rounded-full bg-brand-600 text-white hover:bg-brand-700 border-2 border-ink font-extrabold shadow-sticker-primary sticker-press shrink-0"
               >
                 Admit all
               </button>
@@ -170,22 +173,22 @@ export default function AdmissionPanel({
             {pending.map((req) => (
               <li key={req.id} className="px-3 py-2 flex items-center gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm truncate">
+                  <div className="text-sm font-bold truncate">
                     {req.user_name || "Guest"}
                   </div>
-                  <div className="text-xs text-[var(--text-dim)]">
+                  <div className="text-xs font-semibold text-[var(--text-dim)]">
                     {new Date(req.requested_at).toLocaleTimeString()}
                   </div>
                 </div>
                 <button
                   onClick={() => decide(req, "denied")}
-                  className="text-xs px-2 py-1 rounded border border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
+                  className="text-xs px-3 py-1 rounded-full bg-danger-50 text-danger-700 border-2 border-ink font-extrabold shadow-sticker-sm sticker-press hover:bg-danger-100"
                 >
                   Deny
                 </button>
                 <button
                   onClick={() => decide(req, "admitted")}
-                  className="text-xs px-2 py-1 rounded bg-brand-600 text-white hover:bg-brand-500 font-medium"
+                  className="text-xs px-3 py-1 rounded-full bg-brand-600 text-white hover:bg-brand-700 border-2 border-ink font-extrabold shadow-sticker-primary sticker-press"
                 >
                   Admit
                 </button>
@@ -196,13 +199,13 @@ export default function AdmissionPanel({
       )}
 
       {roster.length > 0 && (
-        <div className={urgent ? "border-t border-[color:var(--border-subtle)]" : ""}>
+        <div className={urgent ? "border-t-2 border-dashed border-[color:var(--border)]" : ""}>
           <button
             onClick={() => setRosterOpen((o) => !o)}
-            className="w-full px-3 py-2 flex items-center justify-between gap-2 hover:bg-[var(--hover)]"
+            className="w-full px-3.5 py-2 flex items-center justify-between gap-2 hover:bg-[var(--bg-elev-2)]"
             aria-expanded={rosterOpen}
           >
-            <span className="text-sm font-medium">
+            <span className="text-sm font-extrabold">
               {urgent ? "In this room" : "Class roster"} ({roster.length})
             </span>
             <CaretDown
@@ -218,12 +221,12 @@ export default function AdmissionPanel({
                 return (
                   <li key={req.id} className="px-3 py-2 flex items-center gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm truncate">
+                      <div className="text-sm font-bold truncate">
                         {req.user_name || "Guest"}
                       </div>
                       <div
-                        className={`text-[11px] ${
-                          denied ? "text-danger-600" : "text-[var(--text-dim)]"
+                        className={`text-[11px] font-semibold ${
+                          denied ? "text-danger-700" : "text-[var(--text-dim)]"
                         }`}
                       >
                         {denied ? "Removed" : "Admitted"}
@@ -232,14 +235,14 @@ export default function AdmissionPanel({
                     {denied ? (
                       <button
                         onClick={() => decide(req, "admitted")}
-                        className="text-xs px-2 py-1 rounded bg-brand-600 text-white hover:bg-brand-500 font-medium"
+                        className="text-xs px-3 py-1 rounded-full bg-[var(--bg-elev)] text-[var(--text)] hover:bg-[var(--bg-elev-2)] border-2 border-ink font-extrabold shadow-sticker-sm sticker-press"
                       >
                         Re-admit
                       </button>
                     ) : (
                       <button
                         onClick={() => decide(req, "denied")}
-                        className="text-xs px-2 py-1 rounded border border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
+                        className="text-xs px-3 py-1 rounded-full bg-danger-50 text-danger-700 border-2 border-ink font-extrabold shadow-sticker-sm sticker-press hover:bg-danger-100"
                       >
                         Remove
                       </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ChatCircle, PaperPlaneRight, X } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import Sticker from "@/components/Sticker";
 
@@ -148,14 +149,14 @@ export default function ChatBubble({
               ? `Open chat — ${unread} unread message${unread === 1 ? "" : "s"}`
               : "Open chat"
         }
-        className="touch-target fixed bottom-4 right-4 z-[8000] rounded-full bg-brand-600 hover:bg-brand-500 text-white w-12 h-12 flex items-center justify-center shadow-[0_8px_24px_rgba(31,75,67,0.28),0_2px_6px_rgba(31,75,67,0.16)]"
+        className="touch-target fixed bottom-4 right-4 z-[8000] w-11 h-11 rounded-full bg-[var(--bg-elev)] hover:bg-[var(--bg-elev-2)] border-2 border-ink shadow-sticker sticker-press text-[var(--text)] flex items-center justify-center"
         title="Chat"
       >
-        <ChatSvg />
+        <ChatCircle size={22} aria-hidden />
         {unread > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-danger-600 text-[10px] font-semibold px-1 flex items-center justify-center text-white border border-[var(--bg)]"
+            className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 rounded-full bg-brand-600 text-[10px] font-extrabold px-1 flex items-center justify-center text-white border-2 border-ink"
           >
             {unread > 99 ? "99+" : unread}
           </span>
@@ -163,15 +164,15 @@ export default function ChatBubble({
       </button>
 
       {open && (
-        <div className="fixed bottom-20 right-4 z-[8000] w-[min(320px,calc(100vw-2rem))] h-[min(440px,calc(100dvh-7rem))] rounded-xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl flex flex-col">
-          <header className="flex items-center justify-between px-3 py-2 border-b border-[color:var(--border-subtle)]">
-            <h3 className="text-sm font-semibold">Chat</h3>
+        <div className="fixed bottom-20 right-4 z-[8000] w-[min(320px,calc(100vw-2rem))] h-[min(440px,calc(100dvh-7rem))] rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg overflow-hidden scale-pop flex flex-col">
+          <header className="flex items-center justify-between px-3.5 py-2 border-b-2 border-dashed border-[color:var(--border)]">
+            <h3 className="text-sm font-extrabold tracking-display">Chat</h3>
             <button
               onClick={() => setOpen(false)}
-              className="text-[var(--text-muted)] hover:text-[var(--text)] text-xl leading-none"
+              className="w-8 h-8 rounded-full bg-[var(--bg-elev)] hover:bg-[var(--bg-elev-2)] border-2 border-ink shadow-sticker-sm sticker-press text-[var(--text)] inline-flex items-center justify-center"
               aria-label="Close chat"
             >
-              ×
+              <X size={14} aria-hidden />
             </button>
           </header>
 
@@ -180,11 +181,11 @@ export default function ChatBubble({
             className="flex-1 overflow-y-auto px-3 py-2 space-y-2 text-sm"
           >
             {messages.length === 0 ? (
-              <div className="text-center text-xs text-[var(--text-dim)] py-6">
-                {/* The chat panel is the room's "someone's looking after
-                    you" surface, which is what this sticker depicts. Kept
-                    small — the popover is only 320px wide. */}
-                <Sticker name="feeding" size={92} className="mx-auto mb-1" />
+              <div className="text-center text-xs font-semibold text-[var(--text-dim)] py-6">
+                {/* The duo with the globe and speech bubbles — the one sticker
+                    in the set that is literally about talking. Kept small:
+                    the popover is only 320px wide. */}
+                <Sticker name="civics" size={92} className="mx-auto mb-1" />
                 No messages yet. Say hi 👋
               </div>
             ) : (
@@ -196,13 +197,15 @@ export default function ChatBubble({
                     className={`flex flex-col ${mine ? "items-end" : "items-start"}`}
                   >
                     {!mine && (
-                      <span className="text-[10px] text-[var(--text-dim)]">{m.user_name}</span>
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] ml-1">{m.user_name}</span>
                     )}
+                    {/* Speech-bubble stickers: 2px ink outline on both so a red
+                        "mine" bubble reads as a primary pill, not a flat block. */}
                     <span
-                      className={`max-w-[85%] rounded-lg px-2.5 py-1.5 break-words whitespace-pre-wrap ${
+                      className={`max-w-[85%] px-3 py-1.5 border-2 border-ink font-semibold break-words whitespace-pre-wrap ${
                         mine
-                          ? "bg-brand-600 text-white"
-                          : "bg-[var(--hover)] text-[var(--text)]"
+                          ? "bg-brand-600 text-white rounded-2xl rounded-br-md"
+                          : "bg-[var(--bg-elev-2)] text-[var(--text)] rounded-2xl rounded-bl-md"
                       }`}
                     >
                       {m.text}
@@ -218,42 +221,28 @@ export default function ChatBubble({
               e.preventDefault();
               void send();
             }}
-            className="border-t border-[color:var(--border-subtle)] p-2 flex gap-1.5"
+            className="border-t-2 border-dashed border-[color:var(--border)] p-2 flex items-center gap-2"
           >
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Type a message…"
               maxLength={2000}
-              className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2 py-1.5 text-sm outline-none focus:border-brand-500"
+              className="flex-1 min-w-0 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3.5 py-1.5 text-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
             />
             <button
               type="submit"
               disabled={!draft.trim()}
-              className="rounded-md bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 px-3 text-sm font-medium"
+              aria-label="Send"
+              title="Send"
+              className="h-10 px-3.5 shrink-0 rounded-full bg-brand-600 hover:bg-brand-700 text-white text-sm font-extrabold border-2 border-ink shadow-sticker-primary sticker-press disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
             >
-              Send
+              <PaperPlaneRight size={16} aria-hidden />
+              <span>Send</span>
             </button>
           </form>
         </div>
       )}
     </>
-  );
-}
-
-function ChatSvg() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
   );
 }

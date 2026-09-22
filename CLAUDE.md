@@ -264,9 +264,11 @@ CaptionsOverlay.tsx    Bottom-center floating panel that renders the last ~3 cap
                        are on screen (the up-front toast in CaptionsManager
                        handles the noisy case).
 
-Toast.tsx              Stacked toast notifications (ToastProvider in root layout). Solid
-                       red / green variants have explicit text-white (the bg is saturated
-                       so var(--text) reads as dark-on-dark in light mode).
+Toast.tsx              Stacked toast notifications (ToastProvider in root layout). Every
+                       variant is a sticker (2px ink outline, hard shadow, bold dark
+                       text): error on `bg-danger-50`, success on `bg-success-bg`,
+                       info on white. No solid fills — the only solid red on screen
+                       is a primary button or the REC badge.
 
 ChatBubble.tsx         Floating chat button + 320×440 popover. Persists to room_messages.
 
@@ -400,6 +402,17 @@ SettingsModal.tsx      Profile, account (sign in / claim room / sign out), appea
                        defaults, room (invite link, leave room).
 
 PresenceBadge.tsx      Header live-participant count via Supabase Realtime presence.
+                       Rendered as a badge chip in the grass tint with the pulsing
+                       `--presence` dot.
+
+SubNav.tsx             The Whiteboard / Documents / Homework / Recordings strip under
+                       the room header, on the sidebar cream with a 2px ink bottom
+                       rule. Tabs are pills — active `bg-brand-600 text-white
+                       border-2 border-ink`, inactive `border-2 border-transparent`
+                       so both states are the same size. The <button> stays
+                       `h-full` inside the 44px strip (full hit area on iPad); the
+                       visible 34px pill is an inner span, so don't move the pill
+                       classes back onto the button.
 
 ReconnectBanner.tsx    Floating banner when tldraw sync is loading/offline/errored.
 
@@ -441,23 +454,36 @@ Sticker.tsx            next/image wrapper for the mascot stickers, addressed by
                        `alt` defaults to "" (decorative). Two groups:
                        - Scene stickers (400px tall sources): teaching,
                          reading, encourage, dad, feeding.
+                       - Subject stickers (400px tall, tutor + student per
+                         subject): mathematics, calculus, chemistry, economics,
+                         finance — exported together as `SUBJECT_STICKERS` in
+                         reading order. Used for the landing hero's sticker
+                         sheet and the room welcome modal.
                        - Solo stickers (240px tall sources): avocado, heart,
                          rocket, icecream — also the CanvasWatermark set.
-                       Placed at: landing hero (teaching), OnboardingHint
-                       welcome modal (teaching), KnockGate waiting screen
-                       (encourage), HomeworkDrawer empty state (reading),
-                       ChatBubble empty state (feeding), Telegram redirect
-                       splash (dad).
-                       **`dad` and `feeding` are the two family-themed ones**
-                       (a "#1 DAD" mug, a baby being bottle-fed) and their
-                       placements are deliberately constrained: both depict
-                       "a big one looking after a little one", so they sit on
-                       surfaces about warmth (chat) or pure brand decoration
-                       (the Telegram splash, which is a wordmark + spinner
-                       and makes no claim about the viewer). Do NOT move
-                       `dad` onto a lesson-outcome surface — EndLessonModal,
-                       a homework result, a profile — where "#1 DAD" reads as
-                       an assertion about the user rather than as brand art.
+                       - Nine more duos + the six-up `sheet` illustration from
+                         the supplied collection (essay, readingbuddies,
+                         studying, civics, checklist, calculus2, chemistry2,
+                         mathematics2, economics2).
+                       PLACEMENT MAP (the LMS is restrained about mascots —
+                       one per surface, only where it means something):
+                       landing hero (teaching + the five SUBJECT_STICKERS as
+                       a tilted strip, `sheet` as a lg+ corner piece),
+                       OnboardingHint (teaching), room entry-choice modal
+                       (mathematics), KnockGate waiting (encourage),
+                       HomeworkDrawer empty (reading), DocumentsDrawer empty
+                       (essay — replaced the old hand-drawn SVG),
+                       TemplatesModal empty (checklist), ChatBubble empty
+                       (civics — the globe + speech bubbles), error.tsx
+                       (chemistry2), Telegram splash (readingbuddies).
+                       **Registered but unplaced**: dad, feeding (family-
+                       themed, no honest home), studying, calculus2,
+                       mathematics2, economics2 (near-duplicates of placed
+                       ones). AdmissionPanel returns null on an empty roster,
+                       so it has no empty-state slot. **The six solo
+                       "ghost" mascots (graduation cap, single character)
+                       were reviewed and rejected by the owner — do not
+                       re-add them.** The `sheet` is decorative only.
                        For a breakpoint-varying size, pass the desktop
                        value as `size` and override with `h-[..] sm:h-[..]
                        w-auto` classes — an inline height can't carry a media
@@ -466,6 +492,13 @@ Sticker.tsx            next/image wrapper for the mascot stickers, addressed by
 ThemeApplier.tsx       Toggles html.theme-light based on useSettings().theme. Default
                        theme is "light" — dark mode still exists but isn't the default,
                        and active UI tuning targets light contrast.
+
+IconDefaults.tsx       Client wrapper mounted in the root layout: a Phosphor
+                       IconContext.Provider with `weight: "bold"`. The LMS draws
+                       every icon bold (its Iconify names are all `ph:*-bold`),
+                       and that heavier stroke is what lets an icon sit inside
+                       a 2px-outlined sticker without looking thinner than its
+                       own frame. An explicit `weight` on an icon still wins.
 
 PwaRegister.tsx        Registers /sw.js client-side.
 
@@ -501,31 +534,79 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 - `captionsStore.ts` — singleton store for live caption lines. `pushCaption()` writes; `subscribeToCaptions()` / `getCaptionsSnapshot()` are consumed by `CaptionsHost` via `useSyncExternalStore`. The store lives outside React because caption updates arrive 5-10×/sec during active speech, and putting that churn into RoomShell state was forcing a full-tree re-render on every interim. Moving it out also frees ~10-30ms of frame budget per interim, which directly improves pen latency while someone is speaking.
 - `fileValidation.ts` — centralised upload allow-list used by every upload path (WhiteboardCanvas, DocumentsDrawer, AttachmentPicker). `validateFileForUpload(file)` throws with a user-facing message for disallowed types; `getSafeMimeType(file)` returns a safe `Content-Type` for the Storage PUT (falls back to `application/octet-stream` rather than echoing untrusted browser MIME). **SVG is intentionally absent**: `image/svg+xml` files served from the public Supabase CDN and opened via `target=_blank` execute embedded `<script>` tags — stored XSS. Do not add SVG back without serving it through a sanitising proxy.
 
-## Theming
+## Theming — the LMS "sticker-book" design system
 
-CSS variables in `globals.css`:
+The whiteboard shares its visual language with **lms.a-worthy.com** (the
+company's learning platform). Its tokens are copied verbatim from the LMS's
+`src/theme/theme.js` / inline `:root` block, so the two apps read as one
+product. If the LMS restyles, re-sync from there — do not invent values here.
+
+**The look**: warm cream paper (`#FAF6EE`, with a faint 22px dot "paper fibre"
+texture on `body`) on which every surface is a **die-cut sticker** — white
+fill, a **2px navy outline** (`--ink` `#22304A`), and a **hard offset shadow
+straight down** (`0 4px 0 rgba(34,48,74,.14)`). Cards are `rounded-xl` (20px),
+buttons and floating canvas controls are pills. Text is near-black; the ONE
+accent is red `#C0392B`. Primary buttons are red pills with a darker-red hard
+shadow, white text, weight 800. Headings are Nunito 800 with −0.02em tracking.
+Eyebrow labels are `.font-label` (10px / 600 / uppercase / 0.06em). Icons are
+Phosphor **bold** (app-wide default via `IconDefaults`). Pills push into the
+paper on press (`.sticker-press`); clickable cards lift on hover (`.card-lift`).
+
+CSS variables in `globals.css` (legacy names kept as the API — every existing
+`var(--…)` consumer re-themed for free when the palette was swapped):
 
 ```css
 :root {
-  --bg / --bg-elev / --bg-elev-2  /* surfaces */
-  --text / --text-muted / --text-dim  /* text tiers */
-  --border / --border-subtle  /* line tiers */
-  --hover  /* subtle hover overlay */
+  --bg / --bg-elev / --bg-elev-2 / --bg-sidebar   /* cream page · white card · muted inset · rail/drawer tint */
+  --canvas                                        /* the whiteboard fill — same cream, solid (no dots under ink) */
+  --text / --text-muted / --text-dim              /* text tiers */
+  --border / --border-subtle / --border-strong    /* hairlines (dividers only — outlines are --ink) */
+  --hover                                         /* warm hover tint #EEE7D6 */
+  --accent / --accent-dark / --accent-mid / --accent-soft   /* the red */
+  --ink / --ink-shadow / --ink-faint              /* sticker outline + hard shadow. NEVER text. */
+  --sun / --grass / --bloom / --sky (+ -deep, -bg) /* pastel chip set */
+  --success / --warning / --danger (+ -bg)
+  --shadow-sticker / -sm / -lg, --shadow-1/2/3
 }
-html.theme-light { /* same vars, light values */ }
 ```
 
-`ThemeApplier` flips `html.theme-light` based on settings. Default theme
-is `"light"` (set in `useSettings.ts`). tldraw's own colors follow via
-`editor.user.updateUserPreferences({ colorScheme: "light" })` in `WhiteboardCanvas.onMount`.
+Tailwind (`tailwind.config.ts`) mirrors them: `brand-*` is the **red** scale
+(600 fill, 700 hard shadow), `danger-*` is the **same red** (see rule below),
+`ink` / `ink-shadow` / `ink-faint`, the pastel set, `shadow-sticker*`,
+`shadow-sticker-primary`, and the LMS radius ladder `md`=10 `lg`=14 `xl`=20
+`2xl`=26 `3xl`=32. tldraw's `--radius-1..4` and LiveKit's `--lk-border-radius`
+are bumped to the same ladder in globals.css.
 
-**Convention**: never hardcode `bg-[#11141b]`, `text-white/70`, `border-white/10`,
-etc. Use `bg-[var(--bg-elev)]`, `text-[var(--text-muted)]`, `border-[color:var(--border)]`.
+Utility classes in `globals.css`: `.sticker` · `.sticker-pill` · `.sticker-sm` ·
+`.sticker-press` · `.card-lift` · `.squiggle` (the red hand-drawn underline, as
+an inline heading span) · `.font-label` · `.glass-header` · `.scale-pop` ·
+`.fade-up` · and the three button tiers `.btn-primary` (red pill) /
+`.btn-secondary` (white pill) / `.btn-tertiary` (ghost).
 
-**Brand-button rule**: any `bg-brand-600` button MUST also set `text-white`
-explicitly. The brand fill is dark saturated indigo, so inheriting `text-[var(--text)]`
-in light mode gives dark-on-dark. The full contrast sweep covering this lives in
-commit `45a340e` (15+ classes swept).
+`ThemeApplier` still flips `html.theme-light`, but light is the only palette —
+`html.theme-light` is an alias of `:root`. tldraw's own colours follow via
+`editor.user.updateUserPreferences({ colorScheme: "light" })` in
+`WhiteboardCanvas.onMount`; its active-tool highlight is `var(--accent)`.
+
+**Conventions**
+
+- Never hardcode a hex or a `white/xx` / `black/xx` class. Use tokens
+  (`bg-[var(--bg-elev)]`, `text-[var(--text-muted)]`, `border-ink`…). The one
+  exception is `src/app/global-error.tsx`, which ships before the theme
+  variables can mount and carries the LMS values inline with a comment.
+- **Brand-button rule**: any `bg-brand-600` / `bg-brand-500` element MUST set
+  `text-white` explicitly. The fill is saturated red, so inheriting
+  `text-[var(--text)]` gives dark-on-dark.
+- **Destructive is a variant, not a hue.** `brand` and `danger` are the same
+  red on purpose (as on the LMS). A destructive action — End lesson, Delete,
+  Remove, Deny — is the PALE variant: `bg-danger-50 text-danger-700` inside the
+  same `border-2 border-ink` pill. Never a second solid red: solid red means
+  "go". The single non-button solid red is the live REC indicator.
+- `--ink` is for outlines and hard shadows only. Body text is `--text`.
+- Icons stay Phosphor; don't pass `weight="regular"` — bold is the context
+  default. `weight="fill"` for an active/on state still wins.
+- A 2px outline adds 4px to a control; on phone controls that were already at
+  the 40px touch minimum, trim padding rather than let the pill grow.
 
 ## Operational gotchas
 
@@ -551,9 +632,9 @@ commit `45a340e` (15+ classes swept).
 - **Upload validation is centralised** — all upload entry points (canvas drag-drop, Documents drawer, AttachmentPicker) call `validateFileForUpload` from `src/lib/fileValidation.ts` before the XHR fires. SVG is blocked at this layer (stored XSS risk via public CDN). Do not add a new upload path without importing and calling `validateFileForUpload` first, and use `getSafeMimeType` for the `Content-Type` header — never echo `file.type` directly to Supabase Storage.
 - **PDF writing space**: when `settings.pdfWritingSpace` is on (default), uploading a PDF also drops a blank ruled "answer sheet" of the SAME page size directly to the right of each page, so students can write where a worksheet has no allocated answer space. Because the sheet reuses the page's `w`/`h` (which are PDF points), an A4 page → an A4 sheet automatically. The sheet is a self-contained `data:image/svg+xml;base64,…` URL built by `makeLinedSheetDataUrl(w,h)` and placed via `insertLinedSheet()` as a LOCKED image (students draw on top). It's a data URL, not an uploaded/CDN-served file, so the SVG-XSS rule in `fileValidation.ts` doesn't apply. Both PDF paths support it: `insertPdfAsImages` (canvas images — vertical layout puts sheets in a parallel right column; horizontal layout advances the per-page stride past page+sheet) and `insertPdfAsPageBackgrounds` (one tldraw page per PDF page — sheet sits at `x = w/2 + 40`, sent to back like the page background). Sheets of the same size share one hash-keyed asset.
 - **Non-host default tool is hand**: in `WhiteboardCanvas.onMount` we call `editor.setCurrentTool("hand")` when `!isHost`. With `touch-action: none` on the canvas, a single-finger swipe goes to tldraw's gesture pipeline — defaulting students to the hand tool means a swipe pans rather than drawing a stray line. The host stays on `draw`. The student can still switch tools if they want to annotate.
-- **Toolbar active state**: globals.css forces a brand-blue background + white icon for the selected tool button (`[aria-pressed="true"]` / `[data-state="selected"]`). tldraw's default light-mode highlight was too subtle.
+- **Toolbar active state**: globals.css forces the red accent (`var(--accent)`) + white icon for the selected tool button (`[aria-pressed="true"]` / `[data-state="selected"]`) on tldraw's phone toolbar; LeftRail's active tool is the same `bg-brand-600 text-white`. tldraw's default light-mode highlight was too subtle.
 - **Keyboard focus rings (a11y)**: globals.css has a global `:focus-visible` outline. The outline-suppression rule is scoped to `.tldraw-shell .tl-container *:focus-visible` (NOT `.tldraw-shell *`) on purpose: our custom canvas controls (ZoomControls, PagesTabBar, CanvasFloatingPanel) live in `.tldraw-shell` but OUTSIDE `.tl-container`, so they keep the keyboard focus ring while tldraw's own interaction layer stays clean. Don't re-broaden it back to `.tldraw-shell *` — that silently kills focus visibility on every custom canvas control. Icon-only header buttons whose visible label is `hidden sm:inline` (the "+ New page" and "Pages" controls) carry an explicit `aria-label` since the label is display:none (and thus absent from the a11y tree) on phones.
-- **Leader mode UI**: when on, the host sees a yellow "LEADING VIEW" pill top-right of the canvas, AND the eye icon in the toolbar gets a filled amber background with white icon (vs. a thin amber outline before). Guests being followed see the existing "Following host" pill.
+- **Leader mode UI**: when on, the host sees a solid `--sun` "LEADING VIEW" sticker pill top-right of the canvas, AND the eye icon in LeftRail gets a filled `--sun` background. Both use DARK (`--text`) ink on the yellow, not white — white on `#F5B82E` fails contrast. Guests being followed see the "Following host" sun chip.
 - **Geometric shape lockout**: the `tools()` override in `WhiteboardCanvas` clears the keyboard `kbd` field for `arrow`, `line`, `geo`, `text`, and `frame` so they're unreachable. They were already hidden from the SlimToolbar; this also kills the R/O/A/L/T/F shortcuts.
 - **Shapes-per-page ceiling is raised — and the value is load-bearing.** `src/lib/tldrawOptions.ts` exports `TLDRAW_OPTIONS = { maxShapesPerPage: 1_000_000 }`, passed as the `options` prop to **every** `<Tldraw>` instance (the live `WhiteboardCanvas` and `PlaybackViewer`). tldraw's default is 4000; past it the editor silently refuses to create shapes and fires a `max-shapes` event, which in a dense handwriting lesson reads to the tutor as "the pen stopped working" (every stroke is a shape). Two reasons the value is a big finite number and not `Infinity`: (1) `maxShapesPerPage` doubles as a **z-index stride** — `getUnorderedRenderingShapes()` seeds `nextIndex = maxShapesPerPage * 2` and adds another `maxShapesPerPage` per background-providing nesting level, and those land in CSS `z-index`, a 32-bit signed int capped at 2,147,483,647, so `Infinity`/`MAX_SAFE_INTEGER` overflows it and breaks layering; (2) that same stride assumes a page never holds more shapes than `maxShapesPerPage` — exceed it and the background index range collides with the foreground range, so shapes layer wrongly. It is a true ceiling, not a hint: keep it comfortably above any real page's shape count. **Pass `TLDRAW_OPTIONS` to any new `<Tldraw>` you add** — an instance left on the 4000 default will mis-layer a recording or board that came from a room using the raised ceiling. Note this raises a limit, it does not make big pages fast: render cost and sync-worker snapshot size still scale with shape count, so a slow room is worth checking for shape count per page first. (tldraw's other default caps are untouched — notably `maxPages: 40`.)
 - **Performance HUD (`PerfHud.tsx`)**: diagnostic overlay for "the board feels laggy", which has at least three causes that are indistinguishable by feel — input latency, per-frame main-thread work, and shape-count scaling. Shows live fps, worst frame time, input→frame latency, rendered-vs-total shapes on the page, and long-task count. Enabled by `settings.perfHud` (Settings → Whiteboard) **or** `?perf=1` on the room URL — the latter is how you switch it on from an iPad mid-lesson without opening Settings. Lazy-loaded via `dynamic()` and only rendered when on, so its chunk never enters the room bundle otherwise (verify with `grep -rl "Copy reading" .next/static/chunks/app/r/` — it must NOT be in the room page chunk). Deliberately cheap while running, because an instrument that perturbs what it measures is useless: all accumulation is in refs inside one rAF loop, React state is written at 2 Hz and only re-renders the HUD itself (it is a SIBLING of the canvas, never a parent), the pointer listener is `passive` + capture and only assigns a timestamp, and shape counts come from tldraw's cached computed getters (`getCurrentPageShapeIds` / `getCulledShapes`) rather than a DOM walk. **Read "input→frame" honestly**: it measures pointer-event → next-frame-start, which is the portion the app controls; it EXCLUDES compositor and display time, so real pen-to-pixel latency is always higher. It is for spotting regressions and comparing configurations, never for claiming parity with a native app. `longtask` is Chromium-only — Safari (so every iPad browser) shows "n/a" there, which is expected, not a bug.
@@ -563,6 +644,7 @@ commit `45a340e` (15+ classes swept).
 - **Admission is persistent per (room, user_id)**. KnockGate now reads-then-conditionally-inserts: if a row already exists for this device it preserves the status (admitted → straight in, pending → still waiting, denied → stays denied). An older version unconditionally upserted 'pending', which clobbered admitted rows on every visit and effectively required re-admission every time. If you re-introduce an upsert here, use `ignoreDuplicates: true` or read first — never overwrite without intent.
 - **Magic invite links** (`/api/invite/mint` + `/api/invite/redeem`). Host-only feature in InvitePanel: generates an HS256 JWT signed with `WORKER_SHARED_SECRET` containing `{ kind: "invite", roomId, exp }`. Default 90-day expiry. Mint is gated by Supabase session — the caller must present a Bearer token that resolves to the `rooms.host_user_id` for this room (so localStorage-only hosts can't mint until they claim the room to their account in Settings). Redeem is anonymous + token-gated: any guest opening `/r/<roomId>?invite=<token>` has the token verified, then their `join_requests` row is upserted to admitted. KnockGate detects the `invite` URL param and calls redeem before the normal knock flow. Invite tokens deliberately OMIT the `userId` claim so the Cloudflare worker's `verifySyncToken` (which requires both `roomId` and `userId`) won't accept them as sync tokens — leaking an invite link only grants the right to redeem into the knock flow, not direct whiteboard sync. There's no server-side revocation list; rotate `WORKER_SHARED_SECRET` to invalidate all outstanding invites. **`SUPABASE_SERVICE_ROLE_KEY` must be set in Vercel** — the redeem route uses it to bypass the RLS UPDATE policy; if the var is missing the route hard-fails with 500 (deliberately, not a silent fallback).
 - **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) AND its `NavigationPanel` (the native zoom/minimap pill) are both nulled in our `components` override, so we render our own `ZoomControls` bottom-left (was bottom-right; moved so the video panel doesn't cover it). If `NavigationPanel` is ever un-nulled you get TWO zoom pills stacked bottom-left — that was the "duplicate zoom panel" bug.
+- **PWA manifest colours** follow the LMS: `background_color` is the cream `#FAF6EE`, `theme_color` the red `#C0392B`; `layout.tsx`'s viewport `themeColor` is the cream so the browser chrome matches the page.
 - **PWA orientation lock**: `public/manifest.webmanifest` sets `"orientation": "portrait"`. This is honoured for installed PWAs on Android Chrome; iOS Safari ignores it for non-installed sessions.
 - **PWA icons**: `public/icon.svg` is a vector recreation of the A Worthy brand mark — the arched A with the `+` inside, sitting above the W swoosh — drawn in `#2c5c8c` on a transparent field. The PNG set (`public/icon-{152,167,180,192}.png`, `public/icon.png` at 512, and the Next.js favicon source `src/app/icon.png`) is regenerated from that SVG via sharp (`~15` lines; see commit `7f81a18` for the original script pattern) and stays transparent across the board. iOS doesn't read the manifest icon list reliably on first install, so `src/app/layout.tsx` adds explicit `<link rel="apple-touch-icon" sizes="...">` tags for 152/167/180 so Safari picks the right one. **Maskable is a separate file**: `public/icon-maskable.png` is the same mark composited onto a white 512×512 background, and the manifest's `purpose: "maskable"` entry points at it (not `icon.png`). Transparent maskable icons fail the Android spec — the safe-zone has no fill, so the launcher composites the mark onto whatever system background the user's phone happens to use. Don't re-collapse the maskable entry back into `icon.png`. When regenerating from the SVG, output the transparent variants AND composite the SVG over a white 512×512 square for `icon-maskable.png`.
 - **Fonts: Nunito is the ONLY family, and an unused `next/font` variable is a preload, not a no-op.** `layout.tsx` used to also load Caveat (`--font-hand`) and JetBrains Mono (`--font-mono`), but nothing ever rendered in either: every Tailwind family maps to `--font-sans`, and `globals.css` forces Nunito on `*` plus tldraw's `--tl-font-*` and LiveKit's `--lk-font-family`. Because `next/font` preloads by default and both `variable` classes were on `<html>`, every page load fetched ~103 kB of woff2 for type that never appeared on screen. Both were removed. If a second family is ever genuinely wanted, add it back **and** give it a real consumer.
@@ -582,7 +664,7 @@ commit `45a340e` (15+ classes swept).
 - **RecordButton paused-state stop**: the screen-share track's `ended` event now checks `state === "recording" || state === "paused"` before calling `stop()`. If you see a UI deadlock where the recorder appears stuck after the user stops sharing mid-pause, re-check this guard.
 - **LessonTimer expiry**: the 250 ms tick interval self-clears when `computeRemaining(timer) <= 0`. Nobody writes `timer_running=false` to the DB when the client clock hits zero (the timer just shows "Time's up"), so without the self-clear the interval would fire indefinitely. `addMinute` is capped at 480 minutes remaining so values stay well below the PostgreSQL `INTEGER` overflow boundary.
 - **LessonTimer clock**: the widget also shows a live current-time readout in Singapore time (GMT+8) via `Intl.DateTimeFormat({ timeZone: "Asia/Singapore" })`, ticked by its own always-on 1 s interval (`now` state). The clock is shown to everyone (host + students), even when no countdown is set — so the idle-state early-return for students was removed. On phones the clock is `hidden sm:block` while a countdown is ACTIVE so the running pill + host controls don't overflow a narrow viewport.
-- **Header dropdown z-order vs the timer**: the centred LessonTimer (`absolute top-3 left-1/2 z-[80]`) and the header dropdowns live in the SAME (root) stacking context — the `<header>` is static (its `z-10` is inert) and the canvas-area wrappers are `relative` with no z-index, so neither creates a context. That means the header popovers must use a literal z **above 80** or the timer paints over them. The Pages dropdown, desktop "More" menu and mobile menu are therefore `z-[90]` (a regression to `z-50` reproduces the bug where the centred clock/Timer covers the open Pages dropdown on a narrow iPhone). Keep them below the AdmissionPanel (`z-[100]`) and the modals (`z-[10000]+`).
+- **Header dropdown z-order vs the timer**: the centred LessonTimer (`absolute top-3 left-1/2 z-[80]`) and the header dropdowns live in the SAME (root) stacking context — the `<header>` is static (its `z-10` is inert) and the canvas-area wrappers are `relative` with no z-index, so neither creates a context. That means the header popovers must use a literal z **above 80** or the timer paints over them. The Pages dropdown, desktop "More" menu and mobile menu are therefore `z-[90]` (a regression to `z-50` reproduces the bug where the centred clock/Timer covers the open Pages dropdown on a narrow iPhone). Keep them below the AdmissionPanel (`z-[100]`) and the modals (`z-[10000]+`). **The `<header>` itself must never get `backdrop-filter`, `filter`, `transform`, `opacity < 1`, or a `z-index` on a positioned box** — any of those creates a stacking context, which traps every header popover (Pages listbox, More menu, mobile menu, RecordButton options, PresenceBadge dialog) inside it at the header's own level, so their literal `z-[90]` becomes relative and they fall under the timer again. The header is an OPAQUE `bg-[var(--bg)]` on purpose; do not swap it for `.glass-header` (blur) — that exact swap reproduced the bug during the LMS restyle.
 - **Free tiers**: Supabase Storage 1 GB, LiveKit 10k participant-min/month. The Recordings drawer shows a host-only `StorageMeter` at the top: it sums `size_bytes` across ALL `room_recordings` rows (account-wide, not just the open room) and bars it against `FREE_TIER_BYTES` (1 GB), turning amber at 70% and red at 90%. It refreshes on open and on this room's realtime changes. Note the 1 GB is shared with the `whiteboard-assets` bucket (uploaded docs/images), so the meter is an under-estimate of total Storage — it tracks the dominant consumer (videos).
 - **ChatBubble draft restore**: `send()` clears `draft` before the Supabase insert, then re-sets it to the original text if the insert fails so the user doesn't silently lose a composed message. If you touch the send path, preserve this order — clearing first is correct UX (immediate feedback), but the error path must restore the value.
 - **Lesson recap (End lesson)**: `EndLessonModal` fetches `room_homework` + `room_recordings` for the room, passes them to `exportLessonPdf` as a `summary` (prepends a text cover page: title/date/host + homework + recordings titles), and posts a multi-line chat recap (PDF link + recording links + homework). The chat message relies on ChatBubble's `whitespace-pre-wrap` for the newlines; recording URLs are plain copyable text (not auto-linkified, consistent with existing chat). The PDF cover page intentionally omits the long recording URLs (titles only) to keep the layout predictable — links live in the chat recap. `downloadAllPagesPdf` (command palette) calls `exportLessonPdf` WITHOUT a summary, so it stays a pages-only export.
@@ -722,9 +804,11 @@ default stroke profile if the patch isn't applied.
     the `EndLessonModal` chat recap, and ChatBubble's "Say hi 👋" copy. The ones
     that WERE icons — OnboardingHint's four bullets, `PlaybackViewer`'s error
     glyph, `DocumentsDrawer`'s group-header folder — are now Phosphor.
-20. **Landing page background is deliberately not `--bg`.** `src/app/page.tsx` sets an
-    inline `background` on `<main>`: a soft `--accent-soft` radial bloom over
-    `--canvas` (the warm cream paper tone). Both `--bg` and `--bg-elev` are
-    `#ffffff`, so on the default background the landing card had nothing to sit on
-    and read as a seam rather than a surface. Pure CSS gradients — no image, no
-    added bytes. Don't "simplify" it back to `bg-[var(--bg)]`.
+20. **Landing page hero blooms.** `src/app/page.tsx` renders three
+    absolutely-positioned radial blooms behind the card — `--sun` top-left,
+    `--bloom` centre-right, `--sky` bottom-right — the LMS hero's, as
+    `pointer-events-none` divs with the alpha on `opacity` (a `var()` can't
+    take a hex-alpha suffix). The page itself is the cream `--bg` with the
+    body's paper-fibre dots; the card is a `rounded-3xl` sticker with the
+    large hard shadow. Don't collapse the blooms into one gradient on
+    `<main>` — three separate soft colours is what reads as the LMS.

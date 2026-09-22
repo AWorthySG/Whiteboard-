@@ -62,13 +62,17 @@ export default function VideoPanelResizer({ width, setWidth, min, max }: Props) 
       onDoubleClick={() => setWidth(360)}
       title="Drag to resize · double-click to reset"
       className={`absolute left-0 top-0 bottom-0 z-30 flex items-center justify-center cursor-col-resize touch-none group ${
-        dragging ? "" : "hover:bg-brand-500/10"
+        dragging ? "" : "hover:bg-[var(--accent-soft)]"
       }`}
       style={{ width: 8, marginLeft: -4 }}
     >
+      {/* Grip: a short pill in the strong hairline tone that turns red on
+          hover / while dragging — the one accent, not a second colour. */}
       <div
-        className={`h-10 w-1 rounded-full transition ${
-          dragging ? "bg-brand-500" : "bg-[var(--border)] group-hover:bg-brand-500"
+        className={`h-10 w-1.5 rounded-full transition ${
+          dragging
+            ? "bg-brand-600"
+            : "bg-[var(--border-strong)] group-hover:bg-brand-600"
         }`}
       />
     </div>

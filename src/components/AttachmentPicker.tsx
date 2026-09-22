@@ -147,16 +147,16 @@ export default function AttachmentPicker({
   // with a remove button instead of the picker UI.
   if (value) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-[color:var(--border)] bg-[var(--bg)] px-2 py-1.5">
+      <div className="flex items-center gap-2 rounded-lg border-2 border-ink bg-[var(--bg-elev)] shadow-sticker-sm px-2.5 py-1.5">
         <Paperclip aria-hidden className="shrink-0 text-[var(--text-muted)]" />
-        <span className="flex-1 text-sm truncate" title={value.name}>
+        <span className="flex-1 text-sm font-bold truncate" title={value.name}>
           {value.name}
         </span>
         <a
           href={value.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-[var(--text-dim)] hover:text-[var(--text)]"
+          className="text-xs font-bold text-[var(--text-muted)] hover:text-brand-600"
           title="Open in a new tab"
         >
           Preview
@@ -164,7 +164,7 @@ export default function AttachmentPicker({
         <button
           type="button"
           onClick={() => onChange(null)}
-          className="text-[var(--text-dim)] hover:text-danger-600"
+          className="w-8 h-8 shrink-0 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text-muted)] hover:text-danger-700"
           aria-label="Remove attachment"
           title="Remove attachment"
         >
@@ -175,13 +175,16 @@ export default function AttachmentPicker({
   }
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="space-y-2">
+      {/* Dashed ink outline = the LMS "drop zone" sticker; the choices
+          inside are secondary pills so the primary action of the
+          surrounding form (Submit / Add) stays the only red. */}
+      <div className="flex flex-wrap gap-2 rounded-xl border-2 border-dashed border-ink bg-[var(--bg-elev)] p-2.5">
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 inline-flex items-center gap-1.5"
+className="text-xs font-extrabold rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] disabled:opacity-40 px-3 py-1.5 inline-flex items-center gap-1.5"
         >
           <UploadSimple aria-hidden size={14} />
           {uploading ? "Uploading…" : "Upload a file"}
@@ -191,7 +194,7 @@ export default function AttachmentPicker({
             type="button"
             onClick={() => captureInputRef.current?.click()}
             disabled={uploading}
-            className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 inline-flex items-center gap-1.5"
+    className="text-xs font-extrabold rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] disabled:opacity-40 px-3 py-1.5 inline-flex items-center gap-1.5"
           >
             <Camera aria-hidden size={14} />
             Take photo
@@ -200,7 +203,7 @@ export default function AttachmentPicker({
         <button
           type="button"
           onClick={() => setMode((m) => (m === "picker" ? "idle" : "picker"))}
-          className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-2.5 py-1 inline-flex items-center gap-1.5"
+className="text-xs font-extrabold rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] disabled:opacity-40 px-3 py-1.5 inline-flex items-center gap-1.5"
           aria-expanded={mode === "picker"}
         >
           <Books aria-hidden size={14} />
@@ -228,20 +231,20 @@ export default function AttachmentPicker({
       </div>
 
       {mode === "picker" && (
-        <div className="rounded-md border border-[color:var(--border)] bg-[var(--bg)] max-h-48 overflow-y-auto">
+        <div className="rounded-xl border-2 border-ink bg-[var(--bg-elev)] shadow-sticker-sm max-h-48 overflow-y-auto">
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search documents…"
-            className="w-full px-2.5 py-1.5 text-xs bg-transparent border-b border-[color:var(--border-subtle)] outline-none focus:border-brand-500 sticky top-0"
+            className="w-full px-3 py-2 text-xs font-semibold bg-[var(--bg-elev)] border-b-2 border-dashed border-[color:var(--border)] outline-none focus:border-brand-600 sticky top-0"
           />
           {docs === null && (
-            <div className="px-3 py-4 text-xs text-[var(--text-dim)]">
+            <div className="px-3 py-4 text-xs font-semibold text-[var(--text-dim)]">
               Loading documents…
             </div>
           )}
           {docs !== null && docs.length === 0 && (
-            <div className="px-3 py-4 text-xs text-[var(--text-dim)]">
+            <div className="px-3 py-4 text-xs font-semibold text-[var(--text-dim)]">
               No documents in this room yet — upload one from the Documents
               drawer, or use the "Upload a file" button above.
             </div>
@@ -262,12 +265,12 @@ export default function AttachmentPicker({
                         onChange({ url: d.url, name: d.name });
                         setMode("idle");
                       }}
-                      className="w-full text-left px-2.5 py-1.5 hover:bg-[var(--hover)] text-xs flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 hover:bg-[var(--hover)] text-xs font-bold flex items-center gap-2 border-b border-[color:var(--border-subtle)] last:border-b-0"
                     >
                       <FileIcon aria-hidden size={14} className="shrink-0 text-[var(--text-muted)]" />
                       <span className="flex-1 truncate">{d.name}</span>
                       {d.uploaded_by_name && (
-                        <span className="text-[var(--text-dim)] truncate max-w-[40%]">
+                        <span className="font-semibold text-[var(--text-dim)] truncate max-w-[40%]">
                           {d.uploaded_by_name}
                         </span>
                       )}

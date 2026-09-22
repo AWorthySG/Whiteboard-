@@ -113,21 +113,21 @@ export default function RecordingsDrawer({
   return (
     <>
       <div
-        className="fixed inset-0 z-[10000] flex justify-end bg-black/40"
+        className="fixed inset-0 z-[10000] flex justify-end bg-[rgba(28,27,25,0.4)]"
         onClick={onClose}
       >
         <div
-          className="w-full max-w-md h-full bg-[var(--bg-elev)] border-l border-[color:var(--border)] shadow-2xl flex flex-col"
+          className="w-full max-w-md h-full bg-[var(--bg-sidebar)] border-l-2 border-ink md:border-y-2 md:rounded-l-3xl shadow-soft-3 flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
-            <h2 className="text-lg font-semibold">Recordings</h2>
+          <header className="glass-header flex items-center justify-between px-5 py-4 border-b-2 border-dashed border-[color:var(--border)]">
+            <h2 className="text-lg font-extrabold tracking-display">Recordings</h2>
             <button
               onClick={onClose}
-              className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
+              className="w-9 h-9 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text)]"
               aria-label="Close"
             >
-              <X size={22} aria-hidden />
+              <X size={20} aria-hidden />
             </button>
           </header>
 
@@ -139,37 +139,37 @@ export default function RecordingsDrawer({
               <DrawerSkeleton />
             ) : items.length === 0 ? (
               <div className="p-8 text-center">
-                <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center mb-3">
-                  <VideoCamera size={26} className="text-[var(--text-dim)]" aria-hidden />
+                <div className="mx-auto w-12 h-12 rounded-full border-2 border-ink bg-bloom-bg text-bloom-deep flex items-center justify-center mb-3">
+                  <VideoCamera size={24} aria-hidden />
                 </div>
-                <p className="text-sm font-medium">No recordings yet</p>
-                <p className="text-xs text-[var(--text-dim)] mt-1">
+                <p className="text-sm font-bold">No recordings yet</p>
+                <p className="text-xs font-semibold text-[var(--text-dim)] mt-1">
                   {isHost
                     ? "Click Record in the header to capture this lesson. It will appear here once the upload finishes."
                     : "The teacher hasn't recorded this lesson yet."}
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-[color:var(--border-subtle)]">
+              <ul className="px-4 py-3 space-y-2">
                 {(items ?? []).map((r) => (
-                  <li key={r.id} className="px-4 py-3">
+                  <li key={r.id} className="p-3 bg-[var(--bg-elev)] border-2 border-ink rounded-xl shadow-sticker-sm">
                     <div className="flex items-start gap-3">
                       <button
                         onClick={() => setPlaying(r)}
-                        className="shrink-0 w-12 h-12 rounded-md bg-brand-600 hover:bg-brand-500 flex items-center justify-center text-white"
+                        className="shrink-0 w-12 h-12 rounded-full bg-brand-600 hover:bg-brand-500 border-2 border-ink shadow-sticker-primary sticker-press flex items-center justify-center text-white"
                         aria-label={`Play ${r.title ?? "recording"}`}
                       >
                         <Play weight="fill" size={22} aria-hidden />
                       </button>
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate" title={r.title ?? ""}>
+                        <div className="text-sm font-bold truncate" title={r.title ?? ""}>
                           {r.title ?? "Recording"}
                         </div>
-                        <div className="text-xs text-[var(--text-dim)] mt-0.5">
+                        <div className="text-xs font-semibold text-[var(--text-dim)] mt-0.5">
                           {r.host_name ? `${r.host_name} · ` : ""}
                           {new Date(r.recorded_at).toLocaleString()}
                         </div>
-                        <div className="text-xs text-[var(--text-dim)] mt-0.5 flex gap-3">
+                        <div className="text-xs font-semibold text-[var(--text-dim)] mt-0.5 flex gap-3">
                           {r.duration_sec !== null && <span>{formatDuration(r.duration_sec)}</span>}
                           {r.size_bytes !== null && <span>{formatBytes(r.size_bytes)}</span>}
                         </div>
@@ -180,7 +180,7 @@ export default function RecordingsDrawer({
                             href={`/playback/${r.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-brand-700 hover:text-brand-800 font-medium inline-flex items-center gap-1"
+                            className="text-xs text-brand-600 hover:text-brand-700 font-extrabold inline-flex items-center gap-1"
                             title="Open synchronised whiteboard + video playback in a new tab"
                           >
                             <Play weight="fill" size={12} aria-hidden />
@@ -190,7 +190,7 @@ export default function RecordingsDrawer({
                         <a
                           href={r.file_url}
                           download
-                          className="text-xs text-[var(--text-muted)] hover:text-[var(--text)]"
+                          className="text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text)]"
                           title="Download"
                         >
                           Download
@@ -234,30 +234,30 @@ function PlayerModal({
 
   return (
     <div
-      className="fixed inset-0 z-[20000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[20000] flex items-center justify-center bg-[rgba(28,27,25,0.4)] backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-black rounded-2xl overflow-hidden shadow-2xl"
+        className="w-full max-w-3xl bg-[var(--text)] rounded-2xl overflow-hidden border-2 border-ink shadow-sticker-lg scale-pop"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elev)] text-[var(--text)]">
-          <div className="text-sm font-medium truncate">
+        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elev)] text-[var(--text)] border-b-2 border-ink">
+          <div className="text-sm font-extrabold tracking-display truncate">
             {recording.title ?? "Recording"}
           </div>
           <button
             onClick={onClose}
             aria-label="Close player"
-            className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
+            className="w-9 h-9 shrink-0 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text)]"
           >
-            <X size={22} aria-hidden />
+            <X size={20} aria-hidden />
           </button>
         </div>
         <video
           src={recording.file_url}
           controls
           autoPlay
-          className="w-full max-h-[80vh] bg-black"
+          className="w-full max-h-[80vh] bg-[var(--text)]"
         />
       </div>
     </div>
@@ -271,26 +271,26 @@ function PlayerModal({
 function StorageMeter({ bytes }: { bytes: number }) {
   const pct = Math.min(1, bytes / FREE_TIER_BYTES);
   const barColor =
-    pct >= 0.9 ? "bg-danger-600" : pct >= 0.7 ? "bg-amber-500" : "bg-brand-500";
+    pct >= 0.9 ? "bg-danger-600" : pct >= 0.7 ? "bg-sun" : "bg-grass";
   return (
     <div
-      className="px-4 py-3 border-b border-[color:var(--border-subtle)]"
+      className="px-4 py-3 border-b-2 border-dashed border-[color:var(--border)]"
       title="Total size of all recordings. Supabase's free tier is ~1 GB of storage, shared with uploaded documents and images."
     >
       <div className="flex items-center justify-between text-xs mb-1.5">
-        <span className="font-medium text-[var(--text-muted)]">Recordings storage</span>
-        <span className="tabular-nums text-[var(--text-dim)]">
+        <span className="font-label text-[var(--text-muted)]">Recordings storage</span>
+        <span className="tabular-nums font-bold text-[var(--text-dim)]">
           {formatBytes(bytes)} / ~1 GB
         </span>
       </div>
-      <div className="h-1.5 rounded-full bg-[var(--border)] overflow-hidden">
+      <div className="h-3 rounded-full border-2 border-ink bg-[var(--bg-elev-2)] overflow-hidden">
         <div
           className={`h-full rounded-full ${barColor}`}
           style={{ width: `${Math.max(2, pct * 100)}%` }}
         />
       </div>
       {pct >= 0.9 && (
-        <p className="text-[10px] text-danger-600 mt-1">
+        <p className="text-[11px] font-bold text-danger-700 mt-1.5">
           Almost full — delete old recordings to free space.
         </p>
       )}

@@ -132,27 +132,29 @@ export default function CanvasSearch({
       style={{ pointerEvents: "none" }}
     >
       <div
-        className="w-full max-w-sm rounded-xl shadow-2xl border border-[color:var(--border)] bg-[var(--bg-elev)] overflow-hidden"
+        className="w-full max-w-sm rounded-xl shadow-sticker-lg border-2 border-ink bg-[var(--bg-elev)] overflow-hidden scale-pop"
         style={{ pointerEvents: "auto" }}
       >
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[color:var(--border-subtle)]">
-          <MagnifyingGlass size={15} className="text-[var(--text-muted)] shrink-0" aria-hidden />
-          <input
-            ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Search text on canvas…"
-            className="flex-1 bg-transparent text-sm outline-none placeholder-[var(--text-dim)]"
-          />
-          {query.trim() && (
-            <span className="text-[11px] text-[var(--text-dim)] shrink-0">
-              {results.length} {results.length === 1 ? "match" : "matches"}
-            </span>
-          )}
+        <div className="flex items-center gap-2 p-2.5">
+          <div className="flex-1 min-w-0 flex items-center gap-2 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3 py-2 focus-within:border-brand-600 focus-within:shadow-[0_0_0_3px_var(--accent-soft)]">
+            <MagnifyingGlass size={15} className="text-[var(--text-muted)] shrink-0" aria-hidden />
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Search text on canvas…"
+              className="flex-1 min-w-0 bg-transparent text-sm font-semibold outline-none placeholder-[var(--text-dim)]"
+            />
+            {query.trim() && (
+              <span className="text-[11px] font-bold text-[var(--text-dim)] shrink-0">
+                {results.length} {results.length === 1 ? "match" : "matches"}
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] ml-1 shrink-0"
+            className="w-8 h-8 rounded-full shrink-0 inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
             aria-label="Close search"
           >
             <X size={13} weight="bold" aria-hidden />
@@ -160,9 +162,9 @@ export default function CanvasSearch({
         </div>
 
         {query.trim() && (
-          <ul className="max-h-56 overflow-y-auto">
+          <ul className="max-h-56 overflow-y-auto border-t-2 border-dashed border-[color:var(--border)]">
             {results.length === 0 ? (
-              <li className="px-4 py-3 text-xs text-[var(--text-dim)]">
+              <li className="px-4 py-3 text-xs font-semibold text-[var(--text-dim)]">
                 No text matches &ldquo;{query}&rdquo;
               </li>
             ) : (
@@ -172,19 +174,19 @@ export default function CanvasSearch({
                     type="button"
                     onClick={() => jumpTo(hit)}
                     onMouseEnter={() => setSelected(i)}
-                    className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors ${
+                    className={`w-full text-left px-4 py-2 text-sm font-semibold flex items-center gap-2 transition-colors ${
                       i === selected ? "bg-[var(--hover)]" : "hover:bg-[var(--hover)]"
                     }`}
                   >
                     <span
-                      className="text-[10px] uppercase tracking-wide text-[var(--text-dim)] shrink-0 w-10"
+                      className="font-label text-[var(--text-dim)] shrink-0 w-10"
                       title={`${hit.shape.type} on ${hit.pageName}`}
                     >
                       {hit.shape.type}
                     </span>
                     <span className="flex-1 truncate">{hit.text}</span>
                     {pages.length > 1 && (
-                      <span className="text-[10px] text-[var(--text-dim)] shrink-0 max-w-[6rem] truncate">
+                      <span className="text-[10px] font-semibold text-[var(--text-dim)] shrink-0 max-w-[6rem] truncate">
                         {hit.pageName}
                       </span>
                     )}

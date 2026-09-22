@@ -133,59 +133,61 @@ export default function PlaybackViewer({ recording }: { recording: Recording }) 
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col">
-      <header className="border-b border-[color:var(--border-subtle)] px-4 py-3 flex items-center gap-3">
+      <header className="bg-[var(--bg-sidebar)] border-b-2 border-ink px-4 py-3 flex items-center gap-3">
         <Link
           href={`/r/${encodeURIComponent(recording.room_id)}`}
-          className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] inline-flex items-center gap-1"
+          className="btn-secondary shrink-0 text-sm"
         >
           <ArrowLeft size={14} aria-hidden />
           Back to room
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-medium truncate">
+          <h1 className="text-sm font-extrabold tracking-display truncate">
             {recording.title ?? "Recording"}
           </h1>
           {recording.recorded_at && (
-            <p className="text-xs text-[var(--text-dim)]">
+            <p className="text-xs font-semibold text-[var(--text-dim)]">
               {new Date(recording.recorded_at).toLocaleString()}
             </p>
           )}
         </div>
         {frames && (
-          <span className="text-xs text-[var(--text-dim)] tabular-nums">
+          <span className="shrink-0 rounded-full text-[11.5px] font-extrabold tracking-[.2px] px-3 py-1 border-[1.5px] border-ink-faint bg-sky-bg text-sky-deep tabular-nums">
             {frames.length} frame{frames.length === 1 ? "" : "s"}
           </span>
         )}
       </header>
 
-      <div className="flex-1 flex flex-col xl:flex-row min-h-0">
-        {/* Video — top on portrait, left on wide */}
-        <div className="bg-black flex items-center justify-center xl:w-[55%] xl:border-r xl:border-[color:var(--border-subtle)]">
-          <video
-            ref={videoRef}
-            src={recording.file_url}
-            controls
-            playsInline
-            preload="metadata"
-            onTimeUpdate={onTimeUpdate}
-            onSeeked={onTimeUpdate}
-            className="max-w-full max-h-[60vh] xl:max-h-screen"
-          />
+      <div className="flex-1 flex flex-col xl:flex-row min-h-0 gap-3 xl:gap-4 p-3 xl:p-4">
+        {/* Video — top on portrait, left on wide. The letterbox is the
+            near-black text token rather than a literal black so it stays
+            in the palette; the frame is a die-cut sticker like the canvas. */}
+        <div className="flex items-center justify-center xl:w-[55%]">
+          <div className="w-full rounded-xl border-2 border-ink overflow-hidden bg-[var(--text)] shadow-sticker flex items-center justify-center">
+            <video
+              ref={videoRef}
+              src={recording.file_url}
+              controls
+              playsInline
+              preload="metadata"
+              onTimeUpdate={onTimeUpdate}
+              onSeeked={onTimeUpdate}
+              className="max-w-full max-h-[60vh] xl:max-h-screen"
+            />
+          </div>
         </div>
 
-        {/* Whiteboard timeline */}
-        <div className="flex-1 relative min-h-[40vh]">
+        {/* Whiteboard timeline — sticker frame around the read-only canvas;
+            overflow-hidden clips tldraw + the scrubber to the rounded corners. */}
+        <div className="flex-1 relative min-h-[40vh] rounded-xl border-2 border-ink overflow-hidden bg-[var(--canvas)] shadow-sticker">
           {framesErr && (
             <div className="absolute inset-0 flex items-center justify-center p-6 text-center">
               <div className="max-w-md">
-                <WarningCircle
-                  size={32}
-                  weight="duotone"
-                  className="mx-auto mb-3 text-[var(--text-dim)]"
-                  aria-hidden
-                />
-                <p className="text-sm text-[var(--text-muted)]">{framesErr}</p>
-                <p className="text-xs text-[var(--text-dim)] mt-3">
+                <div className="w-12 h-12 rounded-full border-2 border-ink bg-sun-bg text-sun-deep flex items-center justify-center mx-auto mb-3">
+                  <WarningCircle size={24} weight="duotone" aria-hidden />
+                </div>
+                <p className="text-sm font-semibold text-[var(--text-muted)]">{framesErr}</p>
+                <p className="text-xs font-semibold text-[var(--text-dim)] mt-3">
                   You can still watch the video above — the whiteboard
                   is visible inside it.
                 </p>
@@ -194,7 +196,7 @@ export default function PlaybackViewer({ recording }: { recording: Recording }) 
           )}
           {!framesErr && !frames && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="inline-block w-8 h-8 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
+              <div className="inline-block w-8 h-8 border-[3px] border-ink-faint border-t-brand-600 rounded-full animate-spin" />
             </div>
           )}
           {!framesErr && frames && (
@@ -218,15 +220,17 @@ export default function PlaybackViewer({ recording }: { recording: Recording }) 
                 }}
                 hideUi
               />
+              {/* Progress-bar track, inset from the frame so the rounded
+                  corners don't clip its ends; frame ticks are the fill colour. */}
               {markers.length > 0 && (
                 <div
-                  className="absolute left-0 right-0 bottom-0 h-1 bg-black/10 pointer-events-none"
+                  className="absolute left-3 right-3 bottom-3 h-2.5 rounded-full border-2 border-ink bg-[var(--bg-elev-2)] overflow-hidden pointer-events-none"
                   aria-hidden
                 >
                   {markers.map((pct, i) => (
                     <span
                       key={i}
-                      className="absolute top-0 w-px h-full bg-brand-500/70"
+                      className="absolute top-0 w-0.5 h-full bg-brand-600"
                       style={{ left: `${pct * 100}%` }}
                     />
                   ))}

@@ -6,6 +6,10 @@ import { useConfirmAction } from "@/hooks/useConfirmAction";
 // First tap shows 'Confirm?' for 4s; second tap within that window
 // runs onConfirm. Works on phone (window.confirm is unreliable on
 // iOS/Android WebViews), accessibility, and screen readers.
+//
+// Shape: a small secondary sticker pill at rest; once armed it flips to
+// the pale-red destructive variant (never a solid red — that reads as
+// a primary action) so "tap again to confirm" is visibly different.
 export default function ConfirmButton({
   onConfirm,
   label = "Remove",
@@ -21,12 +25,12 @@ export default function ConfirmButton({
 }) {
   const { armed, trigger } = useConfirmAction(onConfirm);
   const armedCls = armed
-    ? "text-danger-700 font-medium"
-    : "text-[var(--text-dim)] hover:text-danger-600";
+    ? "bg-danger-50 text-danger-700"
+    : "bg-[var(--bg-elev)] text-[var(--text-muted)] hover:bg-[var(--bg-elev-2)] hover:text-danger-700";
   return (
     <button
       onClick={trigger}
-      className={`${armedCls} ${className ?? "text-xs"}`}
+      className={`inline-flex items-center justify-center rounded-full border-2 border-ink font-extrabold shadow-sticker-sm sticker-press px-3 py-1 ${armedCls} ${className ?? "text-xs"}`}
       title={armed ? `Tap again to confirm` : (title ?? label)}
       aria-pressed={armed}
     >

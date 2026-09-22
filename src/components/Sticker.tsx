@@ -18,6 +18,27 @@ const STICKERS = {
   encourage: { src: "/sticker-encourage.webp", w: 357, h: 400 },
   dad: { src: "/sticker-dad.webp", w: 282, h: 400 },
   feeding: { src: "/sticker-feeding.webp", w: 315, h: 400 },
+  // Subject stickers — tutor + student per subject. The landing hero's
+  // sticker sheet and the room's welcome screen draw from these.
+  calculus: { src: "/sticker-calculus.webp", w: 380, h: 400 },
+  economics: { src: "/sticker-economics.webp", w: 465, h: 400 },
+  chemistry: { src: "/sticker-chemistry.webp", w: 408, h: 400 },
+  finance: { src: "/sticker-finance.webp", w: 426, h: 400 },
+  mathematics: { src: "/sticker-mathematics.webp", w: 427, h: 400 },
+  // More tutor + student duos from the collection (400px tall). Each is
+  // registered so a future placement is one line; only the ones listed in
+  // CLAUDE.md's placement map are rendered anywhere.
+  essay: { src: "/sticker-essay.webp", w: 399, h: 400 },
+  readingbuddies: { src: "/sticker-readingbuddies.webp", w: 414, h: 400 },
+  studying: { src: "/sticker-studying.webp", w: 396, h: 400 },
+  civics: { src: "/sticker-civics.webp", w: 409, h: 400 },
+  checklist: { src: "/sticker-checklist.webp", w: 425, h: 400 },
+  calculus2: { src: "/sticker-calculus2.webp", w: 380, h: 400 },
+  chemistry2: { src: "/sticker-chemistry2.webp", w: 363, h: 400 },
+  mathematics2: { src: "/sticker-mathematics2.webp", w: 386, h: 400 },
+  economics2: { src: "/sticker-economics2.webp", w: 421, h: 400 },
+  // The six-up "sticker sheet" illustration — decorative only.
+  sheet: { src: "/sticker-sheet.webp", w: 522, h: 480 },
   // Solo stickers — also used as the faded canvas watermark.
   avocado: { src: "/sticker-avocado.webp", w: 183, h: 240 },
   heart: { src: "/sticker-heart.webp", w: 155, h: 240 },
@@ -26,6 +47,16 @@ const STICKERS = {
 } as const;
 
 export type StickerName = keyof typeof STICKERS;
+
+/** The five subject DUO stickers, in the order they read best left-to-right. */
+export const SUBJECT_STICKERS = [
+  "mathematics",
+  "calculus",
+  "chemistry",
+  "economics",
+  "finance",
+] as const satisfies readonly StickerName[];
+
 
 export default function Sticker({
   name,

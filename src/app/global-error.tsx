@@ -6,7 +6,12 @@ import { useEffect } from "react";
 // (and in error.tsx), which the route-level error.tsx cannot. Next.js
 // renders this in place of the whole document, so it must supply its own
 // <html>/<body>. Kept dependency-free (no theme vars, no Phosphor) since
-// the app shell may have failed to mount.
+// the app shell may have failed to mount — which is why the LMS
+// sticker-book values are HARDCODED below (cream #FAF6EE paper, ink
+// #1C1B19 text, navy #22304A outlines / hard shadows, red #C0392B
+// primary with its #962D22 shadow). This file is the one place a
+// literal colour is allowed; everywhere else uses the tokens in
+// globals.css. Keep the two in sync if the palette ever changes.
 export default function GlobalError({
   error,
   reset,
@@ -29,9 +34,9 @@ export default function GlobalError({
           justifyContent: "center",
           padding: "1rem",
           fontFamily:
-            "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
-          background: "#0f1115",
-          color: "#e8eaed",
+            "Nunito, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+          background: "#FAF6EE",
+          color: "#1C1B19",
         }}
       >
         <div
@@ -39,16 +44,25 @@ export default function GlobalError({
             maxWidth: "24rem",
             width: "100%",
             textAlign: "center",
-            border: "1px solid #2a2e37",
-            borderRadius: "1rem",
+            border: "2px solid #22304A",
+            borderRadius: "26px",
             padding: "1.5rem",
-            background: "#171a21",
+            background: "#FFFFFF",
+            boxShadow:
+              "0 5px 0 rgba(34,48,74,0.14), 0 14px 28px rgba(70,50,20,0.10)",
           }}
         >
-          <h1 style={{ fontSize: "1.125rem", fontWeight: 600, margin: 0 }}>
+          <h1
+            style={{
+              fontSize: "1.125rem",
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              margin: 0,
+            }}
+          >
             Something went wrong
           </h1>
-          <p style={{ fontSize: "0.875rem", color: "#a8adb8", marginTop: "0.5rem" }}>
+          <p style={{ fontSize: "0.875rem", color: "#6B6760", marginTop: "0.5rem" }}>
             The app failed to load. Reload to try again — anything saved in a
             room stays on the server.
           </p>
@@ -56,13 +70,14 @@ export default function GlobalError({
             onClick={() => reset()}
             style={{
               marginTop: "1rem",
-              border: "none",
-              borderRadius: "0.5rem",
-              background: "#4263eb",
+              border: "2px solid #22304A",
+              borderRadius: "9999px",
+              background: "#C0392B",
               color: "#fff",
-              padding: "0.5rem 1rem",
+              padding: "0.5rem 1.05rem",
               fontSize: "0.875rem",
-              fontWeight: 500,
+              fontWeight: 800,
+              boxShadow: "0 4px 0 #962D22",
               cursor: "pointer",
             }}
           >

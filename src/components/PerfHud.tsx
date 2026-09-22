@@ -215,25 +215,25 @@ export default function PerfHud({
 
   const fpsTone =
     !snap || snap.fps >= 50
-      ? "bg-emerald-500"
+      ? "bg-grass"
       : snap.fps >= 30
-        ? "bg-amber-500"
-        : "bg-red-500";
+        ? "bg-sun"
+        : "bg-brand-600";
   const latTone =
     !snap || snap.inputMedianMs == null || snap.inputMedianMs <= 24
-      ? "bg-emerald-500"
+      ? "bg-grass"
       : snap.inputMedianMs <= 50
-        ? "bg-amber-500"
-        : "bg-red-500";
+        ? "bg-sun"
+        : "bg-brand-600";
 
   return (
     <div
-      className="fixed z-[95] top-14 left-2 md:top-3 md:left-20 rounded-xl border border-[color:var(--border)] bg-[var(--bg-elev)]/95 backdrop-blur shadow-lg text-[11px] text-[var(--text)] select-none"
+      className="fixed z-[95] top-14 left-2 md:top-3 md:left-20 rounded-xl border-2 border-ink bg-[var(--bg-elev)] shadow-sticker text-[11px] font-semibold text-[var(--text)] select-none"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="flex items-center gap-2 px-2.5 py-1.5">
         <span className={`h-2 w-2 rounded-full ${fpsTone}`} aria-hidden />
-        <span className="font-medium tabular-nums">
+        <span className="font-extrabold tabular-nums">
           {snap ? `${snap.fps} fps` : "measuring…"}
         </span>
         {snap && (
@@ -245,7 +245,7 @@ export default function PerfHud({
           type="button"
           onClick={() => setCollapsed((c) => !c)}
           aria-label={collapsed ? "Expand performance panel" : "Collapse performance panel"}
-          className="ml-1 rounded p-0.5 hover:bg-[var(--hover)]"
+          className="ml-1 rounded-full p-1 hover:bg-[var(--hover)]"
         >
           {collapsed ? (
             <CaretDown size={12} aria-hidden />
@@ -258,7 +258,7 @@ export default function PerfHud({
             type="button"
             onClick={onClose}
             aria-label="Close performance panel"
-            className="rounded p-0.5 hover:bg-[var(--hover)]"
+            className="rounded-full p-1 hover:bg-[var(--hover)]"
           >
             <X size={12} aria-hidden />
           </button>
@@ -301,7 +301,7 @@ export default function PerfHud({
           <button
             type="button"
             onClick={copy}
-            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] px-2 py-1 text-[11px] hover:bg-[var(--hover)]"
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press px-2 py-1 text-[11px] font-extrabold hover:bg-[var(--bg-elev-2)]"
           >
             {copied ? (
               <>
@@ -340,7 +340,7 @@ function Row({
         {tone && <span className={`h-1.5 w-1.5 rounded-full ${tone}`} aria-hidden />}
         {label}
       </span>
-      <span className="tabular-nums text-right">{value}</span>
+      <span className="tabular-nums text-right font-extrabold">{value}</span>
     </div>
   );
 }

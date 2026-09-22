@@ -14,6 +14,7 @@ import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
 import DrawerSkeleton from "./Skeleton";
+import Sticker from "@/components/Sticker";
 
 // Group docs by local date string (yyyy-mm-dd). Returns the groups in
 // reverse-chronological order, with a human-friendly label for each
@@ -243,29 +244,39 @@ export default function DocumentsDrawer({
 
   return (
     <div
-      className="fixed inset-0 z-[10000] flex justify-end bg-black/40"
+      className="fixed inset-0 z-[10000] flex justify-end bg-[rgba(28,27,25,0.4)]"
       onClick={onClose}
     >
+      {/*
+        Drawer shell. Deliberately `shadow-soft-3` (ambient) rather than the
+        card recipe's hard `shadow-sticker-lg`: that shadow is a straight-down
+        offset, which on a full-height panel pinned to the right viewport edge
+        would paint a 5px ink bar along the bottom that gets clipped by the
+        viewport and reads as a rendering glitch, not a sticker. The 2px ink
+        outline + rounded-l-3xl carry the sticker look; the soft shadow just
+        lifts the panel off the canvas. Keep in step with HomeworkDrawer and
+        RecordingsDrawer, which use the same shell.
+      */}
       <div
-        className="w-full max-w-md h-full bg-[var(--bg-elev)] border-l border-[color:var(--border)] shadow-2xl flex flex-col"
+        className="w-full max-w-md h-full bg-[var(--bg-sidebar)] border-l-2 border-ink md:border-y-2 md:rounded-l-3xl shadow-soft-3 flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
-          <h2 className="text-lg font-semibold">Documents</h2>
+        <header className="glass-header flex items-center justify-between px-5 py-4 border-b-2 border-dashed border-[color:var(--border)]">
+          <h2 className="text-lg font-extrabold tracking-display">Documents</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={pickAndUpload}
               disabled={uploading}
-              className="text-sm rounded-md bg-brand-600 text-white hover:bg-brand-500 px-3 py-1.5 disabled:opacity-50"
+              className="text-sm font-extrabold rounded-full bg-brand-600 text-white border-2 border-ink shadow-sticker-primary sticker-press hover:bg-brand-500 px-3.5 py-1.5 disabled:opacity-40"
             >
               {uploading ? "Uploading…" : "Upload"}
             </button>
             <button
               onClick={onClose}
-              className="text-[var(--text-muted)] hover:text-[var(--text)] inline-flex"
+              className="w-9 h-9 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text)]"
               aria-label="Close"
             >
-              <X size={22} aria-hidden />
+              <X size={20} aria-hidden />
             </button>
           </div>
         </header>
@@ -275,17 +286,20 @@ export default function DocumentsDrawer({
             <DrawerSkeleton />
           ) : docs.length === 0 ? (
             <div className="p-8 text-center">
-              <EmptyDocsIllustration />
-              <p className="text-sm font-medium mt-3">No documents yet</p>
-              <p className="text-xs text-[var(--text-dim)] mt-1">
-                Click the <span className="text-brand-700">Upload</span> button
+              {/* Worksheet duo — a checklist page and a lightbulb — for the
+                  "no documents yet" moment, in place of the old hand-drawn
+                  paper-stack SVG. */}
+              <Sticker name="essay" size={120} className="mx-auto" />
+              <p className="text-sm font-bold mt-3">No documents yet</p>
+              <p className="text-xs font-semibold text-[var(--text-dim)] mt-1">
+                Click the <span className="font-extrabold text-brand-600">Upload</span> button
                 above, or drag a PDF/image onto the canvas. Files appear here
                 for everyone in the room.
               </p>
               <button
                 onClick={pickAndUpload}
                 disabled={uploading}
-                className="mt-4 inline-flex items-center gap-2 rounded-md bg-brand-600 text-white hover:bg-brand-500 px-4 py-2 text-sm font-medium disabled:opacity-50"
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand-600 text-white border-2 border-ink shadow-sticker-primary sticker-press hover:bg-brand-500 px-4 py-2 text-sm font-extrabold disabled:opacity-40"
               >
                 {uploading ? "Uploading…" : "Upload a document"}
               </button>
@@ -306,7 +320,7 @@ export default function DocumentsDrawer({
                       onClick={() =>
                         setCollapsed((c) => ({ ...c, [group.key]: isOpen }))
                       }
-                      className="w-full flex items-center gap-2 px-4 py-2 bg-[var(--bg)] hover:bg-[var(--hover)] text-left"
+                      className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-[var(--hover)] text-left"
                       aria-expanded={isOpen}
                     >
                       <span
@@ -323,26 +337,32 @@ export default function DocumentsDrawer({
                         className="text-[var(--text-dim)]"
                         aria-hidden
                       />
-                      <span className="text-sm font-medium flex-1">
+                      <span className="font-label text-[var(--text-muted)] flex-1">
                         {group.label}
                       </span>
-                      <span className="text-xs text-[var(--text-dim)] tabular-nums">
+                      <span className="text-[11px] font-bold text-[var(--text-dim)] tabular-nums">
                         {group.items.length}{" "}
                         {group.items.length === 1 ? "file" : "files"}
                       </span>
                     </button>
                     {isOpen && (
-                      <ul className="divide-y divide-[color:var(--border-subtle)]">
+                      <ul className="px-4 pb-3 pt-1 space-y-2">
                         {group.items.map((d) => (
                           <li
                             key={d.id}
-                            className="pl-10 pr-4 py-3 flex items-center gap-3"
+                            className="px-3 py-2.5 flex items-center gap-3 bg-[var(--bg-elev)] border-2 border-ink rounded-xl shadow-sticker-sm card-lift"
                           >
-                            <div className="text-[var(--text-muted)] shrink-0">
+                            <div
+                              className={`w-10 h-10 shrink-0 rounded-full border-2 border-ink flex items-center justify-center ${
+                                d.mime_type === "application/pdf"
+                                  ? "bg-bloom-bg text-bloom-deep"
+                                  : "bg-sky-bg text-sky-deep"
+                              }`}
+                            >
                               {d.mime_type === "application/pdf" ? (
-                                <FilePdf size={22} aria-hidden />
+                                <FilePdf size={20} aria-hidden />
                               ) : (
-                                <ImageIcon size={22} aria-hidden />
+                                <ImageIcon size={20} aria-hidden />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -350,12 +370,12 @@ export default function DocumentsDrawer({
                                 href={d.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-sm font-medium truncate block hover:text-brand-700"
+                                className="text-sm font-bold truncate block hover:text-brand-600"
                                 title={d.name}
                               >
                                 {d.name}
                               </a>
-                              <div className="text-xs text-[var(--text-dim)]">
+                              <div className="text-xs font-semibold text-[var(--text-dim)]">
                                 {d.uploaded_by_name || "Someone"} ·{" "}
                                 {new Date(d.uploaded_at).toLocaleTimeString([], {
                                   hour: "numeric",
@@ -382,67 +402,5 @@ export default function DocumentsDrawer({
         </div>
       </div>
     </div>
-  );
-}
-
-// Small inline illustration for the empty Documents drawer state.
-// Hand-crafted SVG so there's no extra asset to ship — three offset
-// document outlines suggesting "a place where things accumulate".
-function EmptyDocsIllustration() {
-  return (
-    <svg
-      width="88"
-      height="72"
-      viewBox="0 0 88 72"
-      fill="none"
-      aria-hidden="true"
-      className="mx-auto"
-    >
-      {/* Back paper */}
-      <rect
-        x="22"
-        y="18"
-        width="40"
-        height="50"
-        rx="4"
-        fill="var(--bg-elev-2, #eef2ff)"
-        stroke="var(--border, #c7d2fe)"
-        strokeWidth="1.5"
-      />
-      {/* Middle paper, slightly rotated */}
-      <g transform="rotate(-6 30 38)">
-        <rect
-          x="14"
-          y="14"
-          width="40"
-          height="50"
-          rx="4"
-          fill="#ffffff"
-          stroke="var(--border, #c7d2fe)"
-          strokeWidth="1.5"
-        />
-        <line x1="20" y1="26" x2="46" y2="26" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="20" y1="34" x2="46" y2="34" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="20" y1="42" x2="38" y2="42" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
-      </g>
-      {/* Front paper with corner fold */}
-      <g transform="rotate(5 60 42)">
-        <path
-          d="M44 26 L62 26 L70 34 L70 64 L44 64 Z"
-          fill="#ffffff"
-          stroke="rgb(37 99 235)"
-          strokeWidth="1.6"
-        />
-        <path
-          d="M62 26 L62 34 L70 34"
-          fill="rgb(219 234 254)"
-          stroke="rgb(37 99 235)"
-          strokeWidth="1.6"
-        />
-        <line x1="50" y1="44" x2="64" y2="44" stroke="rgb(37 99 235)" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="50" y1="50" x2="64" y2="50" stroke="rgb(37 99 235)" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="50" y1="56" x2="58" y2="56" stroke="rgb(37 99 235)" strokeWidth="1.5" strokeLinecap="round" />
-      </g>
-    </svg>
   );
 }

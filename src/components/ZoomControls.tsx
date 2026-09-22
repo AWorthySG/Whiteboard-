@@ -75,11 +75,11 @@ export default function ZoomControls({ editor }: { editor: Editor | null }) {
       ref={menuRef}
       // `relative` keeps the preset dropdown menu (absolute bottom-full)
       // anchored to this pill rather than the canvas wrapper.
-      className="relative flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-lg px-1 py-1"
+      className="relative flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker px-1 py-0.5"
     >
       <button
         onClick={() => editor.zoomOut(undefined, { animation: { duration: 150 } })}
-        className="touch-target w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover)] text-lg leading-none"
+        className="touch-target w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)] text-lg font-extrabold leading-none"
         aria-label="Zoom out"
         title="Zoom out"
       >
@@ -87,7 +87,7 @@ export default function ZoomControls({ editor }: { editor: Editor | null }) {
       </button>
       <button
         onClick={() => setMenuOpen((o) => !o)}
-        className="touch-target h-9 min-w-[3.5rem] px-2 flex items-center justify-center rounded-full text-xs font-medium text-[var(--text)] hover:bg-[var(--hover)] tabular-nums"
+        className="touch-target h-9 min-w-[3.5rem] px-2 flex items-center justify-center rounded-full text-xs font-extrabold text-[var(--text)] hover:bg-[var(--hover)] tabular-nums"
         aria-label="Zoom level menu"
         title="Zoom level"
         aria-haspopup="menu"
@@ -97,7 +97,7 @@ export default function ZoomControls({ editor }: { editor: Editor | null }) {
       </button>
       <button
         onClick={() => editor.zoomIn(undefined, { animation: { duration: 150 } })}
-        className="touch-target w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover)] text-lg leading-none"
+        className="touch-target w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)] text-lg font-extrabold leading-none"
         aria-label="Zoom in"
         title="Zoom in"
       >
@@ -107,11 +107,11 @@ export default function ZoomControls({ editor }: { editor: Editor | null }) {
       {menuOpen && (
         <div
           role="menu"
-          className="absolute bottom-full left-0 mb-2 w-44 rounded-lg bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl p-1"
+          className="absolute bottom-full left-0 mb-2 w-44 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-1.5 scale-pop"
         >
           <ZoomMenuItem label="Fit to content" hint="Shows everything" onClick={fitToContent} />
           <ZoomMenuItem label="Reset to 100%" hint="Default zoom" onClick={resetZoom} />
-          <div className="my-1 border-t border-[color:var(--border-subtle)]" />
+          <div className="my-1.5 border-t-2 border-dashed border-[color:var(--border)]" />
           <ZoomMenuItem label="50%" onClick={() => setZoomTo(50)} />
           <ZoomMenuItem label="75%" onClick={() => setZoomTo(75)} />
           <ZoomMenuItem label="100%" onClick={() => setZoomTo(100)} />
@@ -136,10 +136,10 @@ function ZoomMenuItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className="w-full text-left text-sm rounded-md px-2.5 py-1.5 hover:bg-[var(--hover)] text-[var(--text)] flex items-center justify-between gap-2"
+      className="w-full text-left text-sm font-bold rounded-md px-2.5 py-1.5 hover:bg-[var(--hover)] text-[var(--text)] flex items-center justify-between gap-2"
     >
       <span>{label}</span>
-      {hint && <span className="text-xs text-[var(--text-dim)]">{hint}</span>}
+      {hint && <span className="text-[11px] font-semibold text-[var(--text-dim)]">{hint}</span>}
     </button>
   );
 }

@@ -38,14 +38,14 @@ export default function CaptionsOverlay({
   // so it doesn't compete with actual caption text.
   if (visible.length === 0 && !supported) {
     return (
-      <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-[55] max-w-[min(92vw,34rem)] px-3 py-2 rounded-md bg-black/70 text-white text-xs text-center shadow-lg pointer-events-none leading-relaxed">
-        <div className="font-medium">
+      <div className="absolute bottom-36 left-1/2 -translate-x-1/2 z-[55] max-w-[min(92vw,34rem)] px-4 py-2.5 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker text-[var(--text)] text-xs text-center pointer-events-none leading-relaxed">
+        <div className="font-extrabold">
           Your browser can't caption your own speech.
         </div>
-        <div className="text-white/80 mt-0.5">
+        <div className="text-[var(--text-muted)] font-semibold mt-0.5">
           You'll still see captions from anyone else who's speaking.
           To caption your own voice, open this room in{" "}
-          <span className="font-medium">Google Chrome</span> (desktop
+          <span className="font-bold text-[var(--text)]">Google Chrome</span> (desktop
           or Android) — Safari and Firefox don't support live
           transcription.
         </div>
@@ -68,18 +68,22 @@ export default function CaptionsOverlay({
         return (
           <div
             key={`${line.identity}-${line.at}`}
-            className={`rounded-md px-3 py-1.5 shadow-2xl backdrop-blur-sm transition-opacity duration-700 ${
+            // Each line is its own sticker card. Final lines are solid ink
+            // on white; interim (still-being-recognised) lines keep the
+            // italic + muted distinction on the inset surface so a
+            // listener can tell "settled" from "still listening".
+            className={`rounded-xl px-3.5 py-2 border-2 border-ink shadow-sticker transition-opacity duration-700 ${
               fading ? "opacity-50" : "opacity-100"
             } ${
               line.isFinal
-                ? "bg-black/75 text-white"
-                : "bg-black/55 text-white/85 italic"
+                ? "bg-[var(--bg-elev)] text-[var(--text)]"
+                : "bg-[var(--bg-elev-2)] text-[var(--text-muted)] italic"
             }`}
           >
-            <span className="text-[10px] uppercase tracking-wider text-white/70 mr-2 font-medium">
+            <span className="font-label text-[var(--text-muted)] mr-2 not-italic">
               {line.name}
             </span>
-            <span className="text-sm leading-snug">{line.text}</span>
+            <span className="text-sm leading-snug font-bold">{line.text}</span>
           </div>
         );
       })}

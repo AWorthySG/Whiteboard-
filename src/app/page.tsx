@@ -14,7 +14,7 @@ import { pinRoom, unpinRoom, usePinnedRooms } from "@/hooks/usePinnedRooms";
 import { getSupabase } from "@/lib/supabase";
 import { Star, X } from "@phosphor-icons/react";
 import BrandLogo from "@/components/BrandLogo";
-import Sticker from "@/components/Sticker";
+import Sticker, { SUBJECT_STICKERS } from "@/components/Sticker";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
 
 const SignInModal = dynamic(() => import("@/components/SignInModal"), { ssr: false });
@@ -156,17 +156,41 @@ export default function Home() {
   return (
     // The page sat on flat #ffffff behind a #ffffff card, so the card
     // read as a floating seam rather than a surface. A warm cream wash
-    // (the same paper tone as the whiteboard canvas) with a soft teal
-    // bloom gives it something to sit on. Both layers are CSS
-    // gradients — no image, no extra bytes.
-    <main
-      className="min-h-[100dvh] flex items-center justify-center px-4 py-8 sm:px-6"
-      style={{
-        background:
-          "radial-gradient(1100px 620px at 50% -10%, var(--accent-soft) 0%, transparent 62%), var(--canvas)",
-      }}
-    >
-      <div className="w-full max-w-xl rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border-subtle)] shadow-xl p-6 sm:p-8">
+    // (the same paper tone as the whiteboard canvas) gives it something
+    // to sit on. The three soft blooms are the LMS hero's — sun top-left,
+    // bloom centre-right, sky bottom-right — as absolutely-positioned
+    // divs behind the card. Pure CSS gradients: no image, no extra bytes.
+    // The bloom colours are tokens, so alpha comes from `opacity` on the
+    // div rather than a hex-alpha suffix (a var() can't take one).
+    <main className="relative overflow-hidden min-h-[100dvh] flex items-center justify-center px-4 py-8 sm:px-6 bg-[var(--bg)]">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-40 -left-40 w-[560px] h-[560px] rounded-full opacity-[0.28]"
+        style={{ background: "radial-gradient(circle, var(--sun) 0%, transparent 68%)" }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 right-[8%] -translate-y-1/2 w-[480px] h-[480px] rounded-full opacity-[0.16]"
+        style={{ background: "radial-gradient(circle, var(--bloom) 0%, transparent 68%)" }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-48 -right-40 w-[600px] h-[600px] rounded-full opacity-[0.22]"
+        style={{ background: "radial-gradient(circle, var(--sky) 0%, transparent 68%)" }}
+      />
+
+      {/* The six-up sticker sheet from the collection, pressed into the
+          bottom-left of the paper at large widths — the LMS hero's
+          illustration slot. Behind the card in DOM order, so the card's
+          hard shadow paints over it if the two ever meet; hidden below
+          lg where there is no margin for it to sit in. */}
+      <Sticker
+        name="sheet"
+        size={200}
+        className="hidden lg:block pointer-events-none absolute left-[4%] bottom-[6%] -rotate-6"
+      />
+
+      <div className="relative w-full max-w-xl rounded-3xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg p-6 sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
             {/* Stacks above the wordmark on phones rather than hiding:
@@ -192,8 +216,8 @@ export default function Home() {
                 priority
                 className="mb-3"
               />
-              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-                A Worthy Whiteboard
+              <h1 className="text-2xl sm:text-3xl font-black tracking-display">
+                A Worthy <span className="squiggle">Whiteboard</span>
               </h1>
               <p className="text-[var(--text-muted)] mt-1 text-sm sm:text-base">
                 Real-time collaborative whiteboard with video, audio, and document upload.
@@ -209,14 +233,30 @@ export default function Home() {
           )}
         </div>
 
+        {/* Subject "sticker sheet" — the five tutor+student duos in a strip
+            between the hero copy and the form, as on the LMS hero. Alternate
+            tilt so it reads as stickers pressed on by hand, not a row of
+            icons. Hidden on phones: at 72px tall five of them don't fit
+            beside a 16px gutter without wrapping into a second messy row. */}
+        <div className="hidden sm:flex items-end justify-center gap-3 mt-6" aria-hidden>
+          {SUBJECT_STICKERS.map((s, i) => (
+            <Sticker
+              key={s}
+              name={s}
+              size={72}
+              className={`shrink-0 ${i % 2 === 0 ? "rotate-[-3deg]" : "rotate-[2deg]"}`}
+            />
+          ))}
+        </div>
+
         <div className="mt-6 sm:mt-8 space-y-4">
           <label className="block">
-            <span className="text-sm text-[var(--text-muted)]">Your name</span>
+            <span className="font-label text-[var(--text-muted)]">Your name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Alex"
-              className="mt-1 w-full rounded-lg bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-base outline-none focus:border-brand-500"
+              className="mt-1.5 w-full rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3.5 py-2.5 text-base font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)] placeholder:text-[var(--text-dim)] placeholder:font-semibold"
             />
           </label>
 
@@ -225,17 +265,20 @@ export default function Home() {
               value={room}
               onChange={(e) => setRoom(e.target.value)}
               placeholder="Room code (optional)"
-              className="flex-1 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2.5 text-base outline-none focus:border-brand-500"
+              className="flex-1 min-w-0 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3.5 py-2.5 text-base font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)] placeholder:text-[var(--text-dim)] placeholder:font-semibold"
             />
             <button
               onClick={onCreateOrJoin}
-              className="rounded-lg bg-brand-600 hover:bg-brand-500 text-white px-4 py-2.5 font-medium"
+              // Spelled out (not .btn-primary) because that class is declared
+              // after Tailwind's utilities and would win over the larger
+              // padding + font-size needed to match the 48px input beside it.
+              className="shrink-0 rounded-full bg-brand-600 hover:bg-brand-700 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press px-6 py-2.5 text-base"
             >
               {room.trim() ? "Join" : "Create"}
             </button>
           </div>
 
-          <p className="text-xs text-[var(--text-dim)]">
+          <p className="text-xs font-semibold text-[var(--text-muted)]">
             {user
               ? "Signed in — any rooms you create are tied to your account, so you stay the host on every device."
               : "Tip: sign in with your host username and password before creating a room to keep host access on every device."}
@@ -247,7 +290,7 @@ export default function Home() {
                 setPendingSignIn(true);
                 void start(generateRoomId(), true);
               }}
-              className="text-xs text-[var(--text-dim)] hover:text-[var(--text-muted)] underline underline-offset-2"
+              className="text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text)] underline underline-offset-2"
             >
               Continue as guest (host status only on this browser)
             </button>
@@ -255,9 +298,9 @@ export default function Home() {
         </div>
 
         {recent.length > 0 && (
-          <section className="mt-8 border-t border-[color:var(--border-subtle)] pt-5">
+          <section className="mt-8 border-t-2 border-dashed border-[color:var(--border)] pt-5">
             <div className="flex items-center justify-between gap-3 mb-3">
-              <h2 className="text-xs uppercase tracking-wider text-[var(--text-dim)]">
+              <h2 className="font-label text-[var(--text-muted)]">
                 Your rooms
               </h2>
               <input
@@ -265,12 +308,12 @@ export default function Home() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search…"
                 aria-label="Search rooms by title or room ID"
-                className="flex-1 max-w-[16rem] rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-2.5 py-1 text-sm outline-none focus:border-brand-500"
+                className="flex-1 max-w-[16rem] rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3.5 py-1.5 text-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)] placeholder:text-[var(--text-dim)]"
               />
             </div>
 
             {filtered.length === 0 ? (
-              <p className="text-sm text-[var(--text-dim)] px-2 py-3">
+              <p className="text-sm font-semibold text-[var(--text-muted)] px-2 py-3">
                 No rooms match “{search.trim()}”.
               </p>
             ) : (
@@ -338,7 +381,7 @@ function AccountChip({
     return (
       <button
         onClick={onSignIn}
-        className="text-xs rounded-md border border-[color:var(--border)] hover:bg-[var(--hover)] px-3 py-1.5 shrink-0"
+        className="text-xs font-extrabold rounded-full bg-[var(--bg-elev)] hover:bg-[var(--bg-elev-2)] border-2 border-ink shadow-sticker-sm sticker-press px-3.5 py-1.5 shrink-0"
       >
         Sign in
       </button>
@@ -347,12 +390,12 @@ function AccountChip({
   const name = displayUsername(user);
   return (
     <div className="text-xs text-right shrink-0 max-w-[10rem]">
-      <div className="text-[var(--text-muted)] truncate" title={name ?? ""}>
+      <div className="text-[var(--text-muted)] font-bold truncate" title={name ?? ""}>
         {name}
       </div>
       <button
         onClick={onSignOut}
-        className="text-[var(--text-dim)] hover:text-[var(--text-muted)] underline underline-offset-2 mt-0.5"
+        className="text-[var(--text-muted)] font-semibold hover:text-[var(--text)] underline underline-offset-2 mt-0.5"
       >
         Sign out
       </button>
@@ -420,11 +463,14 @@ function RoomSection({
   return (
     <div className="mb-4 last:mb-0">
       {label && (
-        <div className="text-[10px] uppercase tracking-wider text-[var(--text-dim)] font-semibold mb-1 px-2">
+        <div className="font-label text-[var(--text-muted)] mb-1.5 px-1">
           {label}
         </div>
       )}
-      <ul className="space-y-0.5">
+      {/* Each row is its own light sticker (3px hard shadow), so the list
+          needs real gaps — space-y-0.5 would let one row's shadow sit on
+          the next row's outline. */}
+      <ul className="space-y-2">
         {rooms.map((r) => (
           <RoomRow
             key={r.roomId}
@@ -448,7 +494,7 @@ function RoomRow({
   onOpen: () => void;
 }) {
   return (
-    <li className="group flex items-center gap-2 rounded-lg hover:bg-[var(--hover)] px-2 py-1.5">
+    <li className="group flex items-center gap-2 rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm card-lift px-2.5 py-1.5">
       <button
         onClick={onOpen}
         className="flex-1 min-w-0 text-left flex items-center gap-2"
@@ -459,24 +505,24 @@ function RoomRow({
           style={{ background: hashHue(r.roomId) }}
         />
         <span
-          className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+          className={`rounded-full text-[10px] font-extrabold uppercase tracking-label px-2 py-0.5 border-[1.5px] border-ink-faint shrink-0 ${
             r.role === "host"
-              ? "bg-brand-100 text-brand-800"
-              : "bg-[var(--hover)] text-[var(--text-dim)]"
+              ? "bg-brand-50 text-brand-700"
+              : "bg-[var(--bg-elev-2)] text-[var(--text-muted)]"
           }`}
         >
           {r.role}
         </span>
-        <span className="truncate text-sm" title={r.title ?? r.roomId}>
+        <span className="truncate text-sm font-bold" title={r.title ?? r.roomId}>
           {r.title || r.roomId}
         </span>
         {r.title && r.title !== r.roomId && (
-          <span className="text-xs text-[var(--text-dim)] truncate shrink-0">
+          <span className="text-xs font-semibold text-[var(--text-dim)] truncate shrink-0">
             {r.roomId}
           </span>
         )}
       </button>
-      <span className="text-xs text-[var(--text-dim)] shrink-0">
+      <span className="text-xs font-semibold text-[var(--text-dim)] shrink-0">
         {r.lastVisitedAt ? formatRelative(r.lastVisitedAt) : ""}
       </span>
       {/* Pin toggle — filled star when pinned (always visible), outline
@@ -491,7 +537,7 @@ function RoomRow({
         aria-label={pinned ? "Unpin room" : "Pin room"}
         title={pinned ? "Unpin" : "Pin to top"}
       >
-        <Star size={15} weight={pinned ? "fill" : "regular"} aria-hidden />
+        <Star size={15} weight={pinned ? "fill" : undefined} aria-hidden />
       </button>
       <button
         onClick={() => removeRoomFromRecents(r.roomId)}

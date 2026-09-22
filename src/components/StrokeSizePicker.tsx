@@ -45,7 +45,7 @@ export default function StrokeSizePicker({ editor }: { editor: Editor | null }) 
 
   return (
     <div
-      className="rounded-md border p-1.5 shadow-lg bg-[var(--bg-elev)] border-[color:var(--border)]"
+      className="rounded-lg border-2 border-ink p-1.5 shadow-sticker bg-[var(--bg-elev)]"
       role="toolbar"
       aria-label="Stroke size"
     >
@@ -57,16 +57,16 @@ export default function StrokeSizePicker({ editor }: { editor: Editor | null }) 
             aria-label={s.label}
             aria-pressed={active === s.value}
             title={s.label}
+            // Selected = 2px ink ring on a warm inset (mirrors LeftRail's
+            // size grid so phone + desktop read the same).
             className={`w-7 h-7 rounded-md inline-flex items-center justify-center transition-colors ${
               active === s.value
-                ? "bg-[var(--text)]"
+                ? "bg-[var(--bg-elev-2)] ring-2 ring-ink"
                 : "hover:bg-[var(--hover)]"
             }`}
           >
             <span
-              className={`rounded-full block ${
-                active === s.value ? "bg-[var(--bg)]" : "bg-[var(--text)]"
-              }`}
+              className="rounded-full block bg-[var(--text)]"
               style={{ width: s.dot, height: s.dot }}
             />
           </button>

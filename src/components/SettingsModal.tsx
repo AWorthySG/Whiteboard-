@@ -2,12 +2,23 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { X } from "@phosphor-icons/react";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth, signOut, displayUsername } from "@/hooks/useAuth";
 import { markAsHost } from "@/hooks/useHostStatus";
 import { useToast } from "./Toast";
 
 const SignInModal = dynamic(() => import("./SignInModal"), { ssr: false });
+
+// Sticker-book input: 2px ink outline, small hard shadow, red outline +
+// soft red halo on focus.
+const INPUT_CLASS =
+  "w-full rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-3.5 py-2 text-sm font-semibold outline-none focus:border-brand-600 focus:shadow-[0_0_0_3px_var(--accent-soft)]";
+
+// Destructive = the PALE red pill (pale fill, red text, ink outline).
+// Solid red is reserved for the one primary action per surface.
+const DESTRUCTIVE_BTN =
+  "rounded-full bg-danger-50 text-danger-700 border-2 border-ink font-extrabold shadow-sticker sticker-press hover:bg-danger-100 disabled:opacity-40 disabled:cursor-not-allowed";
 
 export default function SettingsModal({
   open,
@@ -58,32 +69,34 @@ export default function SettingsModal({
 
   return (
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-[rgba(28,27,25,0.4)] backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl"
+        className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg scale-pop"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-[color:var(--border-subtle)]">
-          <h2 className="text-lg font-semibold">Settings</h2>
+        <header className="flex items-center justify-between px-5 py-4 border-b-2 border-dashed border-[color:var(--border)]">
+          <h2 className="text-lg font-extrabold tracking-display">Settings</h2>
           <button
             onClick={onClose}
-            className="text-[var(--text-muted)] hover:text-[var(--text)] text-2xl leading-none"
+            className="w-9 h-9 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press inline-flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)]"
             aria-label="Close settings"
           >
-            ×
+            <X size={18} aria-hidden />
           </button>
         </header>
 
-        <div className="px-5 py-4 space-y-6">
+        {/* Sections are separated by the dashed rule the LMS uses between
+            groups, rather than by whitespace alone. */}
+        <div className="px-5 py-2 divide-y-2 divide-dashed divide-[color:var(--border)]">
           <Section title="Profile">
             <Field label="Display name">
               <input
                 value={userName}
                 onChange={(e) => onUserNameChange(e.target.value)}
                 placeholder="Your name"
-                className="w-full rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm outline-none focus:border-brand-500"
+                className={INPUT_CLASS}
               />
             </Field>
           </Section>
@@ -93,21 +106,21 @@ export default function SettingsModal({
               {user ? (
                 <>
                   <Field label="Signed in as">
-                    <div className="text-sm text-[var(--text)] px-1">
+                    <div className="text-sm font-bold text-[var(--text)] px-1">
                       {displayUsername(user)}
                     </div>
                   </Field>
                   <button
                     onClick={claimRoom}
                     disabled={claiming}
-                    className="text-xs rounded-md bg-brand-600 text-white hover:bg-brand-500 px-2.5 py-1 disabled:opacity-50"
+                    className="btn-primary"
                     title="Make sure you're the registered host of this room on every device"
                   >
                     {claiming ? "Claiming…" : "Claim this room for my account"}
                   </button>
                   <button
                     onClick={() => signOut()}
-                    className="block text-xs text-[var(--text-dim)] hover:text-[var(--text)] underline underline-offset-2"
+                    className={`block text-xs px-3.5 py-1.5 ${DESTRUCTIVE_BTN}`}
                   >
                     Sign out
                   </button>
@@ -120,7 +133,7 @@ export default function SettingsModal({
                   </p>
                   <button
                     onClick={() => setSignInOpen(true)}
-                    className="text-sm rounded-md bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5"
+                    className="btn-primary"
                   >
                     Sign in
                   </button>
@@ -226,7 +239,7 @@ export default function SettingsModal({
                 <input
                   readOnly
                   value={inviteUrl}
-                  className="flex-1 rounded-md bg-[var(--bg)] border border-[color:var(--border)] px-3 py-2 text-sm text-[var(--text-muted)] outline-none"
+                  className={`flex-1 min-w-0 ${INPUT_CLASS} text-[var(--text-muted)]`}
                 />
                 <button
                   onClick={() => {
@@ -235,7 +248,7 @@ export default function SettingsModal({
                       setTimeout(() => setCopied(false), 1200);
                     }).catch(() => {});
                   }}
-                  className="rounded-md border border-[color:var(--border)] px-3 py-2 text-sm hover:bg-[var(--hover)]"
+                  className="shrink-0 rounded-full bg-[var(--bg-elev)] border-2 border-ink font-extrabold shadow-sticker sticker-press hover:bg-[var(--bg-elev-2)] px-3.5 py-2 text-sm"
                 >
                   {copied ? "Copied" : "Copy"}
                 </button>
@@ -245,7 +258,7 @@ export default function SettingsModal({
               onClick={() => {
                 window.location.href = "/";
               }}
-              className="w-full rounded-md border border-danger-600 text-danger-700 hover:bg-danger-50 px-3 py-2 text-sm"
+              className={`w-full px-3 py-2 text-sm ${DESTRUCTIVE_BTN}`}
             >
               Leave room
             </button>
@@ -265,8 +278,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section>
-      <h3 className="text-xs font-medium uppercase tracking-wider text-[var(--text-dim)] mb-2">
+    <section className="py-5">
+      <h3 className="font-label text-[var(--text-muted)] mb-3">
         {title}
       </h3>
       <div className="space-y-3">{children}</div>
@@ -285,13 +298,16 @@ function Field({
 }) {
   return (
     <div>
-      <label className="text-sm text-[var(--text)]">{label}</label>
-      <div className="mt-1">{children}</div>
-      {hint && <p className="text-xs text-[var(--text-dim)] mt-1">{hint}</p>}
+      <label className="text-sm font-bold text-[var(--text)]">{label}</label>
+      <div className="mt-1.5">{children}</div>
+      {hint && <p className="text-xs text-[var(--text-dim)] mt-1.5">{hint}</p>}
     </div>
   );
 }
 
+// Switch: a 2px-ink pill track (pale red when on) with a round knob that
+// turns brand red when on. Track is 44×24 outer; the 2px border leaves a
+// 40×20 well, so a 16px knob at 2px inset travels 20px to the far side.
 function Toggle({
   label,
   hint,
@@ -305,22 +321,22 @@ function Toggle({
 }) {
   return (
     <label className="flex items-start justify-between gap-3 cursor-pointer">
-      <span className="text-sm text-[var(--text)]">
+      <span className="text-sm font-bold text-[var(--text)]">
         {label}
-        {hint && <span className="block text-xs text-[var(--text-dim)] mt-0.5">{hint}</span>}
+        {hint && <span className="block text-xs font-normal text-[var(--text-dim)] mt-0.5">{hint}</span>}
       </span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative shrink-0 w-10 h-6 rounded-full transition ${
-          checked ? "bg-brand-600" : "bg-[var(--border)]"
+        className={`relative shrink-0 w-11 h-6 rounded-full border-2 border-ink shadow-sticker-sm transition-colors ${
+          checked ? "bg-brand-50" : "bg-[var(--bg-elev-2)]"
         }`}
       >
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-            checked ? "translate-x-[18px]" : "translate-x-0.5"
+          className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full transition-transform ${
+            checked ? "translate-x-5 bg-brand-600" : "translate-x-0 bg-[var(--text-dim)]"
           }`}
         />
       </button>
@@ -328,6 +344,8 @@ function Toggle({
   );
 }
 
+// Segmented pill: ink-outlined track on the muted inset colour; the
+// active segment is a red pill with white text inside it.
 function Segmented<T extends string>({
   value,
   onChange,
@@ -338,15 +356,15 @@ function Segmented<T extends string>({
   options: { value: T; label: string }[];
 }) {
   return (
-    <div className="inline-flex rounded-md bg-[var(--bg)] border border-[color:var(--border)] p-0.5">
+    <div className="inline-flex rounded-full bg-[var(--bg-elev-2)] border-2 border-ink p-1">
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${
+          className={`px-3 py-1 text-sm rounded-full border-2 font-extrabold transition ${
             value === opt.value
-              ? "bg-brand-600 text-white"
-              : "text-[var(--text-muted)] hover:text-[var(--text)]"
+              ? "bg-brand-600 text-white border-ink shadow-sticker-sm"
+              : "border-transparent text-[var(--text-muted)] hover:text-[var(--text)]"
           }`}
         >
           {opt.label}
