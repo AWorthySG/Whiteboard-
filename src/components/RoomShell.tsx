@@ -200,13 +200,19 @@ export default function RoomShell({
   // React position (just fixed-positioned) so the LiveKit connection is
   // never torn down — see CLAUDE.md note #17.
   const [videoPip, setVideoPipState] = useState(false);
-  const [pipPos, setPipPos] = useState<{ x: number; y: number }>(() => {
-    if (typeof window === "undefined") return { x: 24, y: 24 };
-    return {
+  // Parked bottom-right on mount. Measured in an effect rather than a
+  // state initialiser so the server and the first client render agree —
+  // a `typeof window` branch here is a hydration mismatch.
+  const [pipPos, setPipPos] = useState<{ x: number; y: number }>({
+    x: 24,
+    y: 24,
+  });
+  useEffect(() => {
+    setPipPos({
       x: Math.max(8, window.innerWidth - PIP_W - 24),
       y: Math.max(8, window.innerHeight - PIP_H - 24),
-    };
-  });
+    });
+  }, []);
   useEffect(() => {
     try {
       if (window.localStorage.getItem(VIDEO_PIP_KEY) === "1")
@@ -312,10 +318,20 @@ export default function RoomShell({
   // localStorage so a refresh doesn't bring it back if the user has
   // already read it.
   const HINT_DISMISS_KEY = `wb_room_hint_dismissed_${roomId}`;
-  const [emptyRoomHintVisible, setEmptyRoomHintVisible] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return window.localStorage.getItem(HINT_DISMISS_KEY) !== "1";
-  });
+  // Starts hidden and is enabled by the effect below once localStorage has
+  // been consulted: reading it during render disagrees with the server.
+  // Showing it a frame late is invisible; flashing it at someone who
+  // already dismissed it is not.
+  const [emptyRoomHintVisible, setEmptyRoomHintVisible] = useState(false);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(HINT_DISMISS_KEY) !== "1") {
+        setEmptyRoomHintVisible(true);
+      }
+    } catch {
+      setEmptyRoomHintVisible(true);
+    }
+  }, [HINT_DISMISS_KEY]);
   const dismissEmptyRoomHint = useCallback(() => {
     setEmptyRoomHintVisible(false);
     try {
@@ -561,7 +577,20 @@ export default function RoomShell({
 
   useEffect(() => {
     if (!name) {
-      const saved = window.localStorage.getItem("wb_user_name");
+      // `?name=` used to arrive as a server prop, but awaiting
+      // searchParams in the page made the whole room dynamic — Next then
+      // streamed an empty placeholder and React regenerated the entire
+      // subtree on the client (remounting the canvas on every load). The
+      // parameter is read here instead, where the remembered name is
+      // already read. URL wins over localStorage, as it did before.
+      let fromUrl = "";
+      try {
+        fromUrl =
+          new URLSearchParams(window.location.search).get("name")?.trim() ?? "";
+      } catch {
+        /* malformed query string — fall back to the saved name */
+      }
+      const saved = fromUrl || window.localStorage.getItem("wb_user_name");
       if (saved) setName(saved);
     } else {
       window.localStorage.setItem("wb_user_name", name);

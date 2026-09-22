@@ -202,7 +202,7 @@ export default function ChatBubble({
                     {/* Speech-bubble stickers: 2px ink outline on both so a red
                         "mine" bubble reads as a primary pill, not a flat block. */}
                     <span
-                      className={`max-w-[85%] px-3 py-1.5 border-2 border-ink font-semibold break-words whitespace-pre-wrap ${
+                      className={`selectable max-w-[85%] px-3 py-1.5 border-2 border-ink font-semibold break-words whitespace-pre-wrap ${
                         mine
                           ? "bg-brand-600 text-white rounded-2xl rounded-br-md"
                           : "bg-[var(--bg-elev-2)] text-[var(--text)] rounded-2xl rounded-bl-md"

@@ -30,7 +30,7 @@ export default function ErrorBoundary({
           room is still saved server-side.
         </p>
         {error.message && (
-          <pre className="mt-3 max-h-32 overflow-auto text-left text-[10px] text-[var(--text-dim)] bg-[var(--bg-elev-2)] border-[1.5px] border-ink-faint rounded-md px-2.5 py-1.5 whitespace-pre-wrap break-words">
+          <pre className="selectable mt-3 max-h-32 overflow-auto text-left text-[10px] text-[var(--text-dim)] bg-[var(--bg-elev-2)] border-[1.5px] border-ink-faint rounded-md px-2.5 py-1.5 whitespace-pre-wrap break-words">
             {error.message}
           </pre>
         )}
