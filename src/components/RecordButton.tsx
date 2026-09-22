@@ -426,7 +426,7 @@ export default function RecordButton({
               "Screen recording isn't supported on this browser. Use Chrome, Edge, or Firefox on desktop.",
             )
           }
-          className="touch-target text-sm rounded-md border border-[color:var(--border)] text-[var(--text-muted)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-60"
+          className="touch-target text-sm font-extrabold rounded-full bg-[var(--bg-elev)] border-2 border-ink-faint text-[var(--text-muted)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-60"
           title="Screen recording isn't supported on this browser/device"
         >
           <span className="w-2 h-2 rounded-full bg-[var(--text-muted)]" />
@@ -436,30 +436,33 @@ export default function RecordButton({
     }
     return (
       <div ref={menuRef} className="relative flex items-center">
-        {/* Primary: record the whiteboard tab itself (the canvas). */}
+        {/* Primary: record the whiteboard tab itself (the canvas).
+            Idle = one secondary sticker pill split in two (record | caret)
+            with the red dot as the only colour; no sticker-press here
+            because the halves would sink independently. */}
         <button
           onClick={() => start(true)}
-          className="touch-target text-sm rounded-l-md border border-danger-600 text-danger-700 hover:bg-danger-50 px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+          className="touch-target text-sm font-extrabold rounded-l-full bg-[var(--bg-elev)] border-2 border-ink text-[var(--text)] hover:bg-[var(--bg-elev-2)] shadow-sticker-sm pl-3 pr-2.5 lg:pl-3.5 py-1 flex items-center gap-1.5"
           title="Record the whiteboard — captures this tab plus everyone's audio, saves to the cloud, and downloads a backup"
         >
-          <RecordIcon weight="fill" aria-hidden size={14} className="text-danger-600" />
+          <RecordIcon weight="fill" aria-hidden size={14} className="text-brand-600" />
           <span className="hidden lg:inline">Record</span>
         </button>
         {/* Caret: pick what to capture (whiteboard tab vs full screen). */}
         <button
           onClick={() => setMenuOpen((o) => !o)}
-          className="touch-target text-sm rounded-r-md border border-l-0 border-danger-600 text-danger-700 hover:bg-danger-50 px-1.5 py-1 flex items-center"
+          className="touch-target text-sm rounded-r-full bg-[var(--bg-elev)] border-2 border-l-0 border-ink text-[var(--text)] hover:bg-[var(--bg-elev-2)] shadow-sticker-sm pl-1.5 pr-2 py-1 flex items-center"
           aria-label="Recording options"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           title="Recording options"
         >
-          <CaretDown aria-hidden size={12} weight="bold" />
+          <CaretDown aria-hidden size={12} />
         </button>
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full mt-1 w-60 rounded-lg bg-[var(--bg)] border border-[color:var(--border)] shadow-2xl p-1 z-50"
+            className="absolute right-0 top-full mt-2 w-60 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg p-1.5 z-50 scale-pop"
           >
             <RecordModeItem
               onClick={() => start(true)}
@@ -483,21 +486,21 @@ export default function RecordButton({
       <div className="flex items-center gap-1">
         <button
           onClick={stop}
-          className="touch-target text-sm rounded-md bg-danger-600 hover:bg-danger-500 text-white px-2.5 lg:px-3 py-1 flex items-center gap-1.5"
+          className="touch-target text-sm font-extrabold rounded-full bg-brand-600 hover:bg-brand-700 text-white border-2 border-ink shadow-sticker-primary sticker-press px-3 lg:px-3.5 py-1 flex items-center gap-1.5"
           title="Stop and upload"
         >
           <span
-            className={`w-2 h-2 rounded-sm bg-white ${paused ? "" : "animate-pulse"}`}
+            className={`w-2 h-2 rounded-sm bg-[var(--bg-elev)] ${paused ? "" : "animate-pulse"}`}
           />
           <span className="tabular-nums">{formatTime(elapsed)}</span>
           <span className="hidden lg:inline">Stop</span>
         </button>
         <button
           onClick={togglePause}
-          className={`touch-target text-sm rounded-md border px-2.5 py-1 flex items-center gap-1.5 ${
+          className={`touch-target text-sm font-extrabold rounded-full border-2 border-ink shadow-sticker-sm sticker-press px-2.5 py-1 flex items-center gap-1.5 ${
             paused
-              ? "border-amber-600 text-amber-700 bg-amber-50"
-              : "border-[color:var(--border)] text-[var(--text-muted)] hover:bg-[var(--hover)]"
+              ? "bg-sun-bg text-sun-deep"
+              : "bg-[var(--bg-elev)] text-[var(--text)] hover:bg-[var(--bg-elev-2)]"
           }`}
           title={paused ? "Resume recording" : "Pause recording"}
           aria-pressed={paused}
@@ -524,15 +527,15 @@ export default function RecordButton({
   return (
     <button
       disabled
-      className="touch-target relative overflow-hidden text-sm rounded-md border border-[color:var(--border)] px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-90"
+      className="touch-target relative overflow-hidden text-sm font-extrabold rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm px-2.5 lg:px-3 py-1 flex items-center gap-1.5 opacity-90"
       title="Uploading recording to cloud"
     >
       <span
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-0.5 bg-danger-600 transition-[width] duration-300"
+        className="absolute inset-x-0 bottom-0 h-1 bg-brand-600 transition-[width] duration-300"
         style={{ width: `${Math.max(2, uploadPct)}%` }}
       />
-      <span className="inline-block w-3 h-3 rounded-full border-2 border-[color:var(--border)] border-t-[var(--text)] animate-spin" />
+      <span className="inline-block w-3 h-3 rounded-full border-2 border-ink-faint border-t-brand-600 animate-spin" />
       <span className="tabular-nums">
         {uploadPct > 0 ? `${uploadPct}%` : "Saving…"}
       </span>
@@ -553,10 +556,10 @@ function RecordModeItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className="w-full text-left rounded-md px-2 py-1.5 hover:bg-[var(--hover)]"
+      className="w-full text-left rounded-lg px-2.5 py-2 hover:bg-[var(--hover)]"
     >
-      <div className="text-sm text-[var(--text)]">{title}</div>
-      <div className="text-xs text-[var(--text-muted)]">{subtitle}</div>
+      <div className="text-sm font-extrabold text-[var(--text)]">{title}</div>
+      <div className="text-xs font-semibold text-[var(--text-muted)]">{subtitle}</div>
     </button>
   );
 }
