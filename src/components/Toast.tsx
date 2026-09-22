@@ -81,12 +81,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <button
             key={t.id}
             onClick={() => dismiss(t.id)}
-            className={`pointer-events-auto max-w-[min(420px,92vw)] rounded-md px-3 py-2 text-sm shadow-2xl border ${
+            // Sticker recipe per variant: 2px ink outline + hard shadow on
+            // every kind; error / success are tinted (pale red / pale green)
+            // with dark text rather than solid fills, so the one solid red
+            // on screen stays the primary button.
+            className={`pointer-events-auto max-w-[min(420px,92vw)] rounded-xl border-2 border-ink shadow-sticker px-3.5 py-2 text-sm font-bold text-[var(--text)] ${
               t.kind === "error"
-                ? "bg-danger-600 border-danger-700 text-white"
+                ? "bg-danger-50"
                 : t.kind === "success"
-                  ? "bg-emerald-600 border-emerald-700 text-white"
-                  : "bg-[var(--bg-elev)] border-[color:var(--border)] text-[var(--text)]"
+                  ? "bg-success-bg"
+                  : "bg-[var(--bg-elev)]"
             }`}
           >
             {t.message}

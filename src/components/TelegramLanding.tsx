@@ -74,8 +74,8 @@ export default function TelegramLanding() {
             a statement about the person looking at it. */}
         <Sticker name="dad" size={132} priority />
         <BrandLogo size={36} variant="wordmark" />
-        <div className="inline-block w-7 h-7 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
-        <p className="text-sm text-[var(--text-muted)]">Opening your lesson…</p>
+        <div className="inline-block w-7 h-7 border-[3px] border-ink border-t-brand-600 rounded-full animate-spin" />
+        <p className="text-sm font-semibold text-[var(--text-muted)]">Opening your lesson…</p>
       </div>
     );
   }
@@ -88,9 +88,9 @@ export default function TelegramLanding() {
         <header className="flex items-center gap-3">
           <BrandLogo size={36} />
           <div>
-            <h1 className="text-lg font-semibold">A Worthy Whiteboard</h1>
+            <h1 className="text-lg font-extrabold tracking-display">A Worthy Whiteboard</h1>
             {name && (
-              <p className="text-xs text-[var(--text-dim)]">
+              <p className="text-xs font-semibold text-[var(--text-dim)]">
                 Signed in as {name}
               </p>
             )}
@@ -113,11 +113,11 @@ export default function TelegramLanding() {
                 `/r/${id}${tgName ? `?name=${encodeURIComponent(tgName)}` : ""}`,
               );
             }}
-            className="w-full rounded-lg bg-brand-600 hover:bg-brand-500 text-white px-4 py-3 text-sm font-medium"
+            className="w-full rounded-full bg-brand-600 hover:bg-brand-700 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press px-4 py-3 text-sm"
           >
             Start a new lesson
           </button>
-          <p className="text-xs text-[var(--text-dim)]">
+          <p className="text-xs font-semibold text-[var(--text-dim)]">
             Creates a new room and opens it. Share the invite link from
             inside to bring students in.
           </p>
@@ -125,10 +125,12 @@ export default function TelegramLanding() {
 
         {recent.length > 0 && (
           <section className="space-y-2">
-            <h2 className="text-xs uppercase tracking-wider text-[var(--text-dim)]">
+            <h2 className="font-label text-[var(--text-muted)]">
               Recent rooms
             </h2>
-            <ul className="space-y-1">
+            {/* Rows are light stickers; the gap keeps one row's 3px hard
+                shadow off the next row's outline. */}
+            <ul className="space-y-2">
               {recent.slice(0, 8).map((r) => (
                 <li key={r.roomId}>
                   <button
@@ -149,12 +151,16 @@ export default function TelegramLanding() {
                         }`,
                       );
                     }}
-                    className="w-full text-left rounded-md hover:bg-[var(--hover)] px-3 py-2 flex items-center gap-2"
+                    className="w-full text-left rounded-lg bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm card-lift px-3 py-2 flex items-center gap-2"
                   >
-                    <span className="text-sm truncate flex-1">
+                    <span className="text-sm font-bold truncate flex-1">
                       {r.title || r.roomId}
                     </span>
-                    <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--hover)] text-[var(--text-dim)]">
+                    <span className={`rounded-full text-[10px] font-extrabold uppercase tracking-label px-2 py-0.5 border-[1.5px] border-ink-faint ${
+                      r.role === "host"
+                        ? "bg-brand-50 text-brand-700"
+                        : "bg-[var(--bg-elev-2)] text-[var(--text-muted)]"
+                    }`}>
                       {r.role}
                     </span>
                   </button>
@@ -170,7 +176,7 @@ export default function TelegramLanding() {
   // Outside Telegram fallback (we'll redirect in a moment).
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]">
-      <p className="text-sm text-[var(--text-muted)]">Loading…</p>
+      <p className="text-sm font-semibold text-[var(--text-muted)]">Loading…</p>
     </div>
   );
 }

@@ -215,11 +215,11 @@ export default function KnockGate({
 
   return (
     <div className="h-full w-full flex items-center justify-center p-6">
-      <div className="max-w-md w-full rounded-2xl bg-[var(--bg-elev)] border border-[color:var(--border)] p-8 text-center">
+      <div className="max-w-md w-full rounded-3xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-lg p-8 text-center scale-pop">
         {status === "checking" && (
           <>
             <Spinner />
-            <p className="mt-4 text-[var(--text-muted)]">Connecting…</p>
+            <p className="mt-4 font-semibold text-[var(--text-muted)]">Connecting…</p>
           </>
         )}
         {status === "pending" && (
@@ -233,19 +233,22 @@ export default function KnockGate({
               priority
             />
             <Spinner />
-            <h2 className="mt-4 text-lg font-semibold">Waiting to be let in</h2>
+            <h2 className="mt-4 text-lg font-extrabold tracking-display">Waiting to be let in</h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
               The host has been notified you're here. They'll admit you shortly.
             </p>
-            <p className="mt-4 text-xs text-[var(--text-dim)]">
-              Joining as <span className="text-[var(--text-muted)]">{userName}</span>
+            <p className="mt-4 text-xs font-semibold text-[var(--text-dim)]">
+              Joining as <span className="font-bold text-[var(--text-muted)]">{userName}</span>
             </p>
             {longWait && (
-              <div className="mt-5 rounded-md border border-amber-600/50 bg-amber-50 p-3 text-left">
-                <p className="text-xs font-medium text-amber-900">
+              /* Warning sticker: pale sun tint inside the same 2px ink outline
+                 so it reads as "heads up" without competing with the red
+                 accent (which would say "error" here — it isn't one). */
+              <div className="mt-5 rounded-lg border-2 border-ink shadow-sticker-sm bg-warning-bg p-3 text-left">
+                <p className="font-label text-warning">
                   Still waiting…
                 </p>
-                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                <p className="text-xs font-semibold text-[var(--text-muted)] mt-1 leading-relaxed">
                   If this is taking a while, the host may be away — or
                   the room link might be wrong. Check that the invite
                   URL matches what your tutor sent.
@@ -256,10 +259,10 @@ export default function KnockGate({
         )}
         {status === "denied" && (
           <>
-            <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center">
-              <Prohibit size={28} className="text-danger-600" aria-hidden />
+            <div className="mx-auto w-14 h-14 rounded-full border-2 border-ink bg-danger-50 flex items-center justify-center">
+              <Prohibit size={28} className="text-danger-700" aria-hidden />
             </div>
-            <h2 className="mt-4 text-lg font-semibold">Not admitted</h2>
+            <h2 className="mt-4 text-lg font-extrabold tracking-display">Not admitted</h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
               The host declined your request. Refresh to try again or contact them.
             </p>
@@ -267,10 +270,10 @@ export default function KnockGate({
         )}
         {status === "error" && (
           <>
-            <div className="mx-auto w-14 h-14 rounded-full bg-[var(--hover)] flex items-center justify-center">
-              <WarningCircle size={28} className="text-danger-600" aria-hidden />
+            <div className="mx-auto w-14 h-14 rounded-full border-2 border-ink bg-danger-50 flex items-center justify-center">
+              <WarningCircle size={28} className="text-danger-700" aria-hidden />
             </div>
-            <h2 className="mt-4 text-lg font-semibold text-danger-700">
+            <h2 className="mt-4 text-lg font-extrabold tracking-display text-danger-700">
               Couldn't request to join
             </h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">{error}</p>
@@ -283,6 +286,6 @@ export default function KnockGate({
 
 function Spinner() {
   return (
-    <div className="inline-block w-8 h-8 border-2 border-[color:var(--border)] border-t-brand-500 rounded-full animate-spin" />
+    <div className="inline-block w-8 h-8 border-[3px] border-ink border-t-brand-600 rounded-full animate-spin" />
   );
 }

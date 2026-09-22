@@ -76,13 +76,13 @@ export default function PwaInstallBanner() {
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9000] max-w-[calc(100vw-1.5rem)]">
-      <div className="rounded-full bg-[var(--bg-elev)] border border-[color:var(--border)] shadow-2xl pl-3 pr-1 py-1 inline-flex items-center gap-2">
-        <span className="text-xs text-[var(--text)] whitespace-nowrap">
+      <div className="rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker pl-3.5 pr-1.5 py-1.5 inline-flex items-center gap-2">
+        <span className="text-xs font-bold text-[var(--text)] whitespace-nowrap">
           Install for offline access + faster opens
         </span>
         <button
           onClick={install}
-          className="text-xs rounded-full bg-brand-600 hover:bg-brand-500 text-white px-3 py-1"
+          className="text-xs font-extrabold rounded-full bg-brand-600 hover:bg-brand-700 text-white border-2 border-ink shadow-sticker-sm sticker-press px-3 py-1"
         >
           Install
         </button>
@@ -90,7 +90,7 @@ export default function PwaInstallBanner() {
           onClick={dismiss}
           aria-label="Dismiss install banner"
           title="Dismiss"
-          className="w-7 h-7 rounded-full text-[var(--text-muted)] hover:bg-[var(--hover)] inline-flex items-center justify-center"
+          className="w-7 h-7 rounded-full text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)] inline-flex items-center justify-center"
         >
           <X size={14} aria-hidden />
         </button>
