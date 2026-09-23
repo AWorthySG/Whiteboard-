@@ -257,7 +257,10 @@ export async function exportLessonPdf({
   // Add to room_documents so it appears in the Documents drawer too.
   const supabase = getSupabase();
   if (supabase) {
-    await supabase.from("room_documents").insert({
+    // Non-fatal: the PDF is in Storage, linked in the chat recap and saved
+    // locally. But Supabase returns (not throws) the error, so read it —
+    // otherwise a missing drawer entry is undiagnosable.
+    const { error: docErr } = await supabase.from("room_documents").insert({
       room_id: roomId,
       name: fileName,
       url: publicUrl,
@@ -265,6 +268,9 @@ export async function exportLessonPdf({
       uploaded_by_user_id: hostUserId,
       uploaded_by_name: hostName,
     });
+    if (docErr) {
+      console.warn("[pdf] room_documents insert failed", docErr);
+    }
   }
 
   onProgress?.({ stage: "done", current: pages.length, total: pages.length });

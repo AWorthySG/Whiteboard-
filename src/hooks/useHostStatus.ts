@@ -48,7 +48,14 @@ export async function markAsHost(
       const username = user.email
         ? user.email.slice(0, user.email.lastIndexOf("@") || undefined)
         : null;
-      await supabase.from("rooms").upsert(
+      // Supabase never throws on a failed write — it RETURNS `{ error }`.
+      // This used to be a bare `await`, so an RLS rejection (the row is
+      // owned by another account) or a dropped connection was swallowed
+      // and Settings' "Claim this room" reported success regardless.
+      // The localStorage write above has already happened, so the host
+      // keeps local ownership either way; this throw only reports that
+      // the cross-device (account) half didn't stick.
+      const { error } = await supabase.from("rooms").upsert(
         {
           id: roomId,
           host_user_id: user.id,
@@ -58,6 +65,7 @@ export async function markAsHost(
         },
         { onConflict: "id" },
       );
+      if (error) throw new Error(error.message);
     }
   }
 }

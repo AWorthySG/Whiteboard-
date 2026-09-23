@@ -614,15 +614,23 @@ export default function RoomShell({
     if (!isHost || !roomId || !userId) return;
     const supabase = getSupabase();
     if (!supabase) return;
-    void supabase.from("join_requests").upsert(
-      {
-        room_id: roomId,
-        user_id: userId,
-        user_name: name || "Host",
-        status: "admitted",
-      },
-      { onConflict: "room_id,user_id" },
-    );
+    void supabase
+      .from("join_requests")
+      .upsert(
+        {
+          room_id: roomId,
+          user_id: userId,
+          user_name: name || "Host",
+          status: "admitted",
+        },
+        { onConflict: "room_id,user_id" },
+      )
+      .then(({ error }) => {
+        // The LiveKit token route checks this row, so a failure here is
+        // what "the host can't join their own call" looks like. Supabase
+        // returns the error rather than throwing, so it must be read.
+        if (error) console.error("[room] host self-admit failed", error);
+      });
   }, [isHost, roomId, userId, name]);
 
   useEffect(() => {

@@ -16,6 +16,7 @@ import { Star, X } from "@phosphor-icons/react";
 import BrandLogo from "@/components/BrandLogo";
 import Sticker, { SUBJECT_STICKERS } from "@/components/Sticker";
 import PwaInstallBanner from "@/components/PwaInstallBanner";
+import { useToast } from "@/components/Toast";
 
 const SignInModal = dynamic(() => import("@/components/SignInModal"), { ssr: false });
 
@@ -38,6 +39,7 @@ type ServerRoom = {
 
 export default function Home() {
   const router = useRouter();
+  const toast = useToast();
   const { user, loading: authLoading } = useAuth();
   const [name, setName] = useState("");
   const [room, setRoom] = useState("");
@@ -133,7 +135,17 @@ export default function Home() {
 
   const start = async (id: string, isNew: boolean) => {
     if (isNew) {
-      await markAsHost(id, user, name.trim() || displayUsername(user) || undefined);
+      try {
+        await markAsHost(id, user, name.trim() || displayUsername(user) || undefined);
+      } catch (e) {
+        // markAsHost records local ownership before it touches the network,
+        // so the host is still the host on THIS device — go in regardless.
+        // Only the cross-device claim failed; say so rather than stranding
+        // them on the landing page with a room they can't enter.
+        toast.error(
+          `Room created, but it couldn't be linked to your account (${(e as Error).message}). You're host on this device — use Settings → Claim this room to retry.`,
+        );
+      }
     }
     const params = new URLSearchParams();
     if (name.trim()) params.set("name", name.trim());
