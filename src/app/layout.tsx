@@ -40,10 +40,17 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "A Worthy",
   },
-  // The favicon comes from src/app/icon.png (Next.js auto-generates the
-  // <link rel="icon"> tag with a cache-busting hash). Don't duplicate it
-  // here or browsers may pick the non-cache-busted /icon.png and keep
-  // serving the stale version.
+  // Favicons are declared here, not via src/app/icon.png. That file was a
+  // byte-identical 193 kB copy of public/icon.png AND both claimed the
+  // /icon.png route. The `?v=` query is the cache-buster Next's file
+  // convention used to add — bump it whenever the icon art changes, or
+  // browsers keep the old favicon.
+  icons: {
+    icon: [
+      { url: "/favicon-32.png?v=3", type: "image/png", sizes: "32x32" },
+      { url: "/icon-192.png?v=3", type: "image/png", sizes: "192x192" },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
@@ -100,9 +107,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             manifest icon list alone isn't enough on Safari. 180px is
             the rendered home-screen size; the other two cover iPad
             Pro and pinned-tab cases. */}
-        <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png" />
-        <link rel="apple-touch-icon" sizes="167x167" href="/icon-167.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png?v=3" />
+        <link rel="apple-touch-icon" sizes="167x167" href="/icon-167.png?v=3" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icon-152.png?v=3" />
       </head>
       <body>
         {/* Telegram WebApp SDK — only does anything when the page is

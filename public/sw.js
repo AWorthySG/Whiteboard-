@@ -16,8 +16,8 @@
 // the tldraw sync worker — is always network-only. We never want
 // a stale room shell, a stale auth token, or a stale snapshot.
 
-const STATIC_CACHE = "wb-static-v2";
-const SHELL_CACHE = "wb-shell-v2";
+const STATIC_CACHE = "wb-static-v3";
+const SHELL_CACHE = "wb-shell-v3";
 const SHELL_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
