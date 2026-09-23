@@ -121,7 +121,12 @@ function uploadAsset(
           const { getSupabase } = await import("@/lib/supabase");
           const supabase = getSupabase();
           if (supabase) {
-            await supabase.from("room_documents").insert({
+            // Supabase RETURNS insert errors rather than throwing them, so
+            // the catch below only ever saw import/network faults — a
+            // rejected insert was silent. The file itself is NOT removed on
+            // failure (unlike the drawer uploads): it's already on the
+            // canvas as an image shape that references this URL.
+            const { error } = await supabase.from("room_documents").insert({
               room_id: meta.roomId,
               name: originalName,
               url: publicUrl,
@@ -129,6 +134,9 @@ function uploadAsset(
               uploaded_by_user_id: meta.userId,
               uploaded_by_name: meta.userName,
             });
+            if (error) {
+              console.warn("[upload] room_documents insert failed", error);
+            }
           }
         } catch (e) {
           // File is uploaded — don't fail the whole upload just because

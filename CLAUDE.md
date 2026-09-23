@@ -114,7 +114,10 @@ A user is host of a room if either:
 
 `useIsHost(roomId)` returns true if either is true. `markAsHost(roomId, user?, name?)`
 always writes to localStorage and additionally upserts the `rooms` row when a user
-is provided. A "Claim this room for my account" button in **Settings → Account**
+is provided. It **throws** if that upsert returns an error (Supabase returns `{ error }`
+rather than throwing, so a bare `await` used to swallow RLS rejections and made
+"Claim this room" report false success). Local ownership is written first and
+survives the throw; the landing page catches it and toasts, then still enters. A "Claim this room for my account" button in **Settings → Account**
 promotes a legacy localStorage room into a proper `rooms` row.
 
 ## Key components (`src/components/`)
@@ -684,7 +687,7 @@ npm run dev:sync     # wrangler dev for the sync worker
 npm run dev:all      # both concurrently
 npm run typecheck    # tsc --noEmit (run before committing)
 npm run build        # production build + size report
-npm test             # vitest run (34 tests across 6 files)
+npm test             # vitest run (38 tests across 7 files)
 npm run test:watch   # vitest watch mode
 ```
 
