@@ -46,10 +46,10 @@ export default function KnockGate({
 
     (async () => {
       // 0. If the URL carries an `?invite=` token, redeem it first.
-      // The redeem endpoint upserts an admitted row for our userId, so
-      // anyone with the link walks straight in regardless of whether
-      // they've been admitted on this device before. Idempotent — a
-      // device that's already admitted just re-affirms its status.
+      // The redeem endpoint admits a new or waiting device straight in
+      // and leaves an admitted one untouched — but it will NOT re-admit a
+      // student the host removed (their row stays 'denied', so the steps
+      // below show "Not admitted" until the host taps Re-admit).
       const params = new URLSearchParams(window.location.search);
       const inviteToken = params.get("invite");
       if (inviteToken) {
@@ -264,7 +264,7 @@ export default function KnockGate({
             </div>
             <h2 className="mt-4 text-lg font-extrabold tracking-display">Not admitted</h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
-              The host declined your request. Refresh to try again or contact them.
+              The host hasn&apos;t let you in. Ask them to admit you — you&apos;ll join automatically when they do.
             </p>
           </>
         )}
