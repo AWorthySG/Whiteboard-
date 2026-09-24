@@ -157,6 +157,12 @@ export default function SettingsModal({
               onChange={(v) => setSettings({ penOnly: v })}
             />
             <Toggle
+              label="Fountain-pen nib"
+              hint="Pen strokes take on an angled-nib look: down-strokes come out fuller and up-strokes finer, like writing with an italic fountain pen. Horizontal lines (minus signs, fraction bars) stay clearly visible. It applies to new strokes only, and everyone in the room sees your strokes the same way. Turn it off for a plain, even line."
+              checked={settings.fountainPen}
+              onChange={(v) => setSettings({ fountainPen: v })}
+            />
+            <Toggle
               label="Show performance readout"
               hint="Diagnostic overlay on the canvas showing live frame rate, input-to-frame latency, how many shapes are actually being painted, and main-thread stalls. Use it to pin down what's making a lesson feel laggy, then turn it back off. You can also add ?perf=1 to the room link to switch it on without opening Settings."
               checked={settings.perfHud}

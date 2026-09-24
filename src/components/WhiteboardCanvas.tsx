@@ -24,6 +24,7 @@ import {
   TLUiOverrides,
   type TLDefaultColorStyle,
   type TLDefaultSizeStyle,
+  type TLDrawShape,
   type TLPageId,
   atom,
   getHashForString,
@@ -54,6 +55,7 @@ import type { RequestRenamePage } from "./RenamePageDialog";
 import { createPortal, flushSync } from "react-dom";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
+import { FountainDrawShapeUtil } from "@/lib/fountainNib";
 import PagesTabBar from "./PagesTabBar";
 import ZoomControls from "./ZoomControls";
 import CanvasSearch from "./CanvasSearch";
@@ -219,7 +221,7 @@ function makeAssetStore(meta: UploadMeta, onProgress: ProgressFn): TLAssetStore 
 // The note shape is our post-it (src/lib/postIt.ts): tldraw's note with
 // resize handles (resizeMode "scale"), that adopts pen/highlighter ink
 // written on it so the handwriting moves, scales and deletes with it.
-const CUSTOM_SHAPE_UTILS = [PostItNoteUtil];
+const CUSTOM_SHAPE_UTILS = [PostItNoteUtil, FountainDrawShapeUtil];
 
 /** Every UI entry point for a post-it (N key, SlimToolbar Note, the phone
  *  pill, the command palette) inserts through here. `flushSync` renders the
@@ -362,6 +364,12 @@ export default function WhiteboardCanvas({
   useEffect(() => {
     onRequestRenamePageRef.current = onRequestRenamePage;
   }, [onRequestRenamePage]);
+  // Read by the create handler (set up once in onMount), so toggling the
+  // setting mid-lesson applies to the next stroke without a remount.
+  const fountainPenRef = useRef(appSettings.fountainPen);
+  useEffect(() => {
+    fountainPenRef.current = appSettings.fountainPen;
+  }, [appSettings.fountainPen]);
   const drawGrantUserIdRef = useRef(drawGrantUserId);
   useEffect(() => { drawGrantUserIdRef.current = drawGrantUserId; }, [drawGrantUserId]);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -1118,6 +1126,14 @@ export default function WhiteboardCanvas({
                         !isHostRef.current &&
                         userId !== drawGrantUserIdRef.current,
                       authorId: userId,
+                      // Fountain-pen nib: stamped per stroke at creation so
+                      // every client renders it identically and strokes
+                      // drawn with the setting off stay plain.
+                      ...(fountainPenRef.current &&
+                      shape.type === "draw" &&
+                      (shape as TLDrawShape).props.dash === "draw"
+                        ? { nib: true }
+                        : {}),
                     },
                   };
                 },
