@@ -120,20 +120,23 @@ export default function PresenceBadge({
     };
   }, [roomId, userId, userName, currentPageId]);
 
-  // Close popover on outside click, Escape, and restore focus to the
-  // trigger so keyboard users don't lose their place.
+  // Close popover on outside tap/click, Escape, and restore focus to the
+  // trigger so keyboard users don't lose their place. The outside tap is a
+  // CAPTURE-phase document pointerdown, not a window mousedown: an iPad tap
+  // on the board produces no mousedown and tldraw stops pointerdown
+  // propagation at its container.
   useEffect(() => {
     if (!open) return;
-    const onClick = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!popoverRef.current?.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    window.addEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("mousedown", onClick);
+      document.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey);
       triggerRef.current?.focus();
     };

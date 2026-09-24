@@ -228,7 +228,10 @@ export default function PerfHud({
 
   return (
     <div
-      className="fixed z-[95] top-14 left-2 md:top-3 md:left-20 rounded-xl border-2 border-ink bg-[var(--bg-elev)] shadow-sticker text-[11px] font-semibold text-[var(--text)] select-none"
+      // md+: top-28 clears the header (~58px) + SubNav (~46px) so the HUD
+      // sits on the canvas's top-left, beside the LeftRail — at md:top-3 it
+      // covered the header's "+ New page" and Pages controls at 1024px.
+      className="fixed z-[95] top-14 left-2 md:top-28 md:left-20 rounded-xl border-2 border-ink bg-[var(--bg-elev)] shadow-sticker text-[11px] font-semibold text-[var(--text)] select-none"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="flex items-center gap-2 px-2.5 py-1.5">

@@ -26,12 +26,17 @@ export default function SettingsModal({
   roomId,
   userName,
   onUserNameChange,
+  isHost,
 }: {
   open: boolean;
   onClose: () => void;
   roomId: string;
   userName: string;
   onUserNameChange: (name: string) => void;
+  // Gates "Claim this room". markAsHost writes local ownership before the
+  // rooms upsert, so a signed-in student pressing it would get an RLS
+  // error toast yet become a local host on reload.
+  isHost: boolean;
 }) {
   const [settings, setSettings] = useSettings();
   const [copied, setCopied] = useState(false);
@@ -41,7 +46,7 @@ export default function SettingsModal({
   const toast = useToast();
 
   const claimRoom = async () => {
-    if (!user) return;
+    if (!user || !isHost) return;
     setClaiming(true);
     try {
       await markAsHost(roomId, user, userName);
@@ -110,14 +115,16 @@ export default function SettingsModal({
                       {displayUsername(user)}
                     </div>
                   </Field>
-                  <button
-                    onClick={claimRoom}
-                    disabled={claiming}
-                    className="btn-primary"
-                    title="Make sure you're the registered host of this room on every device"
-                  >
-                    {claiming ? "Claiming…" : "Claim this room for my account"}
-                  </button>
+                  {isHost && (
+                    <button
+                      onClick={claimRoom}
+                      disabled={claiming}
+                      className="btn-primary"
+                      title="Make sure you're the registered host of this room on every device"
+                    >
+                      {claiming ? "Claiming…" : "Claim this room for my account"}
+                    </button>
+                  )}
                   <button
                     onClick={() => signOut()}
                     className={`block text-xs px-3.5 py-1.5 ${DESTRUCTIVE_BTN}`}

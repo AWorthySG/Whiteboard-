@@ -8,8 +8,11 @@ import {
   telegramUserId,
 } from "@/hooks/useTelegramWebApp";
 import { useRecentRooms } from "@/hooks/useRecentRooms";
+import { useAuth, displayUsername } from "@/hooks/useAuth";
+import { markAsHost } from "@/hooks/useHostStatus";
 import BrandLogo from "./BrandLogo";
 import Sticker from "./Sticker";
+import { useToast } from "./Toast";
 
 // Telegram Mini App landing screen.
 // Behaviour:
@@ -25,7 +28,42 @@ export default function TelegramLanding() {
   const router = useRouter();
   const tg = useTelegramWebApp();
   const recent = useRecentRooms();
+  const { user } = useAuth();
+  const toast = useToast();
   const [navigated, setNavigated] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  // Mirrors the landing page's start(id, true): the creator must be marked
+  // host BEFORE entering, or they land in their own brand-new room as a
+  // KnockGate guest with no host to admit them.
+  const startNewLesson = () => {
+    if (starting) return;
+    setStarting(true);
+    const id = crypto.randomUUID().slice(0, 8);
+    const tgName = telegramDisplayName(tg.user);
+    const userId = telegramUserId(tg.user);
+    try {
+      if (tgName) window.localStorage.setItem("wb_user_name", tgName);
+      if (userId) window.localStorage.setItem("wb_user_id", userId);
+    } catch {
+      // ignore
+    }
+    // markAsHost records local ownership SYNCHRONOUSLY, before its first
+    // await — that alone makes this device the host. So don't wait on the
+    // account upsert (a POST with no timeout: a stalled connection left the
+    // button on "Starting…" indefinitely). It finishes in the background;
+    // the toast lives in the root layout, so it still shows in the room.
+    markAsHost(id, user, tgName || displayUsername(user) || undefined).catch(
+      (e) => {
+        toast.error(
+          `Room created, but it couldn't be linked to your account (${(e as Error).message}). You're host on this device — use Settings → Claim this room to retry.`,
+        );
+      },
+    );
+    router.push(
+      `/r/${id}${tgName ? `?name=${encodeURIComponent(tgName)}` : ""}`,
+    );
+  };
 
   useEffect(() => {
     if (navigated) return;
@@ -99,23 +137,11 @@ export default function TelegramLanding() {
 
         <section className="space-y-2">
           <button
-            onClick={() => {
-              const id = crypto.randomUUID().slice(0, 8);
-              const tgName = telegramDisplayName(tg.user);
-              const userId = telegramUserId(tg.user);
-              try {
-                if (tgName) window.localStorage.setItem("wb_user_name", tgName);
-                if (userId) window.localStorage.setItem("wb_user_id", userId);
-              } catch {
-                // ignore
-              }
-              router.push(
-                `/r/${id}${tgName ? `?name=${encodeURIComponent(tgName)}` : ""}`,
-              );
-            }}
-            className="w-full rounded-full bg-brand-600 hover:bg-brand-700 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press px-4 py-3 text-sm"
+            onClick={startNewLesson}
+            disabled={starting}
+            className="w-full rounded-full bg-brand-600 hover:bg-brand-700 text-white border-2 border-ink font-extrabold shadow-sticker-primary sticker-press px-4 py-3 text-sm disabled:opacity-60"
           >
-            Start a new lesson
+            {starting ? "Starting…" : "Start a new lesson"}
           </button>
           <p className="text-xs font-semibold text-[var(--text-dim)]">
             Creates a new room and opens it. Share the invite link from

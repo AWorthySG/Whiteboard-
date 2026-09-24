@@ -324,6 +324,45 @@ html[data-theme="light"] .tl-canvas {
   overflow: hidden;
 }
 
+/* Desktop (md+) bottom band in WhiteboardCanvas: ZoomControls | PagesTabBar
+   | a spacer that keeps 3.5rem clear for the fixed ChatBubble. See the
+   comment on the band in WhiteboardCanvas for the track choices.
+   The band is a size container so a NARROW canvas (iPad portrait beside
+   the 300px video column: ~360px) stacks zoom above the page bar and gives
+   the bar the full width — on one row the tab strip shrank to ~18px and
+   the active tab, Rename and × were unreachable. Narrow only happens with
+   the video column docked, which also puts the ChatBubble over the video,
+   so the stacked layout drops the spacer. The container is the band
+   itself (already a z-60 stacking context), never .tldraw-shell: a
+   container applies layout containment, which would make .tldraw-shell a
+   stacking context (see the header z-order gotcha in CLAUDE.md). */
+.pages-band {
+  container-type: inline-size;
+}
+.pages-band-grid {
+  display: grid;
+  align-items: end;
+  grid-template-columns: 1fr minmax(0, auto) minmax(3.5rem, 1fr);
+}
+/* Hug the zoom pill: a stretched wrapper is pointer-events:auto across the
+   whole left track and would swallow canvas taps beside the pill. */
+.pages-band-zoom {
+  justify-self: start;
+}
+@container (max-width: 32rem) {
+  .pages-band-grid {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.5rem;
+  }
+  .pages-band-pages {
+    justify-self: center;
+    max-width: 100%;
+  }
+  .pages-band-spacer {
+    display: none;
+  }
+}
+
 /* Belt-and-suspenders: Firefox sometimes ignores touch-action on a
    parent element and requires it on the descendant itself. Explicitly
    set it on tldraw's inner containers and the raw <canvas> so no

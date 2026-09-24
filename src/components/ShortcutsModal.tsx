@@ -18,7 +18,7 @@ const SECTIONS: Section[] = [
       { keys: ["V"],       label: "Select" },
       { keys: ["H"],       label: "Hand / pan" },
       { keys: ["K"],       label: "Laser pointer" },
-      { keys: ["N"],       label: "Sticky note" },
+      { keys: ["N"],       label: "Add a post-it" },
     ],
   },
   {

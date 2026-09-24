@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   DefaultColorStyle,
   DefaultSizeStyle,
@@ -23,12 +24,14 @@ import {
   CaretDown,
   ArrowsOut,
 } from "@phosphor-icons/react";
+import { insertPostIt } from "@/lib/postIt";
 
 // Vertical tool rail on the left edge of the canvas (Phase 4 of the
 // design handoff). Calls editor.setCurrentTool() directly and reflects
-// the active tool from editor.getCurrentToolId(). Renders only at md+
-// — phones keep tldraw's native bottom toolbar where the tools are
-// reachable with a thumb.
+// the active tool from editor.getCurrentToolId(); "Add post-it" is the
+// one action in the tool group (insertPostIt, no active state). Renders
+// only at md+ — phones keep tldraw's native bottom toolbar where the
+// tools are reachable with a thumb.
 //
 // We hide tldraw's own toolbar on md+ via the [data-rail-active]
 // attribute on the room shell + a global CSS rule (see globals.css).
@@ -79,6 +82,10 @@ export default function LeftRail({
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [styleOpen, setStyleOpen] = useState(false);
+  // pointerType of the tap on "Add post-it", recorded on pointerdown and
+  // read on click (a Pencil tap → write mode). Declared before the early
+  // return below — hooks can't sit after it.
+  const postItPointerTypeRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!editor) return;
@@ -120,6 +127,20 @@ export default function LeftRail({
   const select = (toolId: string) => {
     editor.complete();
     editor.setCurrentTool(toolId);
+  };
+
+  // "Add post-it" is an ACTION, not a tool: one tap drops a post-it at the
+  // view centre (src/lib/postIt.ts). A Pencil tap (or pen mode, or the pen
+  // already active) leaves the pen ready to write on it; a finger or mouse
+  // opens it for typing — inside flushSync so the note's text field focuses
+  // within this tap, which iOS needs to raise the keyboard. Host AND
+  // students get it.
+  const addPostIt = () => {
+    const pointerType = postItPointerTypeRef.current;
+    postItPointerTypeRef.current = undefined;
+    flushSync(() => {
+      insertPostIt(editor, { pointerType });
+    });
   };
 
   const pickColor = (name: TLDefaultColorStyle) => {
@@ -175,8 +196,15 @@ export default function LeftRail({
 
       <Divider />
 
-      <RailBtn active={active === "note"} onClick={() => select("note")} label="Sticky note" shortcut="N">
-        <Note size={18} weight={active === "note" ? "fill" : undefined} />
+      <RailBtn
+        onPointerDown={(e) => {
+          postItPointerTypeRef.current = e.pointerType;
+        }}
+        onClick={addPostIt}
+        label="Add post-it"
+        shortcut="N"
+      >
+        <Note size={18} />
       </RailBtn>
       <RailBtn onClick={onUpload} label="Upload document or image">
         <Upload size={18} />
@@ -307,6 +335,7 @@ function RailBtn({
   active,
   activeTone = "accent",
   onClick,
+  onPointerDown,
   label,
   shortcut,
   disabled,
@@ -315,6 +344,7 @@ function RailBtn({
   active?: boolean;
   activeTone?: "accent" | "amber";
   onClick: () => void;
+  onPointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
   label: string;
   shortcut?: string;
   disabled?: boolean;
@@ -328,9 +358,13 @@ function RailBtn({
     <button
       type="button"
       onClick={onClick}
+      onPointerDown={onPointerDown}
       title={tooltip}
       aria-label={label}
-      aria-pressed={!!active}
+      // Only toggles (tools, hide-annotations, lead) announce a pressed
+      // state; action buttons (Add post-it, Upload, Undo…) pass no
+      // `active` and must not read as an unpressed toggle.
+      aria-pressed={active}
       disabled={disabled}
       className={`w-10 h-10 rounded-lg inline-flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
         active

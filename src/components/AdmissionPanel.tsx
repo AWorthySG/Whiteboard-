@@ -147,11 +147,21 @@ export default function AdmissionPanel({
     <div
       // Sticker card while knocks are pending or the roster is open; the
       // idle "Class roster (n)" state is a sticker PILL, so it goes fully
-      // round only while nothing is listed beneath it.
-      className={`absolute top-16 right-4 z-[100] max-w-[calc(100vw-2rem)] bg-[var(--bg-elev)] border-2 border-ink overflow-hidden ${
+      // round only while nothing is listed beneath it — and hugs its label,
+      // so it takes no more of the canvas's top-right corner than the
+      // status pills below it.
+      // Not positioned: it is the first item of WhiteboardCanvas's
+      // top-right CanvasFloatingPanel column (RoomShell passes it in as
+      // `admissionPanel`), so the pills stack under it and can't overlap.
+      // md:mt-12 drops it below the centred LessonTimer row: on md+ the
+      // column starts at top-3, level with the clock, and on a narrow
+      // canvas (iPad portrait, or 1024 beside the video column) a w-80
+      // knock card reached across the "Timer" button. Phones already start
+      // the column below that row (top-14).
+      className={`md:mt-12 max-w-[calc(100vw-2rem)] bg-[var(--bg-elev)] border-2 border-ink overflow-hidden ${
         urgent
           ? "w-80 rounded-xl shadow-sticker-lg"
-          : `w-56 shadow-sticker ${rosterOpen ? "rounded-xl" : "rounded-full"}`
+          : `shadow-sticker ${rosterOpen ? "w-56 rounded-xl" : "rounded-full"}`
       }`}
     >
       {urgent && (
