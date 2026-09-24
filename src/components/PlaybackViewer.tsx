@@ -7,6 +7,12 @@ import { ArrowLeft, WarningCircle } from "@phosphor-icons/react";
 import type { Editor } from "tldraw";
 import "tldraw/tldraw.css";
 import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
+import { FountainDrawShapeUtil } from "@/lib/fountainNib";
+import { PostItNoteUtil } from "@/lib/postIt";
+
+// Same shape utils as the live board, so recordings render nib strokes
+// and post-its exactly as they looked in the lesson.
+const PLAYBACK_SHAPE_UTILS = [PostItNoteUtil, FountainDrawShapeUtil];
 
 const Tldraw = dynamic(() => import("tldraw").then((m) => m.Tldraw), {
   ssr: false,
@@ -203,6 +209,7 @@ export default function PlaybackViewer({ recording }: { recording: Recording }) 
             <>
               <Tldraw
                 options={TLDRAW_OPTIONS}
+                shapeUtils={PLAYBACK_SHAPE_UTILS}
                 onMount={(ed) => {
                   editorRef.current = ed;
                   ed.updateInstanceState({ isReadonly: true });

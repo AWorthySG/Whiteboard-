@@ -678,7 +678,7 @@ describe("WhiteboardCanvas wiring", () => {
   );
 
   it("renders notes with PostItNoteUtil", () => {
-    expect(src).toMatch(/const CUSTOM_SHAPE_UTILS = \[PostItNoteUtil\];/);
+    expect(src).toMatch(/const CUSTOM_SHAPE_UTILS = \[[^\]]*\bPostItNoteUtil\b[^\]]*\];/);
     expect(src).toMatch(/shapeUtils=\{CUSTOM_SHAPE_UTILS\}/);
   });
 

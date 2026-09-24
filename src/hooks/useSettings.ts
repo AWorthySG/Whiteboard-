@@ -34,6 +34,11 @@ export type Settings = {
    *  `?perf=1` on the room URL forces it on without opening Settings,
    *  which is how you enable it on an iPad mid-lesson. */
   perfHud: boolean;
+  /** Fountain-pen "angled nib": pen strokes get thick down-strokes and
+   *  thin up-strokes, like an italic nib held at ~40°. Stamped per stroke
+   *  (meta.nib) when it's drawn, so switching it off only affects new
+   *  strokes and everyone in the room sees each stroke the same way. */
+  fountainPen: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,6 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hasSeenOnboarding: false,
   penOnly: false,
   perfHud: false,
+  fountainPen: true,
 };
 
 const KEY = "wb_settings_v1";
