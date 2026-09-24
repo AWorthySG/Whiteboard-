@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { jwtVerify, type JWTPayload } from "jose";
 import { createClient } from "@supabase/supabase-js";
+import { inviteRedeemAction } from "@/lib/inviteRedeem";
 
 export const runtime = "nodejs";
 
@@ -91,13 +92,11 @@ export async function POST(req: Request) {
     auth: { persistSession: false },
   });
 
-  // Read-then-conditionally-write keyed on (room_id, user_id). An
-  // unconditional upsert would reset requested_at / decided_at / user_name
-  // on EVERY re-redeem (a returning magic-link student who reloads the
-  // ?invite= URL each session), churning the host's roster timestamps.
-  // Instead: leave an already-admitted row untouched, promote a
-  // pending/denied row to admitted (preserving its original requested_at),
-  // and only stamp timestamps when first creating the row.
+  // Read-then-conditionally-write keyed on (room_id, user_id) — see
+  // inviteRedeemAction. An unconditional upsert would reset requested_at /
+  // decided_at / user_name on EVERY re-redeem (a returning magic-link
+  // student reloads the ?invite= URL each session) and, worse, would
+  // re-admit a student the host had removed.
   const now = new Date().toISOString();
   const { data: existingRow } = await supabase
     .from("join_requests")
@@ -106,21 +105,28 @@ export async function POST(req: Request) {
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (existingRow) {
-    if (existingRow.status !== "admitted") {
-      const { error: updErr } = await supabase
-        .from("join_requests")
-        .update({ status: "admitted", decided_at: now })
-        .eq("id", existingRow.id);
-      if (updErr) {
-        return NextResponse.json(
-          { error: "Could not admit via invite link" },
-          { status: 500 },
-        );
-      }
+  const action = inviteRedeemAction(existingRow?.status as string | undefined);
+  if (action === "refuse") {
+    // The host removed / denied this student. The link must not undo that;
+    // KnockGate falls through to the knock flow, reads the denied row and
+    // shows "Not admitted" until the host taps Re-admit.
+    return NextResponse.json(
+      { admitted: false, error: "Removed by the host" },
+      { status: 403 },
+    );
+  }
+  if (action === "promote" && existingRow) {
+    const { error: updErr } = await supabase
+      .from("join_requests")
+      .update({ status: "admitted", decided_at: now })
+      .eq("id", existingRow.id);
+    if (updErr) {
+      return NextResponse.json(
+        { error: "Could not admit via invite link" },
+        { status: 500 },
+      );
     }
-    // Already admitted → nothing to change; keep original timestamps/name.
-  } else {
+  } else if (action === "insert") {
     const { error: insErr } = await supabase.from("join_requests").insert({
       room_id: roomId,
       user_id: userId,
@@ -139,6 +145,7 @@ export async function POST(req: Request) {
       );
     }
   }
+  // "keep": already admitted → nothing to change; keep timestamps/name.
 
   return NextResponse.json({ admitted: true });
 }
