@@ -573,15 +573,23 @@ select:focus-visible {
 html,
 body {
   overscroll-behavior: none;
-  /* Lock the page itself — only the tldraw canvas (which sets its
-     own touch-action) should pan horizontally. Stops the whole room
-     shell from sliding sideways on phones if a child overflows.
-     overflow-y: hidden prevents the body from scrolling vertically if
-     a wheel event escapes tldraw's preventDefault call (e.g. during
-     canvas load). */
+  /* Never slide sideways: stops the whole room shell from moving on
+     phones if a child overflows. Vertical scrolling is left alone here —
+     the landing page (signed in, with its "Your rooms" list) and other
+     plain pages are taller than a laptop window and MUST scroll. A global
+     overflow-y: hidden here once made the signed-in landing page
+     unscrollable on desktop. */
   overflow-x: hidden;
-  overflow-y: hidden;
   max-width: 100vw;
+}
+/* Only the full-screen app shell (the room, and its loading spinner —
+   both render .h-app, exactly one viewport tall) locks vertical scroll,
+   so a wheel event that escapes tldraw's preventDefault (e.g. while the
+   canvas loads) can't scroll the body. Browsers without :has() lose only
+   this belt-and-braces: .h-app never overflows the viewport anyway. */
+html:has(.h-app),
+body:has(.h-app) {
+  overflow-y: hidden;
 }
 
 /* Respect iPhone notch / Dynamic Island. */
