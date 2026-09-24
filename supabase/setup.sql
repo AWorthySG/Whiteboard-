@@ -246,15 +246,37 @@ create index if not exists join_requests_room_idx on public.join_requests (room_
 alter table public.join_requests enable row level security;
 drop policy if exists "Public read join_requests" on public.join_requests;
 create policy "Public read join_requests" on public.join_requests for select using (true);
+-- INSERT: guests may only self-assign 'pending' (a knock); the room's
+-- signed-in owner may insert any status (their own self-admit row).
+-- UPDATE: only the room's signed-in owner (admit / deny / remove /
+-- re-admit). /api/invite/redeem uses the service-role key (bypasses RLS).
+-- See migration 20260924120000_admission_rls_hardening.sql.
 drop policy if exists "Public insert join_requests" on public.join_requests;
-create policy "Public insert join_requests" on public.join_requests for insert with check (true);
--- UPDATE restricted to authenticated users: prevents unauthenticated guests
--- from self-admitting via the REST API. /api/invite/redeem uses the
--- service_role key (bypasses RLS) for magic-link auto-admission.
+drop policy if exists "Insert join_requests" on public.join_requests;
+create policy "Insert join_requests" on public.join_requests
+  for insert
+  with check (
+    status = 'pending'
+    or (select auth.uid()) = (
+      select host_user_id from public.rooms where id = room_id
+    )
+  );
 drop policy if exists "Public update join_requests" on public.join_requests;
 drop policy if exists "Auth update join_requests" on public.join_requests;
-create policy "Auth update join_requests" on public.join_requests
-  for update to authenticated using (true);
+drop policy if exists "Host update join_requests" on public.join_requests;
+create policy "Host update join_requests" on public.join_requests
+  for update
+  to authenticated
+  using (
+    (select auth.uid()) = (
+      select host_user_id from public.rooms where id = room_id
+    )
+  )
+  with check (
+    (select auth.uid()) = (
+      select host_user_id from public.rooms where id = room_id
+    )
+  );
 
 -- -----------------------------------------------------------------
 -- room_templates — a host's private, account-scoped library of

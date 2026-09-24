@@ -719,13 +719,31 @@ export default function RoomShell({
         },
         { onConflict: "room_id,user_id" },
       )
-      .then(({ error }) => {
-        // The LiveKit token route checks this row, so a failure here is
-        // what "the host can't join their own call" looks like. Supabase
-        // returns the error rather than throwing, so it must be read.
-        if (error) console.error("[room] host self-admit failed", error);
+      .then(async ({ error }) => {
+        // The sync-token and LiveKit token routes both check this row, so a
+        // failure here is what "the host can't open their own board / join
+        // their own call" looks like. Supabase returns the error rather
+        // than throwing, so it must be read.
+        if (!error) return;
+        console.error("[room] host self-admit failed", error);
+        // Since the admission hardening (migration 20260924120000) only the
+        // room's SIGNED-IN owner may write an "admitted" row. A host who is
+        // signed out still works if their row already exists (the upsert's
+        // update half is what failed); only a NEW room opened signed out is
+        // locked out. Check before alarming anyone.
+        const { data } = await supabase
+          .from("join_requests")
+          .select("status")
+          .eq("room_id", roomId)
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (data?.status !== "admitted") {
+          toast.error(
+            "Sign in (Settings → Account) to host this room — the whiteboard and call need it.",
+          );
+        }
       });
-  }, [isHost, roomId, userId, name]);
+  }, [isHost, roomId, userId, name, toast]);
 
   // Outside-tap close for the mobile and desktop "More" menus. Capture-phase
   // document pointerdown for the same reason as the Pages dropdown: a tap
