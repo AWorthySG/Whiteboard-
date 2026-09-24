@@ -10,15 +10,18 @@ import {
   GridFour,
   MusicNotes,
   Notebook,
-  PencilSimple,
+  Textbox,
 } from "@phosphor-icons/react";
 import {
   Editor,
   AssetRecordType,
   getHashForString,
   uniqueId,
+  type TLPageId,
 } from "tldraw";
 import { useToast } from "./Toast";
+import { canAddPage, createNextPage, pageLimitMessage } from "@/lib/pageNames";
+import type { RequestRenamePage } from "./RenamePageDialog";
 
 type Template = "blank" | "grid" | "lined" | "music" | "coords" | "dots";
 
@@ -26,38 +29,43 @@ export default function PagesTabBar({
   editor,
   isHost,
   onImportPdf,
+  onRequestRenamePage,
 }: {
   editor: Editor | null;
-  // Rename + delete are host-only — names sync to every student via
-  // tldraw, so a non-host change would affect the whole class.
+  // Add, rename and delete are host-only — pages sync to every student
+  // via tldraw, so a non-host change would affect the whole class (a
+  // student's × used to delete the current page for everyone). Students
+  // get a read-only strip they can switch pages with.
   isHost: boolean;
   // Opens a PDF picker and imports each page as its own background page
   // (wired from WhiteboardCanvas, which owns the upload pipeline).
   onImportPdf?: () => void;
+  // Opens RoomShell's RenamePageDialog. Every rename goes through that
+  // one dialog, which commits only on an explicit Save / Return — never
+  // on blur (see the CLAUDE.md "never commit on blur on iPad" gotcha).
+  onRequestRenamePage?: RequestRenamePage;
 }) {
   // Force re-render when tldraw's page state changes.
   const [, setTick] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
-  // Inline rename state. null = not renaming; otherwise the page id whose
-  // tab is currently swapped for an <input>. Mirrors the header title
-  // edit pattern (Enter/blur commits, Escape cancels) — replaces a former
-  // browser prompt() call that didn't reliably render inside the iPad PWA.
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  // The ACTIVE page's whole group (tab + rename button + ×), not the tab
+  // alone — scrolling only the tab into view left its controls clipped.
+  const activeGroupRef = useRef<HTMLDivElement | null>(null);
   const toast = useToast();
 
-  // Close template menu when tapping/clicking outside. pointerdown
-  // unifies mouse, pen, and touch — a plain `mousedown` listener
-  // misses tablet taps when a tldraw pointer interaction stops the
-  // synthetic mouse event from bubbling.
+  // Close the template menu when tapping/clicking outside. A CAPTURE
+  // listener on `document`: tldraw stops pointerdown propagation at its
+  // container, so a bubbling window listener never heard canvas taps and
+  // the menu stayed open on the board.
   useEffect(() => {
     if (!menuOpen) return;
-    const onClick = (e: PointerEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
     };
-    window.addEventListener("pointerdown", onClick);
-    return () => window.removeEventListener("pointerdown", onClick);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
   }, [menuOpen]);
 
   useEffect(() => {
@@ -78,18 +86,50 @@ export default function PagesTabBar({
     return () => unsubs.forEach((u) => u());
   }, [editor]);
 
-  if (!editor) return null;
+  const pages = editor ? editor.getPages() : [];
+  const currentId = editor ? editor.getCurrentPageId() : null;
+  const currentName = pages.find((p) => p.id === currentId)?.name;
 
-  const pages = editor.getPages();
-  const currentId = editor.getCurrentPageId();
+  // Keep the active tab AND its rename / × controls visible. The strip is
+  // a hidden-scrollbar overflow container, so without this a freshly added
+  // page (the 7th at 1024px, the 4th beside the video column) sat clipped
+  // out of view with its controls. Measures the whole group (the controls
+  // are siblings AFTER the tab) and re-runs on a rename, which can widen
+  // it. Scrolls ONLY the strip: Element.scrollIntoView would also scroll
+  // every overflow:hidden ancestor, .tldraw-shell included, and could
+  // shove the whole canvas sideways.
+  useEffect(() => {
+    const strip = stripRef.current;
+    const group = activeGroupRef.current;
+    if (!strip || !group) return;
+    const s = strip.getBoundingClientRect();
+    const g = group.getBoundingClientRect();
+    if (g.left < s.left) strip.scrollLeft -= s.left - g.left + 8;
+    else if (g.right > s.right) strip.scrollLeft += g.right - s.right + 8;
+  }, [currentId, currentName, pages.length, isHost]);
+
+  if (!editor) return null;
 
   const addPage = (template: Template) => {
     setMenuOpen(false);
+    if (!canAddPage(editor)) {
+      toast.error(pageLimitMessage(editor));
+      return;
+    }
     try {
-      const num = pages.length + 1;
-      const newPageId = `page:${uniqueId()}`;
-      editor.createPage({ id: newPageId as never, name: `Page ${num}` });
-      editor.setCurrentPage(newPageId as never);
+      const newPageId = createNextPage(
+        editor,
+        `page:${uniqueId()}` as TLPageId,
+      );
+      if (!newPageId) {
+        toast.error("Couldn't add a page");
+        return;
+      }
+      // Offer a name straight away — inside this tap, so the dialog's
+      // input focuses within the user gesture and iOS shows the keyboard.
+      // "Skip" keeps "Page N". A template keeps rendering in the
+      // background (it targets the page that is current right now).
+      onRequestRenamePage?.(newPageId, { isNew: true });
       if (template !== "blank") {
         applyTemplate(editor, template).catch((e) => {
           toast.error(`Template failed: ${(e as Error).message}`);
@@ -98,26 +138,6 @@ export default function PagesTabBar({
     } catch (e) {
       toast.error(`Couldn't add page: ${(e as Error).message}`);
     }
-  };
-
-  const startRename = (id: string) => {
-    if (!isHost) return;
-    const page = pages.find((p) => p.id === id);
-    if (!page) return;
-    setRenameDraft(page.name);
-    setRenamingId(id);
-  };
-
-  const commitRename = () => {
-    if (!renamingId) return;
-    const next = renameDraft.trim();
-    const page = pages.find((p) => p.id === renamingId);
-    // Only call renamePage when the name actually changed and isn't
-    // empty — saves a no-op sync write per blur otherwise.
-    if (page && next && next !== page.name) {
-      editor.renamePage(page.id, next);
-    }
-    setRenamingId(null);
   };
 
   const removePage = (id: string) => {
@@ -136,70 +156,68 @@ export default function PagesTabBar({
       // bottom pill on a narrow screen overlaps the ZoomControls. From
       // tablet up (md), the bottom tabs are still nicer for fast
       // switching between many pages.
-      className="flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker px-1.5 py-1 max-w-[min(92vw,620px)]"
+      // Sized to the CANVAS, not the viewport: the bottom band's centre
+      // grid column caps this at the canvas width, so beside the video
+      // column the strip scrolls instead of running under the aside.
+      className="flex items-center gap-1 rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker px-1.5 py-1 max-w-full min-w-0"
     >
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+      <div
+        ref={stripRef}
+        className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0"
+      >
         {pages.map((page) => {
           const active = page.id === currentId;
-          const renaming = renamingId === page.id;
           return (
-            <div key={page.id} className="flex items-center group shrink-0">
-              {renaming ? (
-                <input
-                  autoFocus
-                  value={renameDraft}
-                  onChange={(e) => setRenameDraft(e.target.value)}
-                  onBlur={commitRename}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") commitRename();
-                    if (e.key === "Escape") setRenamingId(null);
-                  }}
-                  onFocus={(e) => e.currentTarget.select()}
-                  // Match the tab button's vertical rhythm so the pill
-                  // doesn't jump in height while editing.
-                  className="text-xs font-bold px-3 py-1 rounded-full bg-[var(--bg-elev-2)] border-2 border-brand-600 shadow-[0_0_0_3px_var(--accent-soft)] text-[var(--text)] outline-none w-32 max-w-[10rem]"
-                  aria-label="Rename page"
-                />
-              ) : (
+            <div
+              key={page.id}
+              ref={active ? activeGroupRef : undefined}
+              className="flex items-center group shrink-0"
+            >
+              <button
+                // Host: tapping the ALREADY-active tab renames it — a big,
+                // natural touch target that replaces double-click (which
+                // iOS never reliably delivered). Any other tab switches.
+                onClick={() => {
+                  if (!active) editor.setCurrentPage(page.id);
+                  else if (isHost) onRequestRenamePage?.(page.id, { isNew: false });
+                }}
+                aria-current={active ? "page" : undefined}
+                // Segmented-toggle recipe: the active tab is a red pill
+                // inside an ink outline (no offset shadow — it sits inside
+                // the bar's own sticker). Inactive tabs keep a transparent
+                // 2px border so every tab is the same height.
+                className={`text-xs font-bold px-3 py-1 rounded-full border-2 transition truncate max-w-[10rem] ${
+                  active
+                    ? "bg-brand-600 text-white border-ink font-extrabold"
+                    : "border-transparent text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
+                }`}
+                title={
+                  isHost
+                    ? `${page.name} — tap again to rename`
+                    : `${page.name} — only the host can rename pages`
+                }
+              >
+                {page.name}
+              </button>
+              {/* A labelled, thumb-sized rename control on the active tab.
+                  Textbox rather than PencilSimple: the pencil is also the
+                  Pen tool's glyph, so it read as "draw", not "rename". */}
+              {active && isHost && onRequestRenamePage && (
                 <button
-                  onClick={() => editor.setCurrentPage(page.id)}
-                  onDoubleClick={() => startRename(page.id)}
-                  // Segmented-toggle recipe: the active tab is a red pill
-                  // inside an ink outline (no offset shadow — it sits inside
-                  // the bar's own sticker). Inactive tabs keep a transparent
-                  // 2px border so every tab is the same height.
-                  className={`text-xs font-bold px-3 py-1 rounded-full border-2 transition truncate max-w-[10rem] ${
-                    active
-                      ? "bg-brand-600 text-white border-ink font-extrabold"
-                      : "border-transparent text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
-                  }`}
-                  title={
-                    isHost
-                      ? `${page.name} (double-click to rename)`
-                      : page.name
-                  }
-                >
-                  {page.name}
-                </button>
-              )}
-              {/* Host gets a pencil affordance on the active tab so the
-                  rename action is discoverable — double-click alone is
-                  invisible without prior knowledge. Hidden while the
-                  input is open so it can't fight the blur-to-commit. */}
-              {active && isHost && !renaming && (
-                <button
-                  onClick={() => startRename(page.id)}
-                  className="text-[var(--text-dim)] hover:text-[var(--text)] px-1 inline-flex items-center"
+                  onClick={() => onRequestRenamePage(page.id, { isNew: false })}
+                  className="touch-target min-w-[32px] min-h-[28px] rounded-full inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
                   aria-label="Rename page"
                   title="Rename page"
                 >
-                  <PencilSimple size={12} aria-hidden />
+                  <Textbox size={14} aria-hidden />
                 </button>
               )}
-              {active && pages.length > 1 && !renaming && (
+              {active && isHost && pages.length > 1 && (
+                // Same thumb-sized target as the rename button beside it
+                // (a bare × was 15×16 px); confirm() still guards a mis-tap.
                 <button
                   onClick={() => removePage(page.id)}
-                  className="text-[var(--text-dim)] hover:text-danger-600 text-xs font-extrabold px-1"
+                  className="touch-target min-w-[32px] min-h-[28px] ml-1 rounded-full inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-danger-600 text-xs font-extrabold"
                   aria-label="Delete page"
                   title="Delete page"
                 >
@@ -210,70 +228,72 @@ export default function PagesTabBar({
           );
         })}
       </div>
-      <div ref={menuRef} className="relative shrink-0">
-        <div className="flex items-center">
-          {/* Big primary action: blank page in one click. Most users
-              just want another blank sheet — surfacing this directly
-              saves a click vs. opening the template menu. */}
-          <button
-            onClick={() => addPage("blank")}
-            className="text-xs px-3 py-1 rounded-full bg-brand-600 hover:bg-brand-700 text-white font-extrabold border-2 border-ink shadow-sticker-primary sticker-press flex items-center gap-1.5 shrink-0"
-            aria-label="Add a new blank page"
-            title="Add a new blank page"
-          >
-            <span className="text-base leading-none">+</span>
-            <span>New page</span>
-          </button>
-          {/* Secondary: open template picker for grid / lined / coords / etc. */}
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            className="ml-1 px-2 py-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--text-muted)] hover:text-[var(--text)] shrink-0 inline-flex items-center"
-            aria-label="New page from template"
-            title="New page from template"
-          >
-            <CaretDown size={12} weight="bold" aria-hidden />
-          </button>
-        </div>
-        {menuOpen && (
-          <div className="absolute bottom-full mb-2 right-0 w-52 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-1.5 z-50 scale-pop">
-            <div className="font-label text-[var(--text-muted)] px-2 pt-1 pb-1.5">
-              New page from template
-            </div>
-            <TemplateBtn onClick={() => addPage("blank")} icon={<FileIcon size={16} aria-hidden />}>
-              Blank
-            </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("grid")} icon={<GridFour size={16} aria-hidden />}>
-              Grid paper
-            </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("dots")} icon={<DotsNine size={16} aria-hidden />}>
-              Dotted grid
-            </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("lined")} icon={<Notebook size={16} aria-hidden />}>
-              Lined paper
-            </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("coords")} icon={<ChartLine size={16} aria-hidden />}>
-              Coordinate plane
-            </TemplateBtn>
-            <TemplateBtn onClick={() => addPage("music")} icon={<MusicNotes size={16} aria-hidden />}>
-              Music staves
-            </TemplateBtn>
-            {onImportPdf && (
-              <>
-                <div className="my-1.5 border-t-2 border-dashed border-[color:var(--border)]" />
-                <TemplateBtn
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onImportPdf();
-                  }}
-                  icon={<FilePdf size={16} aria-hidden />}
-                >
-                  Import PDF as pages…
-                </TemplateBtn>
-              </>
-            )}
+      {isHost && (
+        <div ref={menuRef} className="relative shrink-0">
+          <div className="flex items-center">
+            {/* Big primary action: blank page in one click. Most users
+                just want another blank sheet — surfacing this directly
+                saves a click vs. opening the template menu. */}
+            <button
+              onClick={() => addPage("blank")}
+              className="text-xs px-3 py-1 rounded-full bg-brand-600 hover:bg-brand-700 text-white font-extrabold border-2 border-ink shadow-sticker-primary sticker-press flex items-center gap-1.5 shrink-0"
+              aria-label="Add a new blank page"
+              title="Add a new blank page"
+            >
+              <span className="text-base leading-none">+</span>
+              <span>New page</span>
+            </button>
+            {/* Secondary: open template picker for grid / lined / coords / etc. */}
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="ml-1 px-2 py-1.5 rounded-full hover:bg-[var(--hover)] text-[var(--text-muted)] hover:text-[var(--text)] shrink-0 inline-flex items-center"
+              aria-label="New page from template"
+              title="New page from template"
+            >
+              <CaretDown size={12} weight="bold" aria-hidden />
+            </button>
           </div>
-        )}
-      </div>
+          {menuOpen && (
+            <div className="absolute bottom-full mb-2 right-0 w-52 rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-1.5 z-50 scale-pop">
+              <div className="font-label text-[var(--text-muted)] px-2 pt-1 pb-1.5">
+                New page from template
+              </div>
+              <TemplateBtn onClick={() => addPage("blank")} icon={<FileIcon size={16} aria-hidden />}>
+                Blank
+              </TemplateBtn>
+              <TemplateBtn onClick={() => addPage("grid")} icon={<GridFour size={16} aria-hidden />}>
+                Grid paper
+              </TemplateBtn>
+              <TemplateBtn onClick={() => addPage("dots")} icon={<DotsNine size={16} aria-hidden />}>
+                Dotted grid
+              </TemplateBtn>
+              <TemplateBtn onClick={() => addPage("lined")} icon={<Notebook size={16} aria-hidden />}>
+                Lined paper
+              </TemplateBtn>
+              <TemplateBtn onClick={() => addPage("coords")} icon={<ChartLine size={16} aria-hidden />}>
+                Coordinate plane
+              </TemplateBtn>
+              <TemplateBtn onClick={() => addPage("music")} icon={<MusicNotes size={16} aria-hidden />}>
+                Music staves
+              </TemplateBtn>
+              {onImportPdf && (
+                <>
+                  <div className="my-1.5 border-t-2 border-dashed border-[color:var(--border)]" />
+                  <TemplateBtn
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onImportPdf();
+                    }}
+                    icon={<FilePdf size={16} aria-hidden />}
+                  >
+                    Import PDF as pages…
+                  </TemplateBtn>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

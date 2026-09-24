@@ -38,7 +38,31 @@ export function useAuth(): AuthState {
   return state;
 }
 
+// Rooms a `rooms` lookup confirmed the signed-in account hosts, recorded by
+// useHostStatus as `{ [roomId]: userId }`. Declared here rather than there so
+// signOut() can clear it without an import cycle (useHostStatus imports
+// useAuth).
+export const CONFIRMED_HOST_ROOMS_KEY = "wb_confirmed_host_rooms";
+// Fired on `window` when signOut() clears that record, so a mounted
+// useHostStatus drops the host it got from it straight away.
+export const CONFIRMED_HOST_ROOMS_CLEARED_EVENT = "wb-confirmed-host-rooms-cleared";
+
 export async function signOut() {
+  // An EXPLICIT sign-out ends host status this device only had because a
+  // lookup confirmed the account — so a tutor who signs in on a student's
+  // laptop or a shared iPad and signs out again doesn't leave that browser
+  // hosting the room. (A SIGNED_OUT supabase-js emits on its own, e.g. a
+  // rejected token refresh after an iOS resume, doesn't come through here,
+  // so it can't demote the tutor mid-lesson.) Rooms this browser created or
+  // claimed (wb_hosted_rooms) are untouched.
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(CONFIRMED_HOST_ROOMS_KEY);
+    } catch {
+      // Storage blocked: nothing was stored to clear.
+    }
+    window.dispatchEvent(new Event(CONFIRMED_HOST_ROOMS_CLEARED_EVENT));
+  }
   const supabase = getSupabase();
   if (!supabase) return;
   await supabase.auth.signOut();

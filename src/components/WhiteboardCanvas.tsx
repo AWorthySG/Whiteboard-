@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
   type MutableRefObject,
+  type ReactNode,
 } from "react";
 import {
   AssetRecordType,
@@ -17,13 +18,13 @@ import {
   DefaultSizeStyle,
   DefaultToolbar,
   Editor,
-  NoteShapeUtil,
   TLAssetStore,
   Tldraw,
   TldrawUiMenuItem,
   TLUiOverrides,
   type TLDefaultColorStyle,
   type TLDefaultSizeStyle,
+  type TLPageId,
   atom,
   getHashForString,
   uniqueId,
@@ -31,12 +32,26 @@ import {
   useTools,
   useValue,
 } from "tldraw";
-import { ArrowClockwise, ArrowCounterClockwise, Camera, CaretDown, Keyboard, MagnifyingGlass, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowCounterClockwise, Camera, CaretDown, Keyboard, MagnifyingGlass, Note, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
 import { getSupabase } from "@/lib/supabase";
 import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
+import {
+  canAddPage,
+  createNextPage,
+  nextPageName,
+  pageLimitMessage,
+} from "@/lib/pageNames";
+import {
+  PostItNoteUtil,
+  clearAuthoredShapes,
+  insertPostIt,
+  registerPostItSideEffects,
+} from "@/lib/postIt";
+import type { RequestRenamePage } from "./RenamePageDialog";
+import { createPortal, flushSync } from "react-dom";
 import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import PagesTabBar from "./PagesTabBar";
@@ -201,14 +216,40 @@ function makeAssetStore(meta: UploadMeta, onProgress: ProgressFn): TLAssetStore 
   };
 }
 
-// Override the default note shape to allow manual resizing.
-// tldraw's NoteShapeUtil ships with resizeMode:"none" which hides the
-// resize handles entirely. "scale" restores them and scales the sticky
-// note (and its text) proportionally when dragged.
-class ResizableNoteUtil extends NoteShapeUtil {
-  override options = { resizeMode: "scale" as const };
+// The note shape is our post-it (src/lib/postIt.ts): tldraw's note with
+// resize handles (resizeMode "scale"), that adopts pen/highlighter ink
+// written on it so the handwriting moves, scales and deletes with it.
+const CUSTOM_SHAPE_UTILS = [PostItNoteUtil];
+
+/** Every UI entry point for a post-it (N key, SlimToolbar Note, the phone
+ *  pill, the command palette) inserts through here. `flushSync` renders the
+ *  TYPE-mode editing state — so the note's contenteditable takes focus —
+ *  synchronously inside the tap's own event handler; iOS only raises the
+ *  soft keyboard for a focus() that happens within the user gesture.
+ *  `pointerType` "pen" (an Apple Pencil tap) selects WRITE mode. */
+function insertPostItNow(editor: Editor, pointerType?: string) {
+  flushSync(() => {
+    insertPostIt(editor, { pointerType });
+  });
 }
-const CUSTOM_SHAPE_UTILS = [ResizableNoteUtil];
+
+/** tldraw's toolbar item fires `onSelect("toolbar")` from BOTH onTouchStart
+ *  and onClick. Its preventDefault runs in React's PASSIVE touchstart
+ *  listener, so it does nothing and the compatibility click still follows —
+ *  harmless for a tool switch, but an action like "Add post-it" ran twice
+ *  per tap (two stacked post-its, and the second saw the first's select
+ *  tool, so the hand was never given back). Act on the click only: it is
+ *  also the event iOS counts as the gesture for raising the keyboard. */
+function isToolbarTouchStart(): boolean {
+  return typeof window !== "undefined" && window.event?.type === "touchstart";
+}
+
+/** True while the N shortcut is firing from keyboard auto-repeat. */
+function isKeyRepeat(): boolean {
+  if (typeof window === "undefined") return false;
+  const e = window.event;
+  return e instanceof KeyboardEvent && e.repeat;
+}
 
 export default function WhiteboardCanvas({
   roomId,
@@ -229,6 +270,9 @@ export default function WhiteboardCanvas({
   pageThumbnailRef,
   editorOutRef,
   onEditor,
+  onRequestRenamePage,
+  insertPostItRef,
+  admissionPanel,
 }: {
   roomId: string;
   userId: string;
@@ -244,7 +288,10 @@ export default function WhiteboardCanvas({
   hideStudentAnnotations: boolean;
   onToggleLeader: () => void | Promise<void>;
   exportRef?: MutableRefObject<(() => Promise<void>) | null>;
-  addPageRef?: MutableRefObject<(() => void) | null>;
+  /** Header "+ New page" / palette "Add a new page". Returns the new
+   *  page's id so the caller can open the naming dialog in the same tap,
+   *  or null when no page was added (the limit toast has already shown). */
+  addPageRef?: MutableRefObject<(() => string | null) | null>;
   // Lets the parent (RoomShell → LeftRail) trigger the in-canvas
   // document upload picker without having to lift the state out of
   // WhiteboardCanvas. Mirrors the existing addPageRef pattern.
@@ -272,6 +319,18 @@ export default function WhiteboardCanvas({
   pageThumbnailRef?: MutableRefObject<
     ((pageId: string) => Promise<string | null>) | null
   >;
+  /** RoomShell's requestRenamePage — opens the RenamePageDialog. Handed
+   *  to PagesTabBar (tap the active tab, its rename button, and naming a
+   *  page right after "+ New page"). */
+  onRequestRenamePage?: RequestRenamePage;
+  /** Lets RoomShell's command palette ("Add a post-it note") insert a
+   *  post-it. Mirrors openUploadRef. The optional arg is the pointerType
+   *  of the tap that asked for it ("pen" → write mode). */
+  insertPostItRef?: MutableRefObject<((pointerType?: string) => void) | null>;
+  /** The host's AdmissionPanel, rendered as the FIRST item of the
+   *  top-right CanvasFloatingPanel column so it stacks with the pills
+   *  instead of overlapping them (see CanvasFloatingPanel). */
+  admissionPanel?: ReactNode;
 }) {
   const [appSettings] = useSettings();
   // Tldraw's bottom toolbar (tool icons + actions row) covers a lot
@@ -297,6 +356,12 @@ export default function WhiteboardCanvas({
   // the host claims their room mid-session without a full remount.
   const isHostRef = useRef(isHost);
   useEffect(() => { isHostRef.current = isHost; }, [isHost]);
+  // For the tldraw action overrides (memoised once): the context menu's
+  // "Move to page → New page" opens the naming dialog like every add path.
+  const onRequestRenamePageRef = useRef(onRequestRenamePage);
+  useEffect(() => {
+    onRequestRenamePageRef.current = onRequestRenamePage;
+  }, [onRequestRenamePage]);
   const drawGrantUserIdRef = useRef(drawGrantUserId);
   useEffect(() => { drawGrantUserIdRef.current = drawGrantUserId; }, [drawGrantUserId]);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -421,7 +486,48 @@ export default function WhiteboardCanvas({
 
   const overrides: TLUiOverrides = useMemo(
     () => ({
-      actions(_editor, actions) {
+      actions(editor, actions) {
+        // The context menu's "Move to page → New page" is a page-add path
+        // too — stock tldraw names it a constant "Page 1" and lets anyone
+        // (students included) create it. Route it through the same rules as
+        // "+ New page": host-only, next free "Page N", the limit toast, and
+        // the naming dialog.
+        if (actions["move-to-new-page"]) {
+          actions["move-to-new-page"] = {
+            ...actions["move-to-new-page"],
+            onSelect: () => {
+              if (!isHostRef.current) {
+                toast.error("Only the host can add pages");
+                return;
+              }
+              if (!canAddPage(editor)) {
+                toast.error(pageLimitMessage(editor));
+                return;
+              }
+              const ids = editor.getSelectedShapeIds();
+              if (!ids.length) return;
+              const newPageId = `page:${uniqueId()}` as TLPageId;
+              editor.run(() => {
+                editor.markHistoryStoppingPoint("move_shapes_to_page");
+                editor.createPage({
+                  id: newPageId,
+                  name: nextPageName(editor.getPages().map((p) => p.name)),
+                });
+                // Switches to the new page itself (and needs the SOURCE page
+                // current when called, so no createNextPage here).
+                editor.moveShapesToPage(ids, newPageId);
+              });
+              if (!editor.getPage(newPageId)) return;
+              // Deferred past the menu's close: Radix returns focus to the
+              // canvas in a setTimeout(0) after the menu unmounts, which
+              // would pull focus out of the dialog's input (and send the
+              // typed name to tldraw's shortcuts).
+              editor.timers.setTimeout(() => {
+                onRequestRenamePageRef.current?.(newPageId, { isNew: true });
+              }, 50);
+            },
+          };
+        }
         actions["upload-document"] = {
           id: "upload-document",
           label: "Upload PDF or image",
@@ -445,13 +551,28 @@ export default function WhiteboardCanvas({
       // Also clear keyboard shortcuts for geometric-shape tools so
       // R/O/A/L/T can't accidentally switch you out of the pen mid-
       // lesson — these tools were already hidden from the toolbar.
-      tools(_editor, tools) {
+      tools(editor, tools) {
         if (tools.asset) {
           tools.asset = {
             ...tools.asset,
             label: "Upload document",
             onSelect: () => {
               openFilePicker(runUpload);
+            },
+          };
+        }
+        // N and the SlimToolbar "Note" item insert a post-it in one tap
+        // instead of arming tldraw's tap-to-place note tool (which opened
+        // the iPad keyboard on every Pencil tap). Keeps kbd "n".
+        if (tools.note) {
+          tools.note = {
+            ...tools.note,
+            label: "Add post-it",
+            onSelect: () => {
+              if (isToolbarTouchStart()) return; // the click follows
+              // Holding N would otherwise drop one post-it per key repeat.
+              if (isKeyRepeat()) return;
+              insertPostItNow(editor);
             },
           };
         }
@@ -464,7 +585,7 @@ export default function WhiteboardCanvas({
         return tools;
       },
     }),
-    [runUpload],
+    [runUpload, toast],
   );
 
   // tldraw is locked to light mode — dark mode caused contrast issues
@@ -561,21 +682,27 @@ export default function WhiteboardCanvas({
 
   // Expose a one-shot "add a blank page" action to the room header so the
   // user can spawn a fresh page from the top bar (matches what the
-  // bottom-center pages pill already does).
+  // bottom-center pages pill already does). Returns the new page id so
+  // RoomShell can open the naming dialog within the same tap; null when
+  // nothing was added. The page limit is toasted here rather than letting
+  // createPage silently no-op (tldraw's maxPages, 40).
   useEffect(() => {
     if (!addPageRef) return;
     addPageRef.current = () => {
       const editor = editorRef.current;
-      if (!editor) return;
-      const num = editor.getPages().length + 1;
-      const newPageId = `page:${uniqueId()}`;
-      editor.createPage({ id: newPageId as never, name: `Page ${num}` });
-      editor.setCurrentPage(newPageId as never);
+      if (!editor) return null;
+      if (!canAddPage(editor)) {
+        toast.error(pageLimitMessage(editor));
+        return null;
+      }
+      const newPageId = createNextPage(editor, `page:${uniqueId()}` as never);
+      if (!newPageId) toast.error("Couldn't add a page");
+      return newPageId;
     };
     return () => {
       if (addPageRef.current) addPageRef.current = null;
     };
-  }, [addPageRef]);
+  }, [addPageRef, toast]);
 
   // Expose the upload trigger to the LeftRail (rendered by RoomShell,
   // outside this component's tree). Mirrors addPageRef.
@@ -586,6 +713,19 @@ export default function WhiteboardCanvas({
       if (openUploadRef.current) openUploadRef.current = null;
     };
   }, [openUploadRef, runUpload]);
+
+  // Expose the post-it insert to RoomShell (command palette). Mirrors
+  // openUploadRef.
+  useEffect(() => {
+    if (!insertPostItRef) return;
+    insertPostItRef.current = (pointerType?: string) => {
+      const editor = editorRef.current;
+      if (editor) insertPostItNow(editor, pointerType);
+    };
+    return () => {
+      if (insertPostItRef.current) insertPostItRef.current = null;
+    };
+  }, [insertPostItRef]);
 
   // Expose a page-thumbnail renderer. Generates a low-res PNG data URL
   // of every shape on the requested page using tldraw's exportToImage,
@@ -957,6 +1097,9 @@ export default function WhiteboardCanvas({
             // remote client it already carries meta.annotation and we
             // leave it untouched — this is what keeps a student's shape
             // tagged annotation:true even on the host's screen.
+            // (The post-it occlusion guard is a SEPARATE create handler,
+            // registered by registerPostItSideEffects below; handlers
+            // chain, so it sees this one's stamped record and keeps meta.)
             const deregisterCreateHandler =
               editor.sideEffects.registerBeforeCreateHandler(
                 "shape",
@@ -980,10 +1123,16 @@ export default function WhiteboardCanvas({
                 },
               );
             // Two delete vetoes share one handler:
-            // (1) Sticky notes are deliberately immune to the eraser — a
-            //     note holds typed/important content, so it must be removed
+            // (1) Post-its are deliberately immune to the eraser — a note
+            //     holds typed/written content, so it must be removed
             //     deliberately (select + the floating Delete pill, or
-            //     Backspace), never wiped by a stray eraser stroke.
+            //     Backspace), never wiped by a stray eraser stroke. This is
+            //     now only a BACKSTOP: the post-it erase-set filter
+            //     (registerPostItSideEffects, below) keeps notes out of the
+            //     eraser's set in the first place. It has to — deleteShapes
+            //     expands the set to every descendant BEFORE this per-record
+            //     veto runs, so vetoing the note alone still wiped all the
+            //     ink written on it.
             // (2) Host-uploaded assets (PDFs, dropped images, lined sheets,
             //     page-template backgrounds, the brand logo) carry
             //     `meta.uploadedDocument: true` at insert time. A student
@@ -1014,6 +1163,12 @@ export default function WhiteboardCanvas({
                   }
                 },
               );
+            // Post-it side effects, all in one call (the unit tests register
+            // the very same set): the occlusion guard for live strokes, the
+            // erase-set filter (the eraser takes only the strokes it
+            // touches, never a post-it or a group holding one, so never all
+            // the ink on it) and the yellow colour pin. See src/lib/postIt.ts.
+            const deregisterPostItEffects = registerPostItSideEffects(editor);
             editor.user.updateUserPreferences({
               colorScheme: "light",
               animationSpeed: 0,
@@ -1110,6 +1265,7 @@ export default function WhiteboardCanvas({
             return () => {
               deregisterCreateHandler();
               deregisterDeleteHandler();
+              deregisterPostItEffects();
               window.removeEventListener(
                 "pointerdown",
                 syncModifiersFromEvent,
@@ -1135,6 +1291,7 @@ export default function WhiteboardCanvas({
         userId={userId}
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
+        admissionPanel={admissionPanel}
       />
       {searchOpen && mountedEditor && (
         <CanvasSearch
@@ -1142,37 +1299,55 @@ export default function WhiteboardCanvas({
           onClose={() => setSearchOpen(false)}
         />
       )}
-      {shortcutsOpen && (
-        <ShortcutsModal onClose={() => setShortcutsOpen(false)} />
-      )}
+      {/* Portaled to <body>: RoomShell's canvas area is `isolation: isolate`
+          (the header z-order fix), which would otherwise cap this modal at
+          the canvas's layer — under the ChatBubble and the floating pills. */}
+      {shortcutsOpen &&
+        createPortal(
+          <ShortcutsModal onClose={() => setShortcutsOpen(false)} />,
+          document.body,
+        )}
       {/* Mobile: zoom only, above tldraw's native bottom toolbar */}
       <div className="md:hidden absolute bottom-20 left-3 z-[60]" style={{ pointerEvents: "auto" }}>
         <ZoomControls editor={mountedEditor} />
       </div>
       {/* Desktop: zoom + pages in a single absolutely-positioned bottom band.
-          CSS grid (1fr auto 1fr) puts PagesTabBar in a true centre column and
-          ZoomControls at the start of the left column — both share the same
-          bottom-5 edge so they read as one coherent spatial zone. */}
-      <div
-        className="hidden md:grid absolute bottom-5 left-3 right-3 z-[60] items-end pointer-events-none"
-        style={{ gridTemplateColumns: "1fr auto 1fr" }}
-      >
-        <div className="pointer-events-auto flex items-center">
-          <ZoomControls editor={mountedEditor} />
+          CSS grid puts PagesTabBar in a true centre column and ZoomControls
+          at the start of the left column — both share the same bottom-5 edge
+          so they read as one coherent spatial zone.
+          The centre track is minmax(0, auto), not auto: it still grows to the
+          bar's natural width when there's room, but can never exceed the
+          CANVAS, so with many pages (or beside the video column) the tab
+          strip scrolls instead of running off under the aside. The left
+          track stays 1fr (= minmax(auto, 1fr)) so it never shrinks below
+          ZoomControls — minmax(0, 1fr) there let the zoom pill overflow on
+          top of a wide page bar. The right track keeps 3.5rem clear for the
+          fixed ChatBubble (bottom-4 right-4, 44px), which otherwise covered
+          the template caret once a wide bar reached the canvas's right edge.
+          The tracks live in globals.css (.pages-band-grid) because a
+          container query STACKS the band on a narrow canvas (iPad portrait
+          beside the video column, ~360px): one row left the tab strip ~18px
+          wide, hiding the active tab and its rename / × controls. */}
+      <div className="pages-band hidden md:block absolute bottom-5 left-3 right-3 z-[60] pointer-events-none">
+        <div className="pages-band-grid">
+          <div className="pages-band-zoom pointer-events-auto flex items-center">
+            <ZoomControls editor={mountedEditor} />
+          </div>
+          <div className="pages-band-pages pointer-events-auto min-w-0">
+            <PagesTabBar
+              editor={mountedEditor}
+              isHost={isHost}
+              onImportPdf={
+                isHost
+                  ? () => openFilePicker(runPdfAsPages, "application/pdf")
+                  : undefined
+              }
+              onRequestRenamePage={onRequestRenamePage}
+            />
+          </div>
+          {/* Empty right column — balances the grid so PagesTabBar stays centred */}
+          <div aria-hidden className="pages-band-spacer" />
         </div>
-        <div className="pointer-events-auto">
-          <PagesTabBar
-            editor={mountedEditor}
-            isHost={isHost}
-            onImportPdf={
-              isHost
-                ? () => openFilePicker(runPdfAsPages, "application/pdf")
-                : undefined
-            }
-          />
-        </div>
-        {/* Empty right column — balances the grid so PagesTabBar stays centred */}
-        <div aria-hidden />
       </div>
       <ReconnectBanner
         status={store.status}
@@ -1216,6 +1391,7 @@ function CanvasFloatingPanel({
   userId,
   toolsCollapsed,
   onToggleTools,
+  admissionPanel,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -1225,6 +1401,7 @@ function CanvasFloatingPanel({
   userId: string;
   toolsCollapsed: boolean;
   onToggleTools: () => void;
+  admissionPanel?: ReactNode;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
@@ -1255,9 +1432,22 @@ function CanvasFloatingPanel({
       // On phones the column sits below the centred clock/timer row
       // (top-14) so the wider status pills (Following host / Leading view)
       // never overlap it; desktop has the width to keep them on one line.
-      className="absolute top-14 right-3 md:top-3 flex flex-col items-end gap-2"
+      // Click-through except its own children: the column is as wide as
+      // its widest pill, and that empty box used to swallow taps meant for
+      // the board or the LessonTimer menu beside it.
+      className="absolute top-14 right-3 md:top-3 flex flex-col items-end gap-2 pointer-events-none *:pointer-events-auto"
       style={{ zIndex: 9999 }}
     >
+      {/* Host only: the AdmissionPanel (knocks + class roster) heads the
+          column, so the pills stack BELOW it. It used to float separately
+          (absolute top-16 right-4 z-[100], outside the canvas layer) over
+          the same corner: since the canvas area became one isolated layer
+          it painted over the first pills (Delete / Pen mode / Undo) for the
+          whole lesson, and before that the pills covered Admit. Sharing
+          one flex column makes an overlap impossible. Top of the column,
+          not the bottom: the pills then move only when a knock arrives,
+          not on every selection change under the host's finger. */}
+      {admissionPanel}
       {beingFollowed && (
         <div
           className="rounded-full px-2.5 py-1 text-[11px] font-extrabold border-2 border-ink bg-sun-bg text-sun-deep shadow-sticker flex items-center gap-1.5"
@@ -1294,6 +1484,8 @@ function CanvasFloatingPanel({
           SlimToolbar (behind the Tools toggle), so a one-tap undo for a
           stray stroke needed surfacing. */}
       <UndoRedoControls editor={editor} />
+      {/* Phones only: one-tap post-it. md+ has "Add post-it" in LeftRail. */}
+      <PostItButton editor={editor} />
       {/* On desktop (md+) these live in LeftRail for a unified control
           strip. Keep them here only for phones where LeftRail is hidden.
           Collapsed behind a single preview toggle (matching LeftRail's
@@ -2328,12 +2520,10 @@ function ClearAnnotationsButton({ editor, userId }: { editor: Editor | null; use
 
   if (!editor || count === 0) return null;
 
+  // Re-homes other people's ink written on my post-its (the tutor's
+  // feedback) to the page before deleting mine, so it survives.
   const clear = () => {
-    const ids = editor
-      .getCurrentPageShapes()
-      .filter((s) => (s.meta as Record<string, unknown>)?.authorId === userId)
-      .map((s) => s.id);
-    if (ids.length) editor.deleteShapes(ids);
+    clearAuthoredShapes(editor, userId);
   };
 
   return (
@@ -2396,12 +2586,41 @@ function UndoRedoControls({ editor }: { editor: Editor | null }) {
   );
 }
 
+// Phones-only (md:hidden) "Post-it" pill. The tap's pointerType is
+// recorded on pointerdown and read on click: an Apple Pencil tap gives the
+// WRITE mode (no keyboard), a finger gives the TYPE mode, where the insert
+// runs inside flushSync (insertPostItNow) so iOS raises the keyboard.
+function PostItButton({ editor }: { editor: Editor | null }) {
+  const pointerTypeRef = useRef<string | undefined>(undefined);
+  if (!editor) return null;
+  return (
+    <button
+      type="button"
+      onPointerDown={(e) => {
+        pointerTypeRef.current = e.pointerType;
+      }}
+      onClick={() => {
+        const pointerType = pointerTypeRef.current;
+        pointerTypeRef.current = undefined;
+        insertPostItNow(editor, pointerType);
+      }}
+      className="touch-target md:hidden rounded-full bg-sun-bg text-sun-deep border-2 border-ink shadow-sticker sticker-press px-2.5 py-1 text-[11px] font-extrabold inline-flex items-center justify-center gap-1.5"
+      title="Add a post-it note (N)"
+      aria-label="Add a post-it note"
+    >
+      <Note size={14} aria-hidden />
+      <span>Post-it</span>
+    </button>
+  );
+}
+
 // Touch-friendly delete for the current selection. tldraw's native
 // delete lives in QuickActions, which is nulled when the toolbar is
 // collapsed (phones) and hidden by CSS at md+ (tablet/desktop) — so on
-// a touch device the eraser was the only way to remove a sticky note.
-// This pill appears whenever something is selected and removes it in
-// one tap. Keyboard users still have Backspace/Delete.
+// a touch device there was no way to remove a post-it (the eraser can't —
+// see registerPostItSideEffects). This pill appears whenever something is
+// selected and removes it — a post-it together with its ink — in one tap.
+// Keyboard users still have Backspace/Delete.
 function DeleteSelectionButton({ editor }: { editor: Editor | null }) {
   const [count, setCount] = useState(0);
   useEffect(() => {
@@ -2416,7 +2635,11 @@ function DeleteSelectionButton({ editor }: { editor: Editor | null }) {
 
   const del = () => {
     const ids = editor.getSelectedShapeIds();
-    if (ids.length) editor.deleteShapes(ids);
+    if (!ids.length) return;
+    // Its own undo step — without the mark, Undo after deleting a post-it
+    // also reverted the stroke drawn just before it.
+    editor.markHistoryStoppingPoint("delete selection");
+    editor.deleteShapes(ids);
   };
 
   return (

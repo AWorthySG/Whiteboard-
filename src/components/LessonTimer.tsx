@@ -48,13 +48,17 @@ export default function LessonTimer({
     return () => clearInterval(id);
   }, [timer.running, timer.endsAt]);
 
+  // Outside-tap close. CAPTURE-phase pointerdown on `document`, not a window
+  // mousedown: an iPad tap on the board produces no mousedown (tldraw
+  // preventDefaults the touch) and tldraw stops pointerdown propagation at
+  // its container, so the menu used to stay open.
   useEffect(() => {
     if (!menuOpen) return;
-    const onClick = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
     };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
   }, [menuOpen]);
 
   // Tick the wall clock once a second so the Singapore-time readout stays
@@ -167,7 +171,12 @@ export default function LessonTimer({
     return (
       <div
         ref={menuRef}
-        className="absolute top-3 left-1/2 -translate-x-1/2 z-[80] flex items-center gap-1.5"
+        // z-80 normally; while the preset menu is open it lifts above the
+        // canvas's CanvasFloatingPanel (z 9999, same canvas layer), whose
+        // pills otherwise covered "5m" / "Start" on a phone.
+        className={`absolute top-3 left-1/2 -translate-x-1/2 ${
+          menuOpen ? "z-[10000]" : "z-[80]"
+        } flex items-center gap-1.5`}
         style={{ pointerEvents: "auto" }}
       >
         {clockPill}

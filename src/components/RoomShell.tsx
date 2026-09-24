@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,6 +21,7 @@ import {
   PencilSimple,
   Phone,
   ShareNetwork,
+  Textbox,
   VideoCamera,
   VideoCameraSlash,
   WarningCircle,
@@ -22,7 +30,7 @@ import {
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useSettings } from "@/hooks/useSettings";
-import { useIsHost } from "@/hooks/useHostStatus";
+import { roomEntryView, useHostStatus } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { trackRoomVisit, useRecentRooms } from "@/hooks/useRecentRooms";
 import { useWhiteboardRecorder } from "@/hooks/useWhiteboardRecorder";
@@ -31,6 +39,15 @@ import { useToast } from "./Toast";
 import BrandLogo from "./BrandLogo";
 import Sticker from "./Sticker";
 import ErrorBoundary from "./ErrorBoundary";
+// Static, not dynamic(): the dialog's input must mount synchronously inside
+// the tap that opened it so its autoFocus lands within the user gesture —
+// the only way iOS raises the keyboard. A lazy chunk would mount a tick
+// later, outside the gesture. (RoomShell is itself a lazy chunk, so this
+// never touches the room's First Load JS.)
+import RenamePageDialog, {
+  type RenamePageTarget,
+  type RequestRenamePage,
+} from "./RenamePageDialog";
 
 const WhiteboardCanvas = dynamic(() => import("./WhiteboardCanvas"), { ssr: false });
 const VideoPanel = dynamic(() => import("./VideoPanel"), { ssr: false });
@@ -156,7 +173,11 @@ export default function RoomShell({
   const [editingTitle, setEditingTitle] = useState(false);
   const [videoPanelWidth, setVideoPanelWidthState] = useState(VIDEO_WIDTH_DEFAULT);
   const [videoCompact, setVideoCompactState] = useState(false);
-  const isHost = useIsHost(roomId);
+  // Tri-state: "checking" until the first answer, then sticky. RoomShell
+  // shows its spinner while checking instead of the guest flow, so a
+  // signed-in host never knocks (or toasts their other device) on load.
+  const hostStatus = useHostStatus(roomId);
+  const isHost = hostStatus === "host";
   // Count of submissions awaiting host feedback — drives the Homework
   // nav badge. Host-only (students don't review).
   const homeworkReviewCount = useHomeworkReviewCount(roomId, isHost);
@@ -257,10 +278,15 @@ export default function RoomShell({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const deskMenuRef = useRef<HTMLDivElement | null>(null);
   const canvasExportRef = useRef<(() => Promise<void>) | null>(null);
-  const canvasAddPageRef = useRef<(() => void) | null>(null);
+  const canvasAddPageRef = useRef<(() => string | null) | null>(null);
   const canvasSwitchPageRef = useRef<((pageId: string) => void) | null>(null);
   const canvasOpenUploadRef = useRef<(() => void) | null>(null);
   const canvasBringEveryoneRef = useRef<(() => void) | null>(null);
+  // Palette "Add a post-it note" → WhiteboardCanvas's insertPostItNow.
+  // Stable ref, so the palette memo needs no extra dep.
+  const canvasInsertPostItRef = useRef<
+    ((pointerType?: string) => void) | null
+  >(null);
   const canvasPageThumbnailRef = useRef<
     ((pageId: string) => Promise<string | null>) | null
   >(null);
@@ -354,50 +380,95 @@ export default function RoomShell({
   } | null>(null);
   const [pagesMenuOpen, setPagesMenuOpen] = useState(false);
   const pagesMenuRef = useRef<HTMLDivElement | null>(null);
-  // Inline rename inside the Pages dropdown. null = not renaming, else
-  // the pageId whose row is swapped for an <input>. Same Enter/blur/Esc
-  // pattern as the header title and the bottom PagesTabBar.
-  const [renamingPageId, setRenamingPageId] = useState<string | null>(null);
-  const [renamePageDraft, setRenamePageDraft] = useState("");
+  const pagesListRef = useRef<HTMLDivElement | null>(null);
+  const pagesPopoverRef = useRef<HTMLDivElement | null>(null);
 
-  // Close the Pages dropdown on outside click.
+  // Close the Pages dropdown on an outside tap. CAPTURE-phase pointerdown
+  // on `document`, not a window `mousedown`: on an iPad, tldraw
+  // preventDefaults the canvas touchend so no compatibility mousedown is
+  // ever synthesised, and it stops pointerdown propagation at its
+  // container — so a tap on the board used to leave the menu open.
   useEffect(() => {
     if (!pagesMenuOpen) return;
-    const onClick = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!pagesMenuRef.current?.contains(e.target as Node)) {
         setPagesMenuOpen(false);
       }
     };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
   }, [pagesMenuOpen]);
 
-  // Commit an inline page rename from the Pages dropdown. Skips no-op
-  // renames (empty string, unchanged name) so we don't trigger a sync
-  // write per blur otherwise.
-  const commitPageRename = useCallback(() => {
-    if (!renamingPageId || !pagesState) return;
-    const next = renamePageDraft.trim();
-    const page = pagesState.pages.find((p) => p.id === renamingPageId);
-    if (page && next && next !== page.name) {
-      canvasEditorRef.current?.renamePage(page.id as never, next);
+  // When the dropdown opens: bring the current page's row into view (the
+  // list scrolls past ~6 pages; scrolls only the list itself), and keep the
+  // popover on-screen on a phone, where the w-72 panel anchored at the pill
+  // ran ~6px off the right edge. Layout values only (offsetTop /
+  // offsetWidth): the popover opens with `.scale-pop`, so a
+  // getBoundingClientRect() here measured it at scale(0.95) and came up 5%
+  // short — at 40 pages the current row stayed entirely out of view.
+  // Layout effect so the clamp lands before the first paint.
+  useLayoutEffect(() => {
+    if (!pagesMenuOpen) return;
+    const pop = pagesPopoverRef.current;
+    const pill = pagesMenuRef.current;
+    if (pop && pill) {
+      // 12px = the 0.75rem margin in the popover's max-w-[calc(100vw-1.5rem)].
+      const room = window.innerWidth - 12 - pill.getBoundingClientRect().left;
+      if (pop.offsetWidth > room) {
+        pop.style.left = `${room - pop.offsetWidth}px`;
+      }
     }
-    setRenamingPageId(null);
-  }, [renamingPageId, renamePageDraft, pagesState]);
+    const list = pagesListRef.current;
+    const row = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !row) return;
+    // Both measured from the popover (their shared offsetParent), so this is
+    // the row's position inside the list's scrolled content.
+    const top = row.offsetTop - list.offsetTop;
+    const bottom = top + row.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = bottom - list.clientHeight;
+    }
+  }, [pagesMenuOpen]);
 
-  // If the dropdown is closed while a rename is still in flight, commit
-  // it. The normal blur-to-save path already covers outside-clicks
-  // (mousedown moves focus, fires blur on the input, blur runs
-  // commitPageRename, then the outside-click handler runs and closes
-  // the menu). This is a safety net for the rarer path where the menu
-  // closes WITHOUT a focus change (e.g. parent unmounting the dropdown
-  // while the rename row is mid-edit) — without it, renamingPageId
-  // would stay set and the row would re-open in edit mode next time
-  // the dropdown opens. Matches the header title's blur-to-commit
-  // behaviour: closing the surface saves rather than discards.
-  useEffect(() => {
-    if (!pagesMenuOpen && renamingPageId) commitPageRename();
-  }, [pagesMenuOpen, renamingPageId, commitPageRename]);
+  // Page naming. Every rename entry point — the header dropdown, the
+  // bottom PagesTabBar (tap the active tab / its rename button), naming a
+  // page right after "+ New page", and the command palette — opens the one
+  // RenamePageDialog, which commits only on an explicit Save / Return.
+  // The old inline inputs saved on blur, and on an iPad a tap on the board
+  // never blurs anything, so names were silently lost.
+  const [renamePageTarget, setRenamePageTarget] =
+    useState<RenamePageTarget | null>(null);
+  const closeRenamePage = useCallback(() => setRenamePageTarget(null), []);
+  // Host-only (page names sync to the whole class). Must be called
+  // synchronously from the originating tap so the dialog's input mounts —
+  // and focuses — inside the user gesture, which iOS needs to raise the
+  // keyboard.
+  const requestRenamePage = useCallback<RequestRenamePage>(
+    (pageId, opts) => {
+      const editor = canvasEditorRef.current;
+      if (!isHost || !editor) return;
+      // Finish any sticky-note text edit first: that unmounts tiptap and
+      // clears its ~100 ms refocus timer, which would otherwise steal
+      // focus straight back from the dialog's input.
+      if (editor.getEditingShapeId()) editor.complete();
+      setRenamePageTarget({ pageId, isNew: !!opts?.isNew });
+    },
+    [isHost],
+  );
+  // Header "+ New page" and the palette's "Add a new page": add a blank
+  // page, then offer to name it in the same tap ("Skip" keeps "Page N").
+  // WhiteboardCanvas has already toasted if nothing was added (limit).
+  const addPageAndName = useCallback(() => {
+    let pageId: string | null = null;
+    try {
+      pageId = canvasAddPageRef.current?.() ?? null;
+    } catch (e) {
+      toast.error(`Couldn't add page: ${(e as Error).message}`);
+      return;
+    }
+    if (pageId) requestRenamePage(pageId, { isNew: true });
+  }, [requestRenamePage, toast]);
 
   // Dismiss the empty-room hint as soon as the canvas has any shapes
   // or more than one page. Subscribes to the editor store so freshly
@@ -520,19 +591,38 @@ export default function RoomShell({
         },
       },
       {
-        id: "add-page",
-        label: "Add a new page",
-        group: "Canvas",
-        perform: () => canvasAddPageRef.current?.(),
-      },
-      {
         id: "export-pdf",
         label: "End lesson — export to PDF",
         group: "Canvas",
         perform: () => setEndLessonOpen(true),
       },
+      {
+        // Host AND students: anyone can add a post-it.
+        id: "add-post-it",
+        label: "Add a post-it note",
+        hint: "Drops a yellow post-it in the middle of your view.",
+        group: "Canvas",
+        perform: () => canvasInsertPostItRef.current?.(),
+      },
     ];
     if (isHost) {
+      // Pages are host-only: adding, naming and renaming sync to the class.
+      cmds.push({
+        id: "add-page",
+        label: "Add a new page",
+        hint: "Adds a blank page and asks what to call it.",
+        group: "Canvas",
+        perform: addPageAndName,
+      });
+      cmds.push({
+        id: "rename-page",
+        label: "Rename current page",
+        group: "Canvas",
+        perform: () => {
+          const pageId = canvasEditorRef.current?.getCurrentPageId();
+          if (pageId) requestRenamePage(pageId, { isNew: false });
+        },
+      });
       cmds.push({
         id: "download-pdf-now",
         label: "Download all pages as PDF",
@@ -573,6 +663,8 @@ export default function RoomShell({
     videoPanelVisible,
     joinCall,
     downloadAllPagesPdf,
+    addPageAndName,
+    requestRenamePage,
   ]);
 
 
@@ -601,10 +693,12 @@ export default function RoomShell({
 
   // Record this room in the recent rooms list whenever the title or role
   // changes (so a freshly renamed room re-bubbles to the top with its new title).
+  // Skipped while host status is still resolving, so a host's room isn't
+  // briefly re-recorded as "guest".
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId || hostStatus === "checking") return;
     trackRoomVisit(roomId, meta.title || roomId, isHost ? "host" : "guest");
-  }, [roomId, meta.title, isHost]);
+  }, [roomId, meta.title, isHost, hostStatus]);
 
   // Host self-admission. Hosts skip KnockGate, so they don't get a
   // join_requests row by default — but the LiveKit token endpoint now
@@ -633,23 +727,26 @@ export default function RoomShell({
       });
   }, [isHost, roomId, userId, name]);
 
+  // Outside-tap close for the mobile and desktop "More" menus. Capture-phase
+  // document pointerdown for the same reason as the Pages dropdown: a tap
+  // on the iPad board produces no mousedown and never bubbles out of tldraw.
   useEffect(() => {
     if (!menuOpen) return;
-    const onClick = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
     };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
   }, [menuOpen]);
 
   useEffect(() => {
     if (!deskMenuOpen) return;
-    const onClick = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!deskMenuRef.current?.contains(e.target as Node))
         setDeskMenuOpen(false);
     };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
   }, [deskMenuOpen]);
 
   const inviteUrl =
@@ -723,16 +820,19 @@ export default function RoomShell({
           </div>
         </div>
       )}
-      {/* Opaque cream (page --bg), NOT .glass-header: backdrop-filter creates a
-          stacking context, which would trap the Pages / More / mobile menus
-          (z-[90]) inside the static header and paint them UNDER the centred
-          LessonTimer (z-[80]) — see the CLAUDE.md z-order gotcha. Nothing sits
-          behind the top bar to blur anyway. Cream rather than white so the bar
-          belongs to the paper; border-b-2 border-ink matches the SubNav strip
-          and the call headers. py-2 (was 1.5) gives the 4px hard shadow under
-          each header pill room to land inside the bar instead of on the SubNav
-          strip below. */}
-      <header className="bg-[var(--bg)] flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 border-b-2 border-ink z-10 safe-pt">
+      {/* NO z-index, and never backdrop-filter / filter / transform /
+          opacity < 1: the header is a FLEX ITEM of this column, and a flex
+          item with any of those (a z-index included, even while static)
+          forms a stacking context that traps the Pages / More / mobile menus
+          (z-[90]) at the header's own level — under the centred LessonTimer
+          and the canvas's floating pills. See the CLAUDE.md z-order gotcha.
+          Opaque cream (page --bg), not .glass-header, for the same reason;
+          nothing sits behind the top bar to blur anyway. Cream rather than
+          white so the bar belongs to the paper; border-b-2 border-ink matches
+          the SubNav strip and the call headers. py-2 (was 1.5) gives the 4px
+          hard shadow under each header pill room to land inside the bar
+          instead of on the SubNav strip below. */}
+      <header className="bg-[var(--bg)] flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 border-b-2 border-ink safe-pt">
         <Link
           href="/"
           className="touch-target font-extrabold tracking-display shrink-0 flex items-center gap-2"
@@ -762,17 +862,12 @@ export default function RoomShell({
 
         {/* Top-left 'New page' action — host-only since only the host
             should be creating pages mid-lesson. One click spawns a
-            blank page; the bottom pages pill still offers the template
+            blank page and opens the naming dialog ("Skip" keeps
+            "Page N"); the bottom pages pill still offers the template
             picker (grid / lined / coords / music). */}
         {isHost && (
           <button
-            onClick={() => {
-              try {
-                canvasAddPageRef.current?.();
-              } catch (e) {
-                toast.error(`Couldn't add page: ${(e as Error).message}`);
-              }
-            }}
+            onClick={addPageAndName}
             className="touch-target shrink-0 text-[13px] rounded-full bg-brand-600 hover:bg-brand-500 text-white border-2 border-ink shadow-sticker-primary sticker-press px-3 py-1 flex items-center gap-1.5 font-extrabold"
             title="Add a new blank page to this whiteboard"
             aria-label="Add a new page"
@@ -783,15 +878,20 @@ export default function RoomShell({
         )}
 
         {/* Pages dropdown — shows every page in this room with the
-            current one highlighted, click any to switch. Same source
-            of truth as the bottom pages pill (the tldraw editor). */}
+            current one highlighted, tap any to switch. The host also
+            renames from here: a labelled "Rename this page…" row on top
+            and a per-row rename button, both opening the RenamePageDialog
+            (no inline input — see requestRenamePage). Same source of truth
+            as the bottom pages pill (the tldraw editor). */}
         {pagesState && pagesState.pages.length > 0 && (
           <div ref={pagesMenuRef} className="relative shrink-0">
             <button
               onClick={() => setPagesMenuOpen((o) => !o)}
               className="touch-target text-[13px] rounded-full bg-[var(--bg-elev)] border-2 border-ink shadow-sticker-sm sticker-press hover:bg-[var(--bg-elev-2)] px-3 py-1 flex items-center gap-1.5 font-extrabold"
-              title="Switch pages"
-              aria-label="Switch page"
+              title={isHost ? "Pages — switch or rename" : "Pages — switch page"}
+              aria-label={
+                isHost ? "Pages — switch or rename" : "Pages — switch page"
+              }
               aria-haspopup="listbox"
               aria-expanded={pagesMenuOpen}
             >
@@ -810,36 +910,65 @@ export default function RoomShell({
             </button>
             {pagesMenuOpen && (
               <div
-                role="listbox"
-                className="absolute top-full left-0 mt-1.5 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 overflow-y-auto rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-1.5 z-[90] scale-pop"
+                ref={pagesPopoverRef}
+                className="absolute top-full left-0 mt-1.5 w-72 max-w-[calc(100vw-1.5rem)] max-h-96 flex flex-col rounded-xl bg-[var(--bg-elev)] border-2 border-ink shadow-sticker p-1.5 z-[90] scale-pop"
               >
-                {pagesState.pages.map((p, i) => {
-                  const active = p.id === pagesState.currentId;
-                  const thumb = pageThumbs[p.id];
-                  const renaming = renamingPageId === p.id;
-                  // Renaming rows render as a div (not a button) so the
-                  // inner <input> can take focus cleanly without the
-                  // outer button hijacking pointer events.
-                  return (
-                    <div
-                      key={p.id}
-                      role="option"
-                      aria-selected={active}
-                      className={`group w-full text-left text-sm rounded-lg flex items-center gap-3 ${
-                        active
-                          ? "bg-brand-50 text-brand-700 font-extrabold"
-                          : renaming
-                            ? "bg-[var(--hover)] text-[var(--text)]"
-                            : "hover:bg-[var(--hover)] text-[var(--text)]"
-                      }`}
+                {isHost && (
+                  <>
+                    {/* Full-width, 44px, labelled — the discoverable way
+                        to rename, pinned above the scrolling list. */}
+                    <button
+                      onClick={() => {
+                        setPagesMenuOpen(false);
+                        requestRenamePage(pagesState.currentId, {
+                          isNew: false,
+                        });
+                      }}
+                      className="shrink-0 w-full min-h-[44px] rounded-lg px-2.5 flex items-center gap-2.5 text-left text-sm font-extrabold text-[var(--text)] hover:bg-[var(--hover)]"
                     >
-                      {renaming ? (
-                        <>
+                      <Textbox
+                        size={18}
+                        aria-hidden
+                        className="shrink-0 text-[var(--text-muted)]"
+                      />
+                      Rename this page…
+                    </button>
+                    <div
+                      aria-hidden
+                      className="shrink-0 my-1 border-t-2 border-dashed border-[color:var(--border)]"
+                    />
+                  </>
+                )}
+                <div
+                  ref={pagesListRef}
+                  role="listbox"
+                  aria-label="Pages"
+                  className="min-h-0 overflow-y-auto"
+                >
+                  {pagesState.pages.map((p, i) => {
+                    const active = p.id === pagesState.currentId;
+                    const thumb = pageThumbs[p.id];
+                    return (
+                      <div
+                        key={p.id}
+                        role="option"
+                        aria-selected={active}
+                        className={`group w-full text-left text-sm rounded-lg flex items-center gap-1 ${
+                          active
+                            ? "bg-brand-50 text-brand-700 font-extrabold"
+                            : "hover:bg-[var(--hover)] text-[var(--text)]"
+                        }`}
+                      >
+                        <button
+                          onClick={() => {
+                            canvasSwitchPageRef.current?.(p.id);
+                            setPagesMenuOpen(false);
+                          }}
+                          className="flex-1 min-w-0 text-left flex items-center gap-3 px-2 py-2"
+                        >
                           <div
-                            className={`shrink-0 ml-2 my-2 w-16 h-12 rounded-md overflow-hidden border-2 ${
-                              active
-                                ? "border-brand-600"
-                                : "border-ink-faint"
+                            className={`shrink-0 w-16 h-12 rounded-md overflow-hidden border-2 ${
+                              active ? "border-brand-600" : "border-ink-faint"
                             } bg-[var(--bg-elev)] flex items-center justify-center`}
                           >
                             {thumb ? (
@@ -857,79 +986,30 @@ export default function RoomShell({
                           <span className="text-xs text-[var(--text-dim)] w-5 shrink-0">
                             {i + 1}.
                           </span>
-                          <input
-                            autoFocus
-                            value={renamePageDraft}
-                            onChange={(e) =>
-                              setRenamePageDraft(e.target.value)
-                            }
-                            onBlur={commitPageRename}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") commitPageRename();
-                              if (e.key === "Escape") setRenamingPageId(null);
-                            }}
-                            onFocus={(e) => e.currentTarget.select()}
-                            className="min-w-0 flex-1 mr-2 my-2 rounded-md bg-[var(--bg-elev)] border-2 border-brand-600 shadow-[0_0_0_3px_var(--accent-soft)] text-[var(--text)] px-2 py-1 text-sm font-semibold outline-none"
-                            aria-label="Rename page"
-                          />
-                        </>
-                      ) : (
-                        <>
+                          <span className="truncate">{p.name}</span>
+                        </button>
+                        {/* Per-row rename: a 40px target, always visible
+                            (hover-revealed controls don't exist on iPad),
+                            in --text-muted (the old --text-dim pencil was
+                            2.7:1). Textbox, not PencilSimple — the pencil
+                            is also the Pen tool's glyph. */}
+                        {isHost && (
                           <button
                             onClick={() => {
-                              canvasSwitchPageRef.current?.(p.id);
                               setPagesMenuOpen(false);
+                              requestRenamePage(p.id, { isNew: false });
                             }}
-                            className="flex-1 min-w-0 text-left flex items-center gap-3 px-2 py-2"
+                            className="shrink-0 mr-1 w-10 h-10 rounded-full inline-flex items-center justify-center text-[var(--text-muted)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
+                            aria-label={`Rename ${p.name}`}
+                            title="Rename page"
                           >
-                            <div
-                              className={`shrink-0 w-16 h-12 rounded-md overflow-hidden border-2 ${
-                                active
-                                  ? "border-brand-600"
-                                  : "border-ink-faint"
-                              } bg-[var(--bg-elev)] flex items-center justify-center`}
-                            >
-                              {thumb ? (
-                                <img
-                                  src={thumb}
-                                  alt=""
-                                  className="w-full h-full object-contain"
-                                />
-                              ) : (
-                                <span className="text-[var(--text-dim)] text-[10px]">
-                                  empty
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-xs text-[var(--text-dim)] w-5 shrink-0">
-                              {i + 1}.
-                            </span>
-                            <span className="truncate">{p.name}</span>
+                            <Textbox size={18} aria-hidden />
                           </button>
-                          {/* Host gets a per-row pencil to start an
-                              inline rename. Visible at all times (not
-                              hover-only) so it's reachable by touch on
-                              iPad — hover-revealed controls don't
-                              exist there. */}
-                          {isHost && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRenamePageDraft(p.name);
-                                setRenamingPageId(p.id);
-                              }}
-                              className="shrink-0 mr-2 my-2 p-1.5 rounded-full text-[var(--text-dim)] hover:bg-[var(--hover)] hover:text-[var(--text)]"
-                              aria-label={`Rename ${p.name}`}
-                              title="Rename page"
-                            >
-                              <PencilSimple size={14} aria-hidden />
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -1273,7 +1353,18 @@ export default function RoomShell({
           onUpload={() => canvasOpenUploadRef.current?.()}
           onBringEveryone={() => canvasBringEveryoneRef.current?.()}
         />
-        <div className="relative flex-1 min-w-0 min-h-0">
+        {/* `isolate` (isolation: isolate) makes the whole canvas area ONE
+            layer of the root stacking context. Everything in here — tldraw's
+            internal layers (up to 10000), CanvasFloatingPanel (9999), the
+            ReconnectBanner, the LessonTimer (z-80) — keeps its order among
+            itself but can no longer paint over the header's popovers
+            (z-[90], root context). The host's AdmissionPanel lives in here
+            too, heading the CanvasFloatingPanel column (passed to
+            WhiteboardCanvas as `admissionPanel`). Isolating
+            .tldraw-shell instead would put the ReconnectBanner UNDER the
+            centred LessonTimer, which shares its top-centre anchor. See the
+            CLAUDE.md z-order gotcha. */}
+        <div className="relative isolate flex-1 min-w-0 min-h-0">
           {/* Recording state overlay — red inset border + REC badge.
               Mounts above the canvas (pointer-events: none) so it
               doesn't interfere with drawing. */}
@@ -1344,11 +1435,18 @@ export default function RoomShell({
             addPageRef={canvasAddPageRef}
             openUploadRef={canvasOpenUploadRef}
             bringEveryoneRef={canvasBringEveryoneRef}
+            insertPostItRef={canvasInsertPostItRef}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}
             onEditor={onCanvasEditor}
             onPagesChange={setPagesState}
+            onRequestRenamePage={requestRenamePage}
+            admissionPanel={
+              isHost ? (
+                <AdmissionPanel roomId={roomId} hostUserId={userId} />
+              ) : null
+            }
           />
           {perfHudOn && (
             <PerfHud
@@ -1518,7 +1616,6 @@ export default function RoomShell({
           </div>
         )}
 
-        {isHost && <AdmissionPanel roomId={roomId} hostUserId={userId} />}
         {isHost && (
           <EndLessonModal
             open={endLessonOpen}
@@ -1543,12 +1640,22 @@ export default function RoomShell({
         />
       </div>
 
+      {/* Outside the canvas area (and so outside .tldraw-shell and its
+          isolated layer) so it sits above every canvas overlay. */}
+      {isHost && (
+        <RenamePageDialog
+          editor={canvasEditor}
+          target={renamePageTarget}
+          onClose={closeRenamePage}
+        />
+      )}
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         roomId={roomId}
         userName={name}
         onUserNameChange={setName}
+        isHost={isHost}
       />
       <CommandPalette
         open={paletteOpen}
@@ -1595,21 +1702,26 @@ export default function RoomShell({
     </div>
   );
 
-  if (isHost) return room;
+  // The gate itself is roomEntryView (useHostStatus.ts), unit-tested there.
+  const entryView = roomEntryView(hostStatus, nameBootstrapped, !!name.trim());
+  if (entryView === "room") return room;
   // Guest flow — no sign-up required. If they didn't bring a name in
   // (via ?name= or remembered from a previous visit on this device),
   // ask for one in a quick inline form before knocking. The host sees
   // the name they enter in the admission panel.
   // Wait for localStorage to be checked so we don't flash the name
-  // prompt to someone whose name is already remembered.
-  if (!nameBootstrapped) {
+  // prompt to someone whose name is already remembered — and for host
+  // status to resolve, so a signed-in host whose ownership is still being
+  // looked up gets this spinner, not the name form or KnockGate (which
+  // would insert a "pending" knock for the host of their own room).
+  if (entryView === "spinner") {
     return (
       <main className="h-app w-screen flex items-center justify-center">
         <div className="inline-block w-8 h-8 border-[3px] border-ink-faint border-t-brand-600 rounded-full animate-spin" />
       </main>
     );
   }
-  if (!name.trim()) {
+  if (entryView === "name") {
     return (
       <GuestNameEntry
         roomTitle={meta.title || "this room"}

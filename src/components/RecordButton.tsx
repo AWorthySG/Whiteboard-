@@ -140,13 +140,17 @@ export default function RecordButton({
     };
   }, []);
 
+  // Outside-tap close. CAPTURE-phase pointerdown on `document`, not a window
+  // mousedown: an iPad tap on the board produces no mousedown (tldraw
+  // preventDefaults the touch) and tldraw stops pointerdown propagation at
+  // its container, so the menu used to stay open.
   useEffect(() => {
     if (!menuOpen) return;
-    const onClick = (e: MouseEvent) => {
+    const onDown = (e: PointerEvent) => {
       if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
     };
-    window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onDown, true);
+    return () => document.removeEventListener("pointerdown", onDown, true);
   }, [menuOpen]);
 
   const togglePause = () => {

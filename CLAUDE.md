@@ -108,17 +108,99 @@ of the form `<username>@a-worthy.local` before being sent to Supabase, so:
 
 ## Host detection (two-tier)
 
-A user is host of a room if either:
+A user is host of a room if any of:
 1. **Signed in** and their Supabase user id matches `rooms.host_user_id`, OR
-2. The room id is in `localStorage.wb_hosted_rooms` (legacy / pre-auth fallback)
+2. The room id is in `localStorage.wb_hosted_rooms` — rooms this browser created
+   or claimed (legacy / pre-auth fallback; survives sign-out), OR
+3. The room is in `localStorage.wb_confirmed_host_rooms` (`{ [roomId]: userId }`,
+   written when a lookup confirmed #1) for the account signed in now — or for the
+   last account while nobody is signed in. See the hardening list below.
 
-`useIsHost(roomId)` returns true if either is true. `markAsHost(roomId, user?, name?)`
-always writes to localStorage and additionally upserts the `rooms` row when a user
-is provided. It **throws** if that upsert returns an error (Supabase returns `{ error }`
-rather than throwing, so a bare `await` used to swallow RLS rejections and made
-"Claim this room" report false success). Local ownership is written first and
-survives the throw; the landing page catches it and toasts, then still enters. A "Claim this room for my account" button in **Settings → Account**
-promotes a legacy localStorage room into a proper `rooms` row.
+`useHostStatus(roomId)` returns a tri-state **`"checking" | "host" | "guest"`**;
+`useIsHost(roomId)` is a thin wrapper (`status === "host"`, so "checking" reads as
+not-host). `markAsHost(roomId, user?, name?)` always writes to localStorage and
+additionally upserts the `rooms` row when a user is provided. It **throws** if that
+upsert returns an error (Supabase returns `{ error }` rather than throwing, so a
+bare `await` used to swallow RLS rejections and made "Claim this room" report false
+success). Local ownership is written first — synchronously, before the function's
+first `await` — and survives the throw; the landing page catches it and toasts, then
+still enters. The Telegram "Start a new lesson" button calls it too but does NOT
+await it: it navigates straight away and toasts from `.catch` if the account half
+fails (the upsert is a POST with no timeout, and awaiting it could leave the button
+on "Starting…" indefinitely). A "Claim this room for my account" button in
+**Settings → Account** promotes a legacy localStorage room into a proper `rooms`
+row — shown **only to a host** (`isHost` prop): markAsHost writes localStorage
+before the RLS-rejected upsert, so a signed-in student pressing it used to become a
+local host on reload.
+
+The hook is hardened because it used to demote the tutor mid-lesson, and RoomShell
+then swapped the whole room for `<KnockGate>{room}</KnockGate>` — remounting tldraw,
+LiveKit and any open dialog:
+- **Keyed on `user?.id`, never the `user` object.** supabase-js emits `SIGNED_IN`
+  with a freshly parsed user on every hidden→visible switch and `TOKEN_REFRESHED`
+  hourly; the old effect re-ran on each and reset to not-host before re-querying.
+- **Sticky.** Once "host", it stays host until the room or the signed-in user id
+  changes. The remote answer is only reset on a room/user-id change.
+- **Errors keep the last answer and retry** with backoff (`LOOKUP_RETRY_DELAYS_MS`,
+  1s/3s/9s), then every `LOOKUP_SLOW_RETRY_MS` (30 s) for as long as it keeps
+  failing, and again on `online` and on visibilitychange → visible (only while
+  signed in and not host). The slow retry is what promotes a real host out of
+  their own KnockGate when Supabase recovers without an `online` event. Each
+  attempt is `.retry(false)` (postgrest-js otherwise retried GETs itself — 1s/2s/4s,
+  ~7 s hidden inside every attempt) with an `AbortSignal.timeout(LOOKUP_TIMEOUT_MS)`
+  (5 s; skipped where unsupported, pre-Safari 16), plus the hook's OWN per-attempt
+  watchdog at the same 5 s — needed because supabase-js awaits `auth.getSession()`
+  (possibly a token refresh, no timeout) before the fetch even starts, where the
+  abort signal can't reach. A late answer from an attempt the watchdog already
+  failed is ignored. So a first load whose lookup keeps failing stays "checking"
+  for ~13 s (fast failures) to ~33 s (stalled), then resolves "guest" so a
+  signed-in student can still knock. That bound covers the LOOKUP only: while
+  `useAuth` itself is still loading, the status is "checking" too, and that wait
+  is bounded by supabase-js's own auth initialisation, not by this hook.
+- **A confirmed remote host is recorded in `wb_confirmed_host_rooms`** as
+  `{ [roomId]: userId }` and promoted into the local tier in the same tick, so a
+  fresh storage context (the iOS home-screen PWA, a room opened from a link or
+  "Your rooms") stays host through later network blips AND through a `SIGNED_OUT`
+  that supabase-js emits on its own (a refresh rejected after an iOS resume, a
+  global sign-out on another device) — with no host → guest → host flicker, which
+  used to remount the whole room twice. It deliberately lives OUTSIDE
+  `wb_hosted_rooms`: it never counts for a **different** signed-in account, and
+  `signOut()` (useAuth — the only Sign out path, Settings and the landing page)
+  **clears it** and fires `CONFIRMED_HOST_ROOMS_CLEARED_EVENT`, so a tutor who
+  signs in on a student's laptop or a shared iPad and signs out again doesn't
+  leave that browser hosting the room. Rooms the browser created or claimed
+  (`wb_hosted_rooms`) are untouched by sign-out. If storage writes are blocked,
+  nothing is recorded, but the mounted hook still promotes its in-memory copy —
+  so that mount survives a spontaneous `SIGNED_OUT` too, and an explicit
+  `signOut()` still demotes it (the clear event fires whether or not storage
+  works). **Accepted trade-off**: the record also counts while auth is still
+  LOADING (userId null), which is what keeps the tutor host through that window
+  — so on a shared browser where the tutor's session ended without an explicit
+  sign-out (e.g. a global sign-out elsewhere) and a DIFFERENT account then signs
+  in, that account sees host UI for the moment until its session loads, then
+  drops to guest (one remount into KnockGate).
+- **"checking" happens once per room.** It covers auth loading, the local read, and
+  a signed-in user's first lookup. After the first answer, a user-id change reads
+  "guest" until the new lookup confirms, rather than flashing the spinner.
+- **Live updates without reload**: `markAsHost` dispatches
+  `window` event `HOSTED_ROOMS_EVENT` (`"wb-hosted-rooms-changed"`); the hook
+  listens to it and to the native `storage` event (other tabs), re-reads
+  localStorage, and re-queries if still not host. Note Claim is host-only, so it
+  is NOT the recovery path for a tutor a fresh context fails to detect (a legacy
+  room with no `rooms` row, opened in the home-screen PWA): **claim from the
+  device whose browser created the room, then switch back to the PWA** — its
+  visibilitychange → visible re-query (signed in, not host) promotes it.
+
+RoomShell renders its existing spinner `<main>` while `hostStatus === "checking"`
+(not GuestNameEntry or KnockGate), so a signed-in host never inserts a "pending"
+`join_requests` row — or toasts their other device — on first load. That decision
+is the pure `roomEntryView(status, nameBootstrapped, hasName)` in useHostStatus.ts
+(`"room" | "spinner" | "name" | "knock"`), which RoomShell's tail switches on. It
+also skips `trackRoomVisit` while checking so a host's room isn't briefly recorded
+as "guest". `useHostStatus.test.ts` pins all of this with a fake Supabase backend,
+rendering a stand-in of RoomShell's tail through the same `roomEntryView` and
+counting mounts of the room and of KnockGate — so "the gate never mounts for a
+new-device host" and "no remount on auth churn" are real assertions.
 
 ## Key components (`src/components/`)
 
@@ -129,9 +211,36 @@ RoomShell.tsx          Top-level room layout — header, canvas wrapper, side vi
                        plus a "Pages (n) ▾" dropdown that lists every page in the room
                        (click to switch). Both call into WhiteboardCanvas via
                        addPageRef / switchPageRef, mirroring the exportRef pattern.
+                       addPageRef returns the new page id (null if none was added).
                        The page list itself is mirrored up via the onPagesChange callback
                        (subscribed to editor.store) so the dropdown stays live across
                        renames + remote edits.
+                       PAGE NAMING is one dialog for every entry point:
+                       `requestRenamePage(pageId, { isNew })` (host-only, stable
+                       useCallback) finishes any sticky-note text edit
+                       (editor.complete()) and sets `renamePageTarget`, which mounts
+                       RenamePageDialog. Entry points: "+ New page" (header, bottom
+                       bar AND templates — the dialog opens straight after creation,
+                       "Skip" keeps "Page N"; `addPageAndName`), the dropdown's
+                       pinned 44px "Rename this page…" row and its per-row 40px
+                       Textbox buttons, PagesTabBar (via WhiteboardCanvas's
+                       `onRequestRenamePage` prop), and the host-only palette
+                       commands "Add a new page" / "Rename current page". NOT after
+                       "Import PDF as pages" (those pages are named from the file).
+                       The palette also has "Add a post-it note" for EVERYONE
+                       (host and students) → `canvasInsertPostItRef` (stable ref,
+                       mirrors openUploadRef, so it adds no memo dep).
+                       There are no inline rename inputs any more — they saved on
+                       blur, which never fires on an iPad (see the "never commit on
+                       blur" gotcha). The pill reads "Pages — switch or rename".
+                       On open, a layout effect scrolls the current row into view
+                       and clamps the popover inside a phone's right edge, using
+                       LAYOUT values (offsetTop / offsetWidth) — the popover opens
+                       with `.scale-pop`, so getBoundingClientRect() measured it at
+                       scale(0.95) and under-scrolled by 5% (at 40 pages the current
+                       row stayed fully hidden).
+                       The canvas-area wrapper carries `isolate` — see the header
+                       z-order gotcha before touching it.
                        On md+ the header is a SINGLE row; secondary actions
                        (Export, captions, display name) live behind a "More" (⋯)
                        overflow menu (deskMenuOpen). Inline: Record · Invite ·
@@ -166,8 +275,18 @@ WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Uploads go BROWSER → SUPAB
                        Sets default stroke size to "s" on mount so Apple Pencil pressure
                        reads as pen-on-paper, not marker. Clears keyboard shortcuts for
                        geometric shape tools (arrow/line/geo/text/frame) so R/O/A/L/T
-                       can't accidentally switch tools mid-lesson. Exposes exportRef and
-                       addPageRef MutableRefObjects to the parent shell.
+                       can't accidentally switch tools mid-lesson. Exposes exportRef,
+                       addPageRef and insertPostItRef MutableRefObjects to the parent
+                       shell. The note shape util is PostItNoteUtil (src/lib/postIt.ts,
+                       replaces the old ResizableNoteUtil) and the tools() override
+                       routes `tools.note` (the N key + SlimToolbar Note) to
+                       insertPostItNow — see the Post-its gotcha. The desktop
+                       bottom band is a `1fr minmax(0,auto) minmax(3.5rem,1fr)` grid:
+                       the centre (PagesTabBar) track grows to the bar's width but
+                       never past the canvas, the left track never shrinks below
+                       ZoomControls, and the right keeps 3.5rem clear for the fixed
+                       ChatBubble. ShortcutsModal is portaled to <body> (the
+                       canvas area is an isolated stacking context).
                        tldraw `components` override nulls MenuPanel, StylePanel AND
                        NavigationPanel (the native zoom/minimap pill) — our custom
                        ZoomControls is the single zoom UI. The insert-equation
@@ -203,6 +322,51 @@ PagesTabBar.tsx        Bottom-center pill listing tldraw pages — switch / rena
                        page); a small ▾ caret next to it opens the template picker for
                        grid / dotted / lined / coords / music staves. Templates are SVG
                        generated client-side and stored as locked image shapes.
+                       Add, template, rename and × delete are ALL host-only (a
+                       student's × used to delete the page for the whole class);
+                       students get a read-only strip that still switches pages.
+                       Rename: the host taps the ALREADY-active tab (replaces
+                       double-click, which iOS never reliably delivered), or the
+                       Textbox button beside it (touch-target — 40px on touch; not
+                       PencilSimple, which is the Pen tool's glyph). Both go through
+                       `onRequestRenamePage` → RoomShell's RenamePageDialog; a new
+                       page (blank or template) is offered a name right after it's
+                       created. The strip keeps the active page's WHOLE group —
+                       tab + rename button + × — scrolled into view (measuring the
+                       tab alone left its controls clipped at the strip edge; it
+                       re-runs on a rename, which can widen the tab). It scrolls the
+                       strip ONLY — Element.scrollIntoView would also scroll the
+                       overflow:hidden .tldraw-shell. The × is the same thumb-sized
+                       touch-target as the rename button (confirm() still guards it). The bar is
+                       `max-w-full min-w-0` inside the band's canvas-sized centre
+                       track, so beside the video column it scrolls instead of
+                       running under the aside. On a NARROW canvas (the band is a
+                       CSS size container; ≤32rem, i.e. iPad portrait beside the
+                       video column) the band STACKS — zoom above, the bar across
+                       the full width — because on one row the strip shrank to
+                       ~18px and the active tab, rename and × were unreachable.
+                       Tracks live in globals.css (.pages-band-grid), not inline.
+                       The template menu's outside-close is
+                       a capture-phase document pointerdown. Default names and the
+                       40-page limit come from src/lib/pageNames.ts.
+
+RenamePageDialog.tsx   The single page-naming UI (rendered by RoomShell, outside the
+                       canvas, `fixed inset-0 z-[10000]`, card top-anchored at
+                       pt-[12vh] so the iPad keyboard never covers it). Prefilled +
+                       selected 16px input (enterKeyHint="done", maxLength 60 —
+                       selected on the FIRST focus only, so tapping back into a
+                       half-typed name keeps it),
+                       btn-primary "Save" and btn-secondary "Cancel" — "Skip" when
+                       naming a just-created page. Commits ONLY on submit (Save or
+                       Return; Return during IME composition is ignored);
+                       blank/unchanged names write nothing; Escape or a backdrop tap
+                       (press AND release on the backdrop) cancel; blur does nothing.
+                       The backdrop stops cancelling once anything is typed ("type,
+                       then tap the board" silently lost the name) and for 350 ms
+                       after opening (a double-tap on "+ New page" otherwise closed
+                       the prompt with its second tap).
+                       Statically imported so its autoFocus runs inside the opening
+                       tap — iOS only raises the keyboard for focus within a gesture.
 
 KnockGate.tsx          Wraps the room for non-hosts; renders the "waiting to be admitted"
                        screen until their join_requests row flips to admitted.
@@ -214,7 +378,7 @@ GuestNameEntry         Inline in RoomShell.tsx. Shown to guests who land on a ro
                        takes over. A nameBootstrapped flag prevents a one-frame
                        flash for guests whose name is already remembered.
 
-AdmissionPanel.tsx     Host-only floating panel showing pending join_requests with
+AdmissionPanel.tsx     Host-only panel showing pending join_requests with
                        Admit / Deny buttons (+ "Admit all" when 2+ pending, one
                        batch UPDATE of every pending row → admitted). Also fires a
                        toast ("X is asking to join") the first time it sees each new
@@ -225,8 +389,21 @@ AdmissionPanel.tsx     Host-only floating panel showing pending join_requests wi
                        "Re-admit" (admit). KnockGate live-subscribes to each row, so
                        Remove kicks the student and Re-admit lets them straight back
                        in. When nobody's pending the panel shrinks to a compact
-                       collapsed "Class roster (n)" pill (w-56, subtle border); a
-                       pending knock expands it to the full brand-bordered panel.
+                       collapsed "Class roster (n)" pill (hugs its label; w-56
+                       once opened); a pending knock expands it to the full
+                       w-80 panel. NOT positioned: RoomShell passes it to
+                       WhiteboardCanvas as `admissionPanel`, and it renders as
+                       the FIRST item of the top-right CanvasFloatingPanel
+                       column, so the pills stack under it (on md+ it carries
+                       md:mt-12 to start below the centred LessonTimer row —
+                       the column starts level with the clock there, and a
+                       w-80 knock card on a narrow canvas reached across the
+                       "Timer" button). As a separate
+                       `absolute top-16 right-4 z-[100]` float it shared that
+                       corner: the pills covered Admit, and once the canvas area
+                       was isolated it covered Delete / Pen mode / Undo instead
+                       for the whole lesson (the roster pill appears as soon as
+                       anyone has been admitted, and join_requests persist).
 
 ZoomControls.tsx       Bottom-left pill: zoom out / current % (clickable for preset
                        menu) / zoom in. Preset menu has Fit to content, Reset to
@@ -307,14 +484,23 @@ StrokeSizePicker.tsx   Four stroke-size options (s/m/l/xl) shown as dot swatches
 
 LeftRail.tsx           Vertical tool rail on the left edge of the canvas (md+ only).
                        Phase 4 design: contains the full tool set (select / hand /
-                       pen / highlighter / eraser / note / upload) plus
+                       pen / highlighter / eraser / "Add post-it" / upload) plus
                        host-only controls (bring everyone to my view, hide
                        annotations, lead view) AND the
                        drawing style controls (2×2 size grid, 2×4 color grid) below
                        a divider. This makes it the single unified drawing control
                        strip on desktop. Phones keep the SlimToolbar + floating panel.
                        Tool buttons show keyboard shortcuts in the browser tooltip
-                       (Select V, Hand H, Pen D, Highlighter Q, Eraser E, Note N).
+                       (Select V, Hand H, Pen D, Highlighter Q, Eraser E, Add
+                       post-it N). "Add post-it" (Note icon, same 40×40 slot) is
+                       an ACTION, not a tool — no active state — and is shown to
+                       host AND students: one tap calls insertPostIt (see the
+                       Post-its gotcha). It records the tap's pointerType on
+                       pointerdown (RailBtn has an optional onPointerDown
+                       passthrough; the ref is declared before the `!editor`
+                       early return) and inserts inside flushSync on click, so a
+                       Pencil tap gives write mode and a finger tap focuses the
+                       note within the gesture.
                        The size + colour pickers are COLLAPSED behind a single
                        "Stroke size & colour" toggle (styleOpen state, default
                        closed) so the rail stays short. The toggle previews the
@@ -329,6 +515,7 @@ CanvasSearch.tsx       Full-text search overlay (⌘F / Ctrl+F). Floats at the t
 
 ShortcutsModal.tsx     Keyboard shortcuts cheatsheet modal (? or toolbar button).
                        Three sections: Drawing tools, Actions, View & navigation.
+                       N reads "Add a post-it" (it inserts; it isn't a tool).
                        Geometric shape tool shortcuts (R/O/A/L/T/F) intentionally
                        omitted — their kbd bindings are cleared in the tools() override.
 
@@ -340,6 +527,15 @@ CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floatin
                        shadow-lg so the whole canvas-pill system matches. On phones
                        the column sits at top-14 (md:top-3) so the wider status pills
                        clear the centred LessonTimer/clock and never overlap it.
+                       Host only, the AdmissionPanel is the column's FIRST item
+                       (see AdmissionPanel), so knocks/roster and pills stack
+                       rather than overlap.
+                       The column is `pointer-events-none *:pointer-events-auto`:
+                       it is as wide as its widest pill, and that empty box used to
+                       swallow taps on the board / the timer menu beside it. The
+                       LessonTimer lifts itself to z-[10000] while its preset menu
+                       is open (same canvas layer as this 9999 column), so on a
+                       phone the pills can't cover "5m" / "Start".
                        - "Bring everyone to my view" (host only) used to live here
                          as an always-on pill but was MOVED OFF the canvas — it now
                          sits in LeftRail (desktop) and the mobile "More" menu, so
@@ -350,24 +546,37 @@ CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floatin
                          Supabase Realtime channel vp-{roomId} (see gotcha below).
                        - "Point at board" (non-host, hand/laser mode only): toggles
                          the laser pointer tool so students can point without drawing
-                       - "Clear my work" (non-host): deletes all shapes where
-                         meta.authorId === userId; pill shows count and auto-hides
-                         when the page is clean
+                       - "Clear my work" (non-host): clearAuthoredShapes() — deletes
+                         all shapes where meta.authorId === userId, but FIRST
+                         re-homes anyone else's shapes inside them (the tutor's
+                         feedback ink on the student's post-it) to the page, so
+                         it survives; one undo step. Pill shows count and
+                         auto-hides when the page is clean
                        - DeleteSelectionButton: appears whenever ≥1 shape is
                          selected and deletes the selection in one tap (shows
                          "Delete (n)" for multi-select). Shown on ALL breakpoints,
                          not md:hidden — tldraw's native delete (QuickActions) is
                          nulled when the toolbar is collapsed (phones) and hidden
                          by CSS at md+ (iPad has no keyboard), so this is the only
-                         touch path to remove a sticky note without the eraser.
-                         Notes are intentionally eraser-immune (see the
-                         registerBeforeDeleteHandler note below), making this pill
-                         (or Backspace) the way to remove them.
+                         touch path to remove a post-it. Post-its are
+                         intentionally eraser-immune (see the Post-its gotcha),
+                         making this pill (or Backspace) the way to remove one —
+                         with its ink. It marks a history stopping point first,
+                         so Undo restores exactly the deletion (without the mark,
+                         Undo also reverted the stroke drawn before it).
                        - UndoRedoControls: md:hidden grouped pill (undo · redo)
                          shown only on phones. Desktop has undo/redo in LeftRail;
                          on phones they otherwise sit in the collapsed SlimToolbar
                          (behind the Tools toggle), so this surfaces one-tap undo
                          for a stray stroke. Buttons grey out via getCanUndo/Redo.
+                       - PostItButton: md:hidden "Post-it" pill (sun tint, Note
+                         icon, aria-label "Add a post-it note") right after
+                         UndoRedoControls — the phone entry point for a post-it
+                         (md+ uses LeftRail's "Add post-it"). Records the tap's
+                         pointerType on pointerdown, then on click runs
+                         insertPostItNow (insertPostIt inside flushSync) so a
+                         finger tap's type mode focuses the note inside the
+                         gesture and iOS raises the keyboard.
                        - PenModeIndicator: tap-to-dismiss pen-mode pill
                        - StrokeSizePicker + ColorPickerRow: md:hidden (in LeftRail).
                          On phones both sit behind a single collapsible "Stroke
@@ -400,7 +609,7 @@ TemplatesModal.tsx     Host-only, lazy-loaded modal (entry points: desktop "More
                        placeholder icon) shown in the list, and rows can be renamed
                        inline (pencil → input → Enter/blur updates name).
 
-SettingsModal.tsx      Profile, account (sign in / claim room / sign out), appearance
+SettingsModal.tsx      Profile, account (sign in / claim room [host only] / sign out), appearance
                        (theme), whiteboard (pen-only/palm-rejection), documents, call
                        defaults, room (invite link, leave room).
 
@@ -526,7 +735,7 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 
 - `useSettings()` — localStorage-backed app preferences (theme, PDF layout, pen-only, defaults, hasSeenOnboarding). Default theme is "light".
 - `useAuth()` — Supabase user + `signOut()` + `displayUsername(user)` helper that strips the `@a-worthy.local` suffix for display.
-- `useIsHost(roomId)` — combined server + localStorage host check
+- `useHostStatus(roomId)` / `useIsHost(roomId)` — combined server + localStorage host check; tri-state `"checking" | "host" | "guest"`, sticky once host (see Host detection)
 - `useRoomMeta(roomId)` — room title + leader-mode state, with `setTitle` / `setLeaderMode`
 - `useRecentRooms()` + `trackRoomVisit()` — localStorage list shown on home page
 - `useHomeworkReviewCount(roomId, enabled)` — live count of the room's `homework_submissions` with `feedback IS NULL` (host-only; returns 0 when disabled). Drives the Homework nav "needs review" badge. One `count: "exact", head: true` query + a Realtime subscription on `homework_submissions` filtered by `room_id`.
@@ -535,6 +744,8 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 ## Module-level stores (`src/lib/`)
 
 - `captionsStore.ts` — singleton store for live caption lines. `pushCaption()` writes; `subscribeToCaptions()` / `getCaptionsSnapshot()` are consumed by `CaptionsHost` via `useSyncExternalStore`. The store lives outside React because caption updates arrive 5-10×/sec during active speech, and putting that churn into RoomShell state was forcing a full-tree re-render on every interim. Moving it out also frees ~10-30ms of frame budget per interim, which directly improves pen latency while someone is speaking.
+- `pageNames.ts` — default page names + the page ceiling, shared by every add-page path (header "+ New page", PagesTabBar button and templates, the palette). `nextPageName(names)` returns "Page <count+1>", bumped past any number already taken (custom names don't reserve one) — so the 4th page is normally "Page 4", and after a middle page is deleted it skips ahead instead of producing a second "Page 3" (the old `Page ${pages.length + 1}` bug) or appending a "Page 2" after "Page 3". `createNextPage` marks a history stopping point first, and RenamePageDialog does the same before `renamePage`, so Undo takes back only the page add / rename, not the stroke before it. `canAddPage(editor)` checks `getPages().length < editor.options.maxPages` (tldraw's 40); callers toast `pageLimitMessage(editor)` ("Page limit reached (40)") instead of letting createPage silently no-op. `createNextPage(editor, id)` creates + switches and returns the id, or null when tldraw refused. Type-only tldraw import, so it's cheap anywhere.
+- `postIt.ts` — the post-it feature, React-free (imports only from tldraw) so it is unit-tested against a headless Editor in `postIt.test.ts`. `PostItNoteUtil` (the app's note util: `resizeMode: "scale"` + `canReceiveNewChildrenOfType` → unlocked notes adopt draw/highlight ink only); `reparentInkIfOccluded(editor, record)` (the occlusion guard); `registerPostItSideEffects(editor)` (every post-it side effect — the occlusion guard for live strokes, the erase-set filter and the colour pin — in one call WhiteboardCanvas and the tests share; returns one deregister fn); `insertPostIt(editor, { pointerType?, compact? })` (the one insert every entry point calls; returns the id or null); `computePostItPlacement` (pure placement + cascade + zoom scale); `getPostItMode` (write vs type); `clearAuthoredShapes(editor, userId)` ("Clear my work"). Mechanics and limits are in the Post-its gotcha.
 - `fileValidation.ts` — centralised upload allow-list used by every upload path (WhiteboardCanvas, DocumentsDrawer, AttachmentPicker). `validateFileForUpload(file)` throws with a user-facing message for disallowed types; `getSafeMimeType(file)` returns a safe `Content-Type` for the Storage PUT (falls back to `application/octet-stream` rather than echoing untrusted browser MIME). **SVG is intentionally absent**: `image/svg+xml` files served from the public Supabase CDN and opened via `target=_blank` execute embedded `<script>` tags — stored XSS. Do not add SVG back without serving it through a sanitising proxy.
 
 ## Theming — the LMS "sticker-book" design system
@@ -640,12 +851,13 @@ an inline heading span) · `.font-label` · `.glass-header` · `.scale-pop` ·
 - **Keyboard focus rings (a11y)**: globals.css has a global `:focus-visible` outline. The outline-suppression rule is scoped to `.tldraw-shell .tl-container *:focus-visible` (NOT `.tldraw-shell *`) on purpose: our custom canvas controls (ZoomControls, PagesTabBar, CanvasFloatingPanel) live in `.tldraw-shell` but OUTSIDE `.tl-container`, so they keep the keyboard focus ring while tldraw's own interaction layer stays clean. Don't re-broaden it back to `.tldraw-shell *` — that silently kills focus visibility on every custom canvas control. Icon-only header buttons whose visible label is `hidden sm:inline` (the "+ New page" and "Pages" controls) carry an explicit `aria-label` since the label is display:none (and thus absent from the a11y tree) on phones.
 - **Leader mode UI**: when on, the host sees a solid `--sun` "LEADING VIEW" sticker pill top-right of the canvas, AND the eye icon in LeftRail gets a filled `--sun` background. Both use DARK (`--text`) ink on the yellow, not white — white on `#F5B82E` fails contrast. Guests being followed see the "Following host" sun chip.
 - **Geometric shape lockout**: the `tools()` override in `WhiteboardCanvas` clears the keyboard `kbd` field for `arrow`, `line`, `geo`, `text`, and `frame` so they're unreachable. They were already hidden from the SlimToolbar; this also kills the R/O/A/L/T/F shortcuts.
+- **The context menu's "Move to page → New page" is a page-add path too.** Stock tldraw names that page a constant "Page 1" and lets any user create it — a student could add a duplicate "Page 1" for the whole class and move shapes (the tutor's included) onto it. The `actions()` override in `WhiteboardCanvas` replaces `move-to-new-page`: non-hosts get a toast ("Only the host can add pages"); the host gets the limit toast at 40, `nextPageName`, and the naming dialog — opened 50 ms later via `editor.timers`, because Radix returns focus to the canvas in a `setTimeout(0)` after the menu unmounts and would otherwise pull it out of the dialog's input. **Accepted trade-off**: that deferred focus is outside the user gesture, so on an iPad (long-press context menu) the dialog opens with the field focused but NO keyboard until the tutor taps the field — every other naming entry point opens inside its tap. Rare path; the fix would be a custom ContextMenu content with `onCloseAutoFocus` preventDefault. If you add another page-creating UI, route it through `pageNames.ts` and `onRequestRenamePage` the same way.
 - **Shapes-per-page ceiling is raised — and the value is load-bearing.** `src/lib/tldrawOptions.ts` exports `TLDRAW_OPTIONS = { maxShapesPerPage: 1_000_000 }`, passed as the `options` prop to **every** `<Tldraw>` instance (the live `WhiteboardCanvas` and `PlaybackViewer`). tldraw's default is 4000; past it the editor silently refuses to create shapes and fires a `max-shapes` event, which in a dense handwriting lesson reads to the tutor as "the pen stopped working" (every stroke is a shape). Two reasons the value is a big finite number and not `Infinity`: (1) `maxShapesPerPage` doubles as a **z-index stride** — `getUnorderedRenderingShapes()` seeds `nextIndex = maxShapesPerPage * 2` and adds another `maxShapesPerPage` per background-providing nesting level, and those land in CSS `z-index`, a 32-bit signed int capped at 2,147,483,647, so `Infinity`/`MAX_SAFE_INTEGER` overflows it and breaks layering; (2) that same stride assumes a page never holds more shapes than `maxShapesPerPage` — exceed it and the background index range collides with the foreground range, so shapes layer wrongly. It is a true ceiling, not a hint: keep it comfortably above any real page's shape count. **Pass `TLDRAW_OPTIONS` to any new `<Tldraw>` you add** — an instance left on the 4000 default will mis-layer a recording or board that came from a room using the raised ceiling. Note this raises a limit, it does not make big pages fast: render cost and sync-worker snapshot size still scale with shape count, so a slow room is worth checking for shape count per page first. (tldraw's other default caps are untouched — notably `maxPages: 40`.)
-- **Performance HUD (`PerfHud.tsx`)**: diagnostic overlay for "the board feels laggy", which has at least three causes that are indistinguishable by feel — input latency, per-frame main-thread work, and shape-count scaling. Shows live fps, worst frame time, input→frame latency, rendered-vs-total shapes on the page, and long-task count. Enabled by `settings.perfHud` (Settings → Whiteboard) **or** `?perf=1` on the room URL — the latter is how you switch it on from an iPad mid-lesson without opening Settings. Lazy-loaded via `dynamic()` and only rendered when on, so its chunk never enters the room bundle otherwise (verify with `grep -rl "Copy reading" .next/static/chunks/app/r/` — it must NOT be in the room page chunk). Deliberately cheap while running, because an instrument that perturbs what it measures is useless: all accumulation is in refs inside one rAF loop, React state is written at 2 Hz and only re-renders the HUD itself (it is a SIBLING of the canvas, never a parent), the pointer listener is `passive` + capture and only assigns a timestamp, and shape counts come from tldraw's cached computed getters (`getCurrentPageShapeIds` / `getCulledShapes`) rather than a DOM walk. **Read "input→frame" honestly**: it measures pointer-event → next-frame-start, which is the portion the app controls; it EXCLUDES compositor and display time, so real pen-to-pixel latency is always higher. It is for spotting regressions and comparing configurations, never for claiming parity with a native app. `longtask` is Chromium-only — Safari (so every iPad browser) shows "n/a" there, which is expected, not a bug.
+- **Performance HUD (`PerfHud.tsx`)**: diagnostic overlay for "the board feels laggy", which has at least three causes that are indistinguishable by feel — input latency, per-frame main-thread work, and shape-count scaling. Shows live fps, worst frame time, input→frame latency, rendered-vs-total shapes on the page, and long-task count. Enabled by `settings.perfHud` (Settings → Whiteboard) **or** `?perf=1` on the room URL — the latter is how you switch it on from an iPad mid-lesson without opening Settings. Anchored at the canvas's top-left beside the LeftRail (`md:top-28 md:left-20`, below the header + SubNav — at `md:top-3` it covered the header's "+ New page" and Pages controls at 1024px; it sits in the isolated canvas layer, which paints above the static header). Lazy-loaded via `dynamic()` and only rendered when on, so its chunk never enters the room bundle otherwise (verify with `grep -rl "Copy reading" .next/static/chunks/app/r/` — it must NOT be in the room page chunk). Deliberately cheap while running, because an instrument that perturbs what it measures is useless: all accumulation is in refs inside one rAF loop, React state is written at 2 Hz and only re-renders the HUD itself (it is a SIBLING of the canvas, never a parent), the pointer listener is `passive` + capture and only assigns a timestamp, and shape counts come from tldraw's cached computed getters (`getCurrentPageShapeIds` / `getCulledShapes`) rather than a DOM walk. **Read "input→frame" honestly**: it measures pointer-event → next-frame-start, which is the portion the app controls; it EXCLUDES compositor and display time, so real pen-to-pixel latency is always higher. It is for spotting regressions and comparing configurations, never for claiming parity with a native app. `longtask` is Chromium-only — Safari (so every iPad browser) shows "n/a" there, which is expected, not a bug.
 - **Touch + pen hardening — selection is OFF by default, and that is load-bearing.** `.tldraw-shell` only ever protected the canvas; the header, SubNav, LeftRail, drawers and modals were `user-select: auto` with no `-webkit-touch-callout` guard. On iOS a finger or pencil drag across any of that starts a text selection, and **while a selection is live the next pencil stroke drags a selection handle instead of drawing** — reported as "touching the screen highlights text and the pencil stops working". (The sticker-book restyle's red `::selection` is what made the long-standing behaviour obvious.) `globals.css` therefore sets `user-select: none` + `-webkit-touch-callout: none` on `body` and `-webkit-tap-highlight-color: transparent` on `html`. Selection is opted back in — with the iOS copy/paste menu — only via `input`, `textarea`, `[contenteditable]` and the **`.selectable`** class, which is applied to chat messages (the end-of-lesson recap posts recording links as plain text that must stay copyable), live caption lines, and `error.tsx`'s message block. **If you add a surface whose text people need to copy, give it `.selectable`** — and don't "restore" selection globally. Controls outside `.tl-container` also get `touch-action: manipulation`, which removes the 300 ms tap wait and the accidental double-tap zoom beside the canvas while still allowing pan and pinch-zoom, so scrollable drawers are unaffected.
 - **Two-finger scroll & touch**: `.tldraw-shell` sets `touch-action: none` + `overscroll-behavior: contain` + `-webkit-user-select: none` + `-webkit-touch-callout: none` + a fallback `touch-action: none` on every nested `.tl-container` / `.tl-canvas` / `canvas` (Firefox sometimes ignores the parent value). `userScalable: false` in the viewport meta lets two-finger gestures reach tldraw's pan/zoom code instead of zooming the whole page.
 - **Supabase "Confirm email" must be OFF** for password sign-up to work — we use synthetic `@a-worthy.local` emails that can't receive mail. Set in Supabase Dashboard → Authentication → Providers → Email → Confirm email → toggle OFF.
-- **Guests don't sign up**. Anyone with a room link can join: they land on `/r/<roomId>`, see the `GuestNameEntry` form (or skip it if they have a remembered name), then KnockGate creates a `join_requests` row and waits for the host to Admit. The host sees an `AdmissionPanel` floating top-right + a toast for every new knocker.
+- **Guests don't sign up**. Anyone with a room link can join: they land on `/r/<roomId>`, see the `GuestNameEntry` form (or skip it if they have a remembered name), then KnockGate creates a `join_requests` row and waits for the host to Admit. The host sees the `AdmissionPanel` heading the canvas's top-right pill column + a toast for every new knocker.
 - **Admission is persistent per (room, user_id)**. KnockGate now reads-then-conditionally-inserts: if a row already exists for this device it preserves the status (admitted → straight in, pending → still waiting, denied → stays denied). An older version unconditionally upserted 'pending', which clobbered admitted rows on every visit and effectively required re-admission every time. If you re-introduce an upsert here, use `ignoreDuplicates: true` or read first — never overwrite without intent.
 - **Magic invite links** (`/api/invite/mint` + `/api/invite/redeem`). Host-only feature in InvitePanel: generates an HS256 JWT signed with `WORKER_SHARED_SECRET` containing `{ kind: "invite", roomId, exp }`. Default 90-day expiry. Mint is gated by Supabase session — the caller must present a Bearer token that resolves to the `rooms.host_user_id` for this room (so localStorage-only hosts can't mint until they claim the room to their account in Settings). Redeem is anonymous + token-gated: any guest opening `/r/<roomId>?invite=<token>` has the token verified, then their `join_requests` row is upserted to admitted. KnockGate detects the `invite` URL param and calls redeem before the normal knock flow. Invite tokens deliberately OMIT the `userId` claim so the Cloudflare worker's `verifySyncToken` (which requires both `roomId` and `userId`) won't accept them as sync tokens — leaking an invite link only grants the right to redeem into the knock flow, not direct whiteboard sync. There's no server-side revocation list; rotate `WORKER_SHARED_SECRET` to invalidate all outstanding invites. **`SUPABASE_SERVICE_ROLE_KEY` must be set in Vercel** — the redeem route uses it to bypass the RLS UPDATE policy; if the var is missing the route hard-fails with 500 (deliberately, not a silent fallback).
 - **Zoom UI is custom**. tldraw's default `MenuPanel` (which holds its ZoomMenu) AND its `NavigationPanel` (the native zoom/minimap pill) are both nulled in our `components` override, so we render our own `ZoomControls` bottom-left (was bottom-right; moved so the video panel doesn't cover it). If `NavigationPanel` is ever un-nulled you get TWO zoom pills stacked bottom-left — that was the "duplicate zoom panel" bug.
@@ -663,13 +875,27 @@ an inline heading span) · `.font-label` · `.glass-header` · `.scale-pop` ·
 - **`/auth/callback` is a no-op stub** now that magic-link auth is gone. Don't remove it — it's wrapped in `<Suspense>` and harmless if hit, and password reset / OAuth could re-use it later.
 - **Annotation stamp and draw-grant students**: `WhiteboardCanvas.onMount` stamps every new shape with `meta.annotation = !isHostRef.current && userId !== drawGrantUserIdRef.current`. The draw-grant exclusion means shapes drawn by a student the host has promoted to draw are NOT tagged as annotations and will NOT be hidden by "Hide student work". If you change the stamping logic, preserve this exclusion — the whole point of draw-grant is to have the student's work visible alongside the host's.
 - **Shape authorship stamp**: every shape also gets `meta.authorId = userId` (alongside `meta.annotation`). This is what the "Clear my work" button in CanvasFloatingPanel uses to find and delete only the current student's shapes. If you change the stamping logic in `registerBeforeCreateHandler`, preserve BOTH fields.
-- **Sticky notes are eraser-immune AND host-uploaded assets are non-host-delete-immune**: `WhiteboardCanvas.onMount` registers ONE `registerBeforeDeleteHandler("shape", …)` that vetoes two distinct delete paths. (1) Sticky notes: returns `false` when `source === "user"` AND `shape.type === "note"` AND `editor.getCurrentToolId() === "eraser"`, so a stray eraser stroke can't wipe a note's content; notes are removed deliberately via select + the DeleteSelectionButton pill or Backspace instead. (2) Uploaded documents: returns `false` when `source === "user"` AND `shape.meta?.uploadedDocument === true` AND `!isHostRef.current`, so a student can't accidentally (or deliberately) delete any host-placed asset by any means — select-all + Backspace, eraser sweep, command-palette delete, drag-drop replace, anything. The host can still delete (`isHost = true` bypasses the second veto). Both vetoes share one handler and an early-return `if (source !== "user") return` for remote deletes — that's load-bearing for sync consistency (a host's delete arrives on every other client as `source === "remote"` and must be allowed to propagate or the canvas diverges). The `meta.uploadedDocument: true` marker is stamped at insert time in every host-side canvas insertion path: `runUpload` (direct drag-drop / paste / "Upload" action), `insertPdfAsImages` (PDF page sequence), `insertPdfAsPageBackgrounds` (one-page-per-PDF-page layout), `insertLinedSheet` (the writing-space sheet beside PDFs), `insertBrandLogo`, and `PagesTabBar`'s page-template background. Most of those also set `isLocked: true` for the natural-UX guard (locked = can't be selected/moved); `runUpload` and `insertBrandLogo` had `isLocked: true` added in the same change. **If you add a new canvas insertion path, stamp `meta: { uploadedDocument: true }` (and set `isLocked: true`) at `createShape` time** or the new shape will be deletable by students. The handler runs per-record, so a student erasing a stroke that crosses a locked PDF page still deletes the stroke. tldraw adds the locked shape to the eraser's "erasing" set mid-drag (it dims), then restores it on release — that transient fade is expected, not a bug. Deregister this handler alongside the create handler in onMount's cleanup.
+- **Post-its (the `note` shape) — one-tap insert, and Apple Pencil ink sticks to them.** All in `src/lib/postIt.ts`; every entry point (LeftRail "Add post-it", the phone "Post-it" pill, the N key and SlimToolbar Note via the `tools()` override, the palette "Add a post-it note") calls `insertPostIt`. Host AND students get it; students keep full post-it permissions (move / retype / delete any post-it). Every post-it is the classic yellow.
+  - **Insert.** `color: "black"` (tldraw paints it #FCE19C, the pale post-it; its `"yellow"` is peach) and `size: "m"` are PINNED — createShapes otherwise copies the current pen colour/size into the note. `scale = clamp(1/zoom, 0.5, 4)` so it's always ~200 screen px; centred in the view (42% of the height on phones, so the keyboard doesn't cover it), cascading +24 screen px past an existing post-it. `markHistoryStoppingPoint("insert post-it")` → one Undo removes exactly it. `getShape(id)` is checked after createShape (maxShapesPerPage makes createShapes silently no-op; the editing state would otherwise throw). Meta is NOT set there — the existing beforeCreate handler stamps authorId/annotation, so a student's post-it hides with "Hide student work" and goes with "Clear my work".
+  - **Mode is decided per tap.** WRITE when the tap was a Pencil (`pointerType === "pen"`, recorded on the button's pointerdown and read on click), pen mode is on, or draw/highlight is active: the post-it is left UNSELECTED (the colour picker the tutor reaches for next recolours the selection; the colour pin below now keeps a note yellow regardless), the tool becomes draw, and it flashes a ~900 ms hint outline. TYPE otherwise (finger/mouse on select, hand, eraser, laser): select + `setEditingShape` + `setCurrentTool("select.editing_shape", …)` — the same sequence as tldraw's own note tool — run inside `flushSync` from the tap's click handler (`insertPostItNow`, LeftRail's `addPostIt`) so the contenteditable focuses within the user gesture and iOS raises the keyboard. From the hand tool, a one-shot session `store.listen` puts the hand back when editing ends, so a student's next swipe pans. It waits while ANY shape is being edited (tapping from the new post-it straight into another one's text hands editing over — treating that as "ended" threw the student out of the note they'd just tapped into), and whether to arm it is decided AFTER `editor.complete()` (tldraw sync can flush a previous post-it's pending restore synchronously inside complete(); prevTool alone then read "select" and the second post-it lost the hand). tldraw's tap-to-place note tool is deliberately unreachable (it popped the iPad keyboard on every Pencil tap). **tldraw's toolbar item fires `onSelect` from BOTH `onTouchStart` and `onClick`** (its preventDefault runs in React's passive touchstart listener, so the click still follows) — harmless for a tool, but the SlimToolbar Note added TWO post-its per phone tap. The `tools.note` override therefore ignores the touchstart call (`isToolbarTouchStart()`, a `window.event` check) and acts on the click; any future toolbar *action* override needs the same guard.
+  - **Ink parenting.** `PostItNoteUtil.canReceiveNewChildrenOfType` returns true for draw/highlight on an UNLOCKED note — never image or note (uploads and new post-its land at the view centre and must stay on the page). createShapes auto-parents a stroke created without a parentId to the topmost shape that accepts it and contains its start point, storing it in the note's space, so ink that STARTS on a post-it moves, scales (canResizeChildren default), hides and deletes with it. Keep that method O(1): createShapes asks every shape on the page at each stroke start. Don't override `providesBackgroundForChildren` (the default keeps the TLDRAW_OPTIONS z-stride; ink renders at the note's index +1..n) and don't add `onDragShapesIn/Out` (every drag would hint-outline notes). tldraw's drop/kickout logic asks `canReceiveNewChildrenOfType(note, "note")`, which is false, so dragging only ever RELEASES ink from a post-it.
+  - **Occlusion guard (`reparentInkIfOccluded`).** createShapes checks parents in z-order but never asks whether something COVERS the parent, so a post-it under a later PDF page would adopt ink written on the PDF and it would vanish under it. A before-create handler registered by `registerPostItSideEffects` — for LIVE strokes only: `source === "user"` AND `editor.isInAny("draw.drawing", "highlight.drawing")` — maps the stroke's local x/y through the note's page transform and calls `getShapeAtPoint(…, { hitInside: true, hitLocked: true, margin: 0, filter: non-ink })`; if the top shape isn't the note, the stroke is re-homed to the page at the same page point with a fresh top-of-page `index` (the note-relative index would put it UNDER the cover). **`hitLocked: true` is load-bearing** — PDF pages are locked images and getShapeAtPoint skips locked shapes by default. It is a separate handler from WhiteboardCanvas's authorId/annotation stamp (handlers chain, so meta survives). Costs nothing unless a stroke actually got parented to a note. **Live strokes only is load-bearing**: a note and its ink re-created in ONE batch — Undo after a delete, paste, "Move to page", a template load, Undo of "Clear my work" — already carry their parentId, but while tldraw puts that batch the new note isn't in the page's sorted shapes yet, so the hit test found whatever sat underneath (the post-it it cascaded from, a worksheet) and re-homed the ink to the page, where it stopped following the note (and synced that way). tldraw only AUTO-parents new ink in `<tool>.drawing` (the pen-down stroke and the maxPointsPerShape continuation), so that is the only time the guard is needed.
+  - **Erase-set filter (`registerPostItSideEffects`).** A note's geometry is a FILLED rectangle, so erasing any stroke on a post-it also puts the NOTE in `erasingShapeIds`; `deleteShapes` then expands to every descendant BEFORE any per-record veto runs — the old note veto kept the note but wiped all its ink. A before-change handler on `instance_page_state` drops every note, and every shape with a note descendant (a group), from the erase set, so the eraser removes only the strokes it touches and the post-it doesn't dim. This also fixed the group orphan (erasing a group holding a note deleted the group while the veto spared the note → a note whose parent no longer existed, invisible and synced). Side effect, accepted: the eraser adds a grouped stroke's outermost GROUP to the set, so **every stroke inside a group that contains a post-it is eraser-proof** — ungroup to erase it (or select + Delete). **Don't try to protect ink with a beforeDelete veto keyed on `getErasingShapeIds()`** — tldraw's own beforeDelete strips those ids first. `registerPostItSideEffects` registers the occlusion guard, this filter and the colour pin (below) together and returns one deregister fn; WhiteboardCanvas calls it in onMount next to its create/delete handlers and deregisters in cleanup, and `postIt.test.ts` runs the very same call (plus a source check that WhiteboardCanvas still makes it and still uses `PostItNoteUtil`). The note+eraser veto below stays as a backstop.
+  - **Colour pin.** A before-change handler (same registration) keeps a note's `props.color` for local (`source === "user"`) changes. The colour pickers (LeftRail, ColorPickerRow) call `setStyleForSelectedShapes` whatever the tool, and a TYPE-mode post-it is left selected — so typing a heading, then picking a blue pen, turned the post-it blue. The pen still takes the colour, other selected shapes still recolour, remote changes pass untouched, and existing non-yellow notes keep their colour.
+  - **"Clear my work" / Delete.** `clearAuthoredShapes` re-homes other authors' shapes inside mine (the tutor's feedback on a student's post-it) to the page before deleting mine, in one undo step. DeleteSelectionButton marks a history stopping point, so Undo after deleting a post-it restores exactly the post-it + its ink.
+  - **No schema change.** Same `note` type and props; `parentId: "shape:<note>"` on ink is already valid in the default schema. No worker deploy; PlaybackViewer's stock NoteShapeUtil renders the children, and PDF export, thumbnails and templates include descendants. An old cached tab renders attached ink but won't create it (HTML is network-only in sw.js, so a reload fixes it).
+  - **Known limits (by design, documented for the tutor):** only strokes that START on the post-it attach, and ink can overhang the edge — there's no clipping (tldraw 3.15 masks only `frame` ancestors); existing page ink dragged onto a post-it isn't adopted; on a heavily inked post-it, grab bare paper (tapping ink selects the ink) to move it; hiding a student's post-it (Hide student work) also hides the tutor's ink on it (children inherit visibility); resize scales the ink's geometry but not its line width.
+  - `src/lib/postIt.test.ts` pins all of this against a headless tldraw Editor under happy-dom, including the tldraw internals it leans on — re-run it after any tldraw bump.
+- **Post-its are eraser-immune AND host-uploaded assets are non-host-delete-immune**: `WhiteboardCanvas.onMount` registers ONE `registerBeforeDeleteHandler("shape", …)` that vetoes two distinct delete paths. (1) Post-its: returns `false` when `source === "user"` AND `shape.type === "note"` AND `editor.getCurrentToolId() === "eraser"`, so a stray eraser stroke can't wipe a note's content; notes are removed deliberately via select + the DeleteSelectionButton pill or Backspace instead. This is now a BACKSTOP behind the post-it erase-set filter (see the Post-its gotcha) — on its own it spared the note but not the ink on it. (2) Uploaded documents: returns `false` when `source === "user"` AND `shape.meta?.uploadedDocument === true` AND `!isHostRef.current`, so a student can't accidentally (or deliberately) delete any host-placed asset by any means — select-all + Backspace, eraser sweep, command-palette delete, drag-drop replace, anything. The host can still delete (`isHost = true` bypasses the second veto). Both vetoes share one handler and an early-return `if (source !== "user") return` for remote deletes — that's load-bearing for sync consistency (a host's delete arrives on every other client as `source === "remote"` and must be allowed to propagate or the canvas diverges). The `meta.uploadedDocument: true` marker is stamped at insert time in every host-side canvas insertion path: `runUpload` (direct drag-drop / paste / "Upload" action), `insertPdfAsImages` (PDF page sequence), `insertPdfAsPageBackgrounds` (one-page-per-PDF-page layout), `insertLinedSheet` (the writing-space sheet beside PDFs), `insertBrandLogo`, and `PagesTabBar`'s page-template background. Most of those also set `isLocked: true` for the natural-UX guard (locked = can't be selected/moved); `runUpload` and `insertBrandLogo` had `isLocked: true` added in the same change. **If you add a new canvas insertion path, stamp `meta: { uploadedDocument: true }` (and set `isLocked: true`) at `createShape` time** or the new shape will be deletable by students. The handler runs per-record, so a student erasing a stroke that crosses a locked PDF page still deletes the stroke. tldraw adds the locked shape to the eraser's "erasing" set mid-drag (it dims), then restores it on release — that transient fade is expected, not a bug. Deregister this handler alongside the create handler in onMount's cleanup.
 - **"Bring everyone here" uses Supabase Realtime, not LiveKit**: the host triggers it from the LeftRail (desktop) or the mobile "More" menu — both call `broadcastViewport` via `bringEveryoneRef` (the openUploadRef-style ref WhiteboardCanvas assigns on mount). It sends the current viewport bounds over Supabase Realtime Broadcast channel `vp-{roomId}`. Guests subscribe in a useEffect in WhiteboardCanvas and call `editor.zoomToBounds` when a `vp` event arrives. This avoids needing access to the LiveKit room context from outside the LiveKitRoom tree. Don't switch it to LiveKit data channel without threading the send function all the way up to WhiteboardCanvas. (It used to be a floating pill in CanvasFloatingPanel; moved off-canvas to declutter the top + avoid colliding with the centred timer on phones.)
 - **Desktop/mobile drawing controls split**: LeftRail owns the color and size pickers on desktop (md+). The same pickers inside CanvasFloatingPanel carry `md:hidden` so they're only visible on mobile. If you add a new drawing style control, add it to BOTH LeftRail AND CanvasFloatingPanel (with `md:hidden`), keeping parity between breakpoints.
 - **RecordButton paused-state stop**: the screen-share track's `ended` event now checks `state === "recording" || state === "paused"` before calling `stop()`. If you see a UI deadlock where the recorder appears stuck after the user stops sharing mid-pause, re-check this guard.
 - **LessonTimer expiry**: the 250 ms tick interval self-clears when `computeRemaining(timer) <= 0`. Nobody writes `timer_running=false` to the DB when the client clock hits zero (the timer just shows "Time's up"), so without the self-clear the interval would fire indefinitely. `addMinute` is capped at 480 minutes remaining so values stay well below the PostgreSQL `INTEGER` overflow boundary.
 - **LessonTimer clock**: the widget also shows a live current-time readout in Singapore time (GMT+8) via `Intl.DateTimeFormat({ timeZone: "Asia/Singapore" })`, ticked by its own always-on 1 s interval (`now` state). The clock is shown to everyone (host + students), even when no countdown is set — so the idle-state early-return for students was removed. On phones the clock is `hidden sm:block` while a countdown is ACTIVE so the running pill + host controls don't overflow a narrow viewport.
-- **Header dropdown z-order vs the timer**: the centred LessonTimer (`absolute top-3 left-1/2 z-[80]`) and the header dropdowns live in the SAME (root) stacking context — the `<header>` is static (its `z-10` is inert) and the canvas-area wrappers are `relative` with no z-index, so neither creates a context. That means the header popovers must use a literal z **above 80** or the timer paints over them. The Pages dropdown, desktop "More" menu and mobile menu are therefore `z-[90]` (a regression to `z-50` reproduces the bug where the centred clock/Timer covers the open Pages dropdown on a narrow iPhone). Keep them below the AdmissionPanel (`z-[100]`) and the modals (`z-[10000]+`). **The `<header>` itself must never get `backdrop-filter`, `filter`, `transform`, `opacity < 1`, or a `z-index` on a positioned box** — any of those creates a stacking context, which traps every header popover (Pages listbox, More menu, mobile menu, RecordButton options, PresenceBadge dialog) inside it at the header's own level, so their literal `z-[90]` becomes relative and they fall under the timer again. The header is an OPAQUE `bg-[var(--bg)]` on purpose; do not swap it for `.glass-header` (blur) — that exact swap reproduced the bug during the LMS restyle.
+- **Header dropdown z-order vs the canvas (timer, floating pills)**: two rules together keep the header popovers (Pages dropdown, desktop "More" menu, mobile menu — all `z-[90]`) on top of the canvas.
+  1. **The `<header>` has NO z-index and no stacking-context property.** It is a *flex item* of `div.h-app.flex.flex-col`, and a flex item with a non-auto `z-index` forms a stacking context **even while `position: static`**. (An earlier version of this note called the header's `z-10` "inert" — wrong: it trapped every popover at z=10, so on a phone the Pages rows were painted under the centred LessonTimer (z-80) and CanvasFloatingPanel (inline zIndex 9999), and on an iPad beside the video column the timer covered the Page 2 rename button.) The same goes for `backdrop-filter`, `filter`, `transform`, `opacity < 1`, `isolation`: any of them on the header traps the Pages listbox, More menu, mobile menu, RecordButton options and PresenceBadge dialog at the header's own level. The header is an OPAQUE `bg-[var(--bg)]` on purpose; do not swap it for `.glass-header` (blur) — that exact swap reproduced the bug during the LMS restyle.
+  2. **The canvas area is one isolated layer.** RoomShell's canvas-area wrapper (`div.relative.isolate.flex-1`, the parent of `.tldraw-shell`) has `isolation: isolate`, so everything inside — tldraw's own layers (up to `--layer-canvas-blocker` 10000), CanvasFloatingPanel/ProgressBar (9999), ReconnectBanner/CanvasSearch (9998), RecordingIndicator (70), the bottom band (60), the LessonTimer (80; 10000 while its preset menu is open, to clear the floating pills), PerfHud — keeps its order *among itself* but paints as a single z-0 layer of the root context. The header popovers' `z-[90]` then beat all of it, and the modals (`z-[10000]+`) sit above those. The AdmissionPanel is INSIDE this layer now — the first item of the CanvasFloatingPanel column (as a separate `z-[100]` float in the root context it painted over the column's first pills all lesson). **Isolate the wrapper, not `.tldraw-shell`**: the LessonTimer lives outside `.tldraw-shell` and shares its `top-3 left-1/2` anchor with the ReconnectBanner and CanvasSearch, so isolating `.tldraw-shell` put the "Reconnecting…" banner UNDER the clock (checked with `elementFromPoint` at phone and 1024px). Anything inside the canvas area that must float above the whole app (a real modal) has to portal to `<body>` — ShortcutsModal does — or it gets capped at the canvas layer, under the ChatBubble.
+- **Never commit on blur on iPad — and never close popovers on `mousedown`.** tldraw's canvas `onTouchEnd` calls `preventDefault()` (`useCanvasEvents`), so a finger or Apple Pencil tap on the board synthesises **no** compatibility `mousedown`/`click` and **focus never moves**: an input's `onBlur` simply never fires, and a window `mousedown` listener never hears the tap. (The Pencil arrives as touch events too; CDP "pen" in the harness is mouse-derived and commits, which is why desktop checks passed.) That is how page renames were silently lost: type a name, tap the board, nothing saved and the field stayed open. So (1) commit text only on an explicit submit — a `<form onSubmit>` with a Save button plus Return (guarded with `e.nativeEvent.isComposing`), as RenamePageDialog does — and never on blur; (2) close popovers with `document.addEventListener("pointerdown", h, true)` (**capture** phase — tldraw also stops pointerdown propagation at its container, so a bubbling window listener misses canvas taps). The Pages dropdown, both "More" menus, PagesTabBar's template menu, the LessonTimer preset menu, the ZoomControls preset menu, RecordButton's options and the PresenceBadge popover all use this. The dismissing tap still reaches tldraw (with the pen tool it leaves a dot; Undo removes it) — deliberately not swallowed. (Two older fields still commit on blur and are known candidates for the same fix: the header lesson-title field, and TemplatesModal's inline template rename.)
 - **Free tiers**: Supabase Storage 1 GB, LiveKit 10k participant-min/month. The Recordings drawer shows a host-only `StorageMeter` at the top: it sums `size_bytes` across ALL `room_recordings` rows (account-wide, not just the open room) and bars it against `FREE_TIER_BYTES` (1 GB), turning amber at 70% and red at 90%. It refreshes on open and on this room's realtime changes. Note the 1 GB is shared with the `whiteboard-assets` bucket (uploaded docs/images), so the meter is an under-estimate of total Storage — it tracks the dominant consumer (videos).
 - **ChatBubble draft restore**: `send()` clears `draft` before the Supabase insert, then re-sets it to the original text if the insert fails so the user doesn't silently lose a composed message. If you touch the send path, preserve this order — clearing first is correct UX (immediate feedback), but the error path must restore the value.
 - **PDF downloads must use the blob, never the Supabase URL.** `exportLessonPdf` returns `{ url, name, blob }`: `url` is for the chat recap and the `room_documents` row, `blob` is for the host's local copy, and they are NOT interchangeable. Both callers originally pointed an `<a download>` at `url` and silently downloaded nothing, because (1) `download` is only honoured for same-origin / `blob:` / `data:` hrefs — the public URL is on the Supabase origin, so the attribute is ignored and the browser just navigates to the file — and (2) the export takes seconds (render every page, then upload), so by the time the anchor is clicked the original click's **user activation has expired** and the `target="_blank"` that navigation needed is blocked as a popup; on iOS Safari nothing happens at all, while the UI still reported success. Use the shared **`downloadPdfBlob(blob, fileName)`** helper in `src/lib/exportLessonPdf.ts` for any new download path — it builds a same-origin `blob:` URL, sets no `target`, and revokes on a timer (revoking synchronously can cancel an in-flight download). `src/lib/exportLessonPdf.test.ts` pins all of this and genuinely fails if the href goes cross-origin or a `target` comes back.
@@ -687,7 +913,7 @@ npm run dev:sync     # wrangler dev for the sync worker
 npm run dev:all      # both concurrently
 npm run typecheck    # tsc --noEmit (run before committing)
 npm run build        # production build + size report
-npm test             # vitest run (38 tests across 7 files)
+npm test             # vitest run (140 tests across 11 files)
 npm run test:watch   # vitest watch mode
 ```
 
