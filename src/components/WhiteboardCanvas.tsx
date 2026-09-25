@@ -37,6 +37,12 @@ import { ArrowClockwise, ArrowCounterClockwise, Camera, CaretDown, Keyboard, Mag
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
+import {
+  encodeCanvas,
+  PAGE_QUALITY,
+  renameForType,
+  shrinkImageForUpload,
+} from "@/lib/imageCompression";
 import { getSupabase } from "@/lib/supabase";
 import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
 import {
@@ -199,9 +205,12 @@ function cryptoRandomId(): string {
 
 function makeAssetStore(meta: UploadMeta, onProgress: ProgressFn): TLAssetStore {
   return {
-    async upload(_asset, file) {
-      onProgress({ label: `Uploading ${file.name}…`, percent: 0 });
+    async upload(_asset, original) {
+      onProgress({ label: `Preparing ${original.name}…`, percent: 0 });
       try {
+        // Images dropped straight onto tldraw land here: shrink them too.
+        const file = await shrinkImageForUpload(original);
+        onProgress({ label: `Uploading ${file.name}…`, percent: 0 });
         const { url } = await uploadAsset(file, meta, (frac) => {
           onProgress({
             label: `Uploading ${file.name}…`,
@@ -1665,8 +1674,11 @@ async function insertFileOntoCanvas(
     await insertPdfAsImages(editor, file, meta, onProgress);
     return;
   }
-  onProgress({ label: `Uploading ${file.name}…`, percent: 0 });
+  onProgress({ label: `Preparing ${file.name}…`, percent: 0 });
   try {
+    // Scale big photos down before they go anywhere (see imageCompression).
+    file = await shrinkImageForUpload(file);
+    onProgress({ label: `Uploading ${file.name}…`, percent: 0 });
     // Upload via our endpoint first so we get a public URL and surface
     // any server error (RLS, bucket missing, env vars). Then create the
     // asset + image shape ourselves rather than going through tldraw's
@@ -1865,22 +1877,19 @@ async function insertPdfAsImages(
       const ctx = canvas.getContext("2d")!;
       await page.render({ canvasContext: ctx, viewport }).promise;
 
-      const blob: Blob = await new Promise((res, rej) =>
-        canvas.toBlob(
-          (b) =>
-            b
-              ? res(b)
-              : rej(new Error("Canvas capture failed (tainted or zero-size)")),
-          "image/png",
-        ),
+      // WebP (JPEG where WebP can't be encoded), not PNG: about half the
+      // size for a clean text page and far smaller for a scan, so it
+      // uploads, downloads and paints faster.
+      const blob = await encodeCanvas(canvas, PAGE_QUALITY);
+      const pageFile = new File(
+        [blob],
+        renameForType(`${file.name}-page-${i}.png`, blob.type),
+        { type: blob.type },
       );
-      const pngFile = new File([blob], `${file.name}-page-${i}.png`, {
-        type: "image/png",
-      });
 
       const { url, path: pagePath } = await uploadAsset(
-        pngFile,
-        { ...meta, originalName: pngFile.name, skipDocumentInsert: true },
+        pageFile,
+        { ...meta, originalName: pageFile.name, skipDocumentInsert: true },
         (frac) => {
           onProgress({
             label: `Uploading page ${i} of ${totalPages}…`,
@@ -1901,11 +1910,11 @@ async function insertPdfAsImages(
           type: "image",
           typeName: "asset",
           props: {
-            name: pngFile.name,
+            name: pageFile.name,
             src: url,
             w,
             h,
-            mimeType: "image/png",
+            mimeType: pageFile.type,
             isAnimated: false,
           },
           meta: {},
@@ -2024,22 +2033,19 @@ async function insertPdfAsPageBackgrounds(
       const ctx = canvas.getContext("2d")!;
       await page.render({ canvasContext: ctx, viewport }).promise;
 
-      const blob: Blob = await new Promise((res, rej) =>
-        canvas.toBlob(
-          (b) =>
-            b
-              ? res(b)
-              : rej(new Error("Canvas capture failed (tainted or zero-size)")),
-          "image/png",
-        ),
+      // WebP (JPEG where WebP can't be encoded), not PNG: about half the
+      // size for a clean text page and far smaller for a scan, so it
+      // uploads, downloads and paints faster.
+      const blob = await encodeCanvas(canvas, PAGE_QUALITY);
+      const pageFile = new File(
+        [blob],
+        renameForType(`${base}-page-${i}.png`, blob.type),
+        { type: blob.type },
       );
-      const pngFile = new File([blob], `${base}-page-${i}.png`, {
-        type: "image/png",
-      });
 
       const { url, path: pagePath } = await uploadAsset(
-        pngFile,
-        { ...meta, originalName: pngFile.name, skipDocumentInsert: true },
+        pageFile,
+        { ...meta, originalName: pageFile.name, skipDocumentInsert: true },
         (frac) => {
           onProgress({
             label: `Uploading page ${i} of ${totalPages}…`,
@@ -2068,11 +2074,11 @@ async function insertPdfAsPageBackgrounds(
           type: "image",
           typeName: "asset",
           props: {
-            name: pngFile.name,
+            name: pageFile.name,
             src: url,
             w,
             h,
-            mimeType: "image/png",
+            mimeType: pageFile.type,
             isAnimated: false,
           },
           meta: {},
