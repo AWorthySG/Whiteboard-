@@ -30,6 +30,7 @@ import {
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { useSettings } from "@/hooks/useSettings";
+import { prefetchSyncToken } from "@/hooks/useSyncToken";
 import { roomEntryView, useHostStatus } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { trackRoomVisit, useRecentRooms } from "@/hooks/useRecentRooms";
@@ -733,7 +734,13 @@ export default function RoomShell({
         // failure here is what "the host can't open their own board / join
         // their own call" looks like. Supabase returns the error rather
         // than throwing, so it must be read.
-        if (!error) return;
+        if (!error) {
+          // Admitted: fetch the board's sync token now. Asking before this
+          // row exists is refused, and on a brand-new room it used to cost
+          // a 5 s retry before the board could connect.
+          prefetchSyncToken(roomId, userId);
+          return;
+        }
         console.error("[room] host self-admit failed", error);
         // Since the admission hardening (migration 20260924120000) only the
         // room's SIGNED-IN owner may write an "admitted" row. A host who is
@@ -746,7 +753,9 @@ export default function RoomShell({
           .eq("room_id", roomId)
           .eq("user_id", userId)
           .maybeSingle();
-        if (data?.status !== "admitted") {
+        if (data?.status === "admitted") {
+          prefetchSyncToken(roomId, userId);
+        } else {
           toast.error(
             "Sign in (Settings → Account) to host this room — the whiteboard and call need it.",
           );
@@ -806,6 +815,10 @@ export default function RoomShell({
 
   const room = (
     <div className="h-app w-screen flex flex-col">
+      {/* A guest's room only renders once they're admitted, so start the
+          board's sync token now — before the lazy canvas chunk has loaded.
+          (The host's is started when their self-admit lands, above.) */}
+      {!isHost && <PrefetchSyncToken roomId={roomId} userId={userId} />}
       {/* Welcome screen — let the participant choose how to join before
           they're dropped into the room. Shown once per session. */}
       {!entryChoiceMade && (
@@ -1955,3 +1968,9 @@ function DrawerErrorFallback({ onClose }: { onClose: () => void }) {
   );
 }
 
+function PrefetchSyncToken({ roomId, userId }: { roomId: string; userId: string }) {
+  useEffect(() => {
+    prefetchSyncToken(roomId, userId);
+  }, [roomId, userId]);
+  return null;
+}
