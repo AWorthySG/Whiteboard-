@@ -39,6 +39,12 @@ export type Settings = {
    *  (meta.nib) when it's drawn, so switching it off only affects new
    *  strokes and everyone in the room sees each stroke the same way. */
   fountainPen: boolean;
+  /** While this person is writing with the pen or highlighter, stop
+   *  receiving the other participants' camera video (it resumes ~2 s after
+   *  the pen lifts). Decoding video competes with the pen for the same
+   *  processor, which is what a lesson feels as pen lag on an iPad.
+   *  Screen shares and audio are never paused. */
+  pauseVideoWhileWriting: boolean;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -56,6 +62,7 @@ export const DEFAULT_SETTINGS: Settings = {
   penOnly: false,
   perfHud: false,
   fountainPen: true,
+  pauseVideoWhileWriting: true,
 };
 
 const KEY = "wb_settings_v1";
