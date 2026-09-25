@@ -13,6 +13,8 @@ import {
   type ReactNode,
 } from "react";
 import {
+  LoadingScreen as TldrawLoadingScreen,
+  useEditorComponents,
   AssetRecordType,
   DefaultColorStyle,
   DefaultSizeStyle,
@@ -52,10 +54,17 @@ import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
 import { TLDRAW_ASSET_URLS } from "@/lib/tldrawAssets";
 import { applyTidy, planTidy, type RenderedTile } from "@/lib/tidyPage";
 import HeavyPageNotice from "./HeavyPageNotice";
-import { setPenDown } from "@/lib/writingActivity";
+import { isWriting, setPenDown } from "@/lib/writingActivity";
 import { neighbourImageUrls, preloadImages } from "@/lib/preloadPageImages";
 import { glideToBounds } from "@/lib/glideCamera";
 import { removeOrphanedShapes } from "@/lib/pageCleanup";
+import {
+  capturePreview,
+  loadPreview,
+  restoreView,
+  savePreview,
+  type RoomPreview,
+} from "@/lib/roomPreview";
 import {
   canAddPage,
   createNextPage,
@@ -811,6 +820,91 @@ export default function WhiteboardCanvas({
     };
   }, [mountedEditor]);
 
+  // Instant reopen (src/lib/roomPreview.ts): show the picture of this
+  // device's last view while the board syncs, then restore that page and
+  // view once it's live, so the picture gives way to the same view.
+  const [preview, setPreview] = useState<RoomPreview | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewGone, setPreviewGone] = useState(false);
+  const isSynced = store.status === "synced-remote";
+  useEffect(() => {
+    let alive = true;
+    let url: string | null = null;
+    void loadPreview(roomId).then((p) => {
+      if (!alive || !p) return;
+      setPreview(p);
+      if (p.blob) {
+        url = URL.createObjectURL(p.blob);
+        setPreviewUrl(url);
+      }
+    });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [roomId]);
+  const viewRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!mountedEditor || !isSynced || viewRestoredRef.current) return;
+    viewRestoredRef.current = true;
+    // A student following the host's view keeps following it.
+    if (preview && !(leaderMode && !isHost)) restoreView(mountedEditor, preview);
+  }, [mountedEditor, isSynced, preview, leaderMode, isHost]);
+  useEffect(() => {
+    if (!isSynced) return;
+    const t = setTimeout(() => setPreviewGone(true), 400); // after the fade
+    return () => clearTimeout(t);
+  }, [isSynced]);
+  // Keep this device's preview fresh: after 4 s without changes, at most
+  // every 30 s, never mid-stroke, when the browser is idle — and straight
+  // away when the tab is hidden (switching apps, closing the lid).
+  useEffect(() => {
+    if (!mountedEditor || !isSynced) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let lastChange = Date.now();
+    let lastSave = 0;
+    let busy = false;
+    const save = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        await savePreview(await capturePreview(mountedEditor, roomId));
+        lastSave = Date.now();
+      } catch {
+        // best effort
+      } finally {
+        busy = false;
+      }
+    };
+    const tick = () => {
+      timer = null;
+      const now = Date.now();
+      const wait = Math.max(lastChange + 4000 - now, lastSave + 30_000 - now);
+      if (wait > 0 || isWriting()) {
+        timer = setTimeout(tick, Math.max(wait, 1000));
+        return;
+      }
+      const ric = (window as { requestIdleCallback?: typeof requestIdleCallback })
+        .requestIdleCallback;
+      if (ric) ric(() => void save(), { timeout: 5000 });
+      else void save();
+    };
+    const unsub = mountedEditor.store.listen(() => {
+      lastChange = Date.now();
+      if (!timer) timer = setTimeout(tick, 4000);
+    });
+    const onHide = () => {
+      if (document.visibilityState === "hidden") void save();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    timer = setTimeout(tick, 1500);
+    return () => {
+      unsub();
+      document.removeEventListener("visibilitychange", onHide);
+      if (timer) clearTimeout(timer);
+    };
+  }, [mountedEditor, isSynced, roomId]);
+
   // Once per room load, the host sweeps out shapes orphaned by past page
   // deletions (tldraw's deletePage used to leave a deleted page's ink in
   // the room — invisible, but downloaded by everyone who joins). Waits for
@@ -1274,6 +1368,17 @@ export default function WhiteboardCanvas({
   return (
     <div ref={wrapperRef} className="tldraw-shell">
       <CanvasActionsContext.Provider value={canvasActions}>
+      <RoomPreviewContext.Provider value={
+          previewUrl && preview
+            ? {
+                url: previewUrl,
+                x: preview.screenX ?? 0,
+                y: preview.screenY ?? 0,
+                w: preview.screenW,
+                h: preview.screenH,
+              }
+            : null
+        }>
         <Tldraw
           store={store}
           overrides={overrides}
@@ -1306,6 +1411,11 @@ export default function WhiteboardCanvas({
             HelperButtons: toolsCollapsed ? null : undefined,
             // Faded A Worthy logo as a fixed canvas background watermark.
             Background: CanvasWatermark,
+            // While the board syncs, show this device's last view of the
+            // room (instant reopen) instead of a blank spinner. tldraw's
+            // loading screen sits above anything layered over the canvas,
+            // so the picture has to live in this slot.
+            LoadingScreen: PreviewLoadingScreen,
           }}
           inferDarkMode={false}
           // Host-only "hide student work" filter. Reads the tldraw atom
@@ -1522,6 +1632,7 @@ export default function WhiteboardCanvas({
             };
           }}
         />
+      </RoomPreviewContext.Provider>
       </CanvasActionsContext.Provider>
       <CanvasFloatingPanel
         editor={mountedEditor}
@@ -1593,6 +1704,30 @@ export default function WhiteboardCanvas({
           <div aria-hidden className="pages-band-spacer" />
         </div>
       </div>
+      {preview && !previewGone && (
+        // The last view on this device, shown while the live board syncs.
+        // Placeholder only: pointer-events off, gone once synced.
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none bg-[var(--canvas)] transition-opacity duration-300"
+          style={{ zIndex: 9000, opacity: isSynced ? 0 : 1 }}
+        >
+          {previewUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={previewUrl}
+              alt=""
+              className="fixed max-w-none select-none"
+              style={{
+                left: preview.screenX ?? 0,
+                top: preview.screenY ?? 0,
+                width: preview.screenW,
+                height: preview.screenH,
+              }}
+            />
+          )}
+        </div>
+      )}
       <ReconnectBanner
         status={store.status}
         connectionStatus={
@@ -2418,6 +2553,33 @@ type CanvasActionsCtx = {
 };
 
 const CanvasActionsContext = createContext<CanvasActionsCtx | null>(null);
+
+// Instant reopen: the saved picture of this device's last view, rendered in
+// tldraw's LoadingScreen slot while the board syncs (see roomPreview.ts).
+const RoomPreviewContext = createContext<{
+  url: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} | null>(null);
+function PreviewLoadingScreen() {
+  const p = useContext(RoomPreviewContext);
+  const { Spinner } = useEditorComponents();
+  // No saved view on this device yet: tldraw's usual spinner.
+  if (!p) return <TldrawLoadingScreen>{Spinner ? <Spinner /> : null}</TldrawLoadingScreen>;
+  return (
+    <div aria-hidden className="absolute inset-0 overflow-hidden bg-[var(--canvas)]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={p.url}
+        alt=""
+        className="fixed max-w-none select-none"
+        style={{ left: p.x, top: p.y, width: p.w, height: p.h }}
+      />
+    </div>
+  );
+}
 
 function SlimToolbar() {
   const tools = useTools();
