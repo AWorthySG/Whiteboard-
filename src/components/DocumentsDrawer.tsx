@@ -9,7 +9,11 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
-import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
+import {
+  UPLOAD_CACHE_CONTROL,
+  getSafeMimeType,
+  validateFileForUpload,
+} from "@/lib/fileValidation";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useToast } from "./Toast";
 import ConfirmButton from "./ConfirmButton";
@@ -199,6 +203,7 @@ export default function DocumentsDrawer({
               apikey: key,
               "Content-Type": getSafeMimeType(file),
               "x-upsert": "false",
+              "cache-control": UPLOAD_CACHE_CONTROL,
             },
             body: file,
           },

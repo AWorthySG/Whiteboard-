@@ -17,6 +17,7 @@ import {
   AssetRecordType,
   getHashForString,
   uniqueId,
+  useValue,
   type TLPageId,
 } from "tldraw";
 import { useToast } from "./Toast";
@@ -45,8 +46,18 @@ export default function PagesTabBar({
   // on blur (see the CLAUDE.md "never commit on blur on iPad" gotcha).
   onRequestRenamePage?: RequestRenamePage;
 }) {
-  // Force re-render when tldraw's page state changes.
-  const [, setTick] = useState(0);
+  // Re-render only when the page list or the current page changes.
+  // (It used to re-render on EVERY document change — every point of every
+  // pen stroke, local or remote — rebuilding the bar and its icons dozens
+  // of times a second while anyone wrote.) useValue tracks exactly the
+  // records these getters read, and getPages() keeps its array identity
+  // until a page record changes.
+  const pages = useValue("pages", () => (editor ? editor.getPages() : []), [editor]);
+  const currentId = useValue(
+    "currentPageId",
+    () => (editor ? editor.getCurrentPageId() : null),
+    [editor],
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const stripRef = useRef<HTMLDivElement | null>(null);
@@ -68,26 +79,6 @@ export default function PagesTabBar({
     return () => document.removeEventListener("pointerdown", onDown, true);
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (!editor) return;
-    const unsubs: Array<() => void> = [];
-    unsubs.push(
-      editor.store.listen(() => setTick((n) => n + 1), {
-        scope: "document",
-        source: "user",
-      }),
-    );
-    unsubs.push(
-      editor.store.listen(() => setTick((n) => n + 1), {
-        scope: "document",
-        source: "remote",
-      }),
-    );
-    return () => unsubs.forEach((u) => u());
-  }, [editor]);
-
-  const pages = editor ? editor.getPages() : [];
-  const currentId = editor ? editor.getCurrentPageId() : null;
   const currentName = pages.find((p) => p.id === currentId)?.name;
 
   // Keep the active tab AND its rename / × controls visible. The strip is

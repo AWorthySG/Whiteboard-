@@ -12,7 +12,7 @@ upload, homework, chat, and recording.
 | Layer | Service | Purpose |
 | --- | --- | --- |
 | Web app | **Vercel** (Next.js 15 app router, React 19) | Landing, room shell, API routes. Functions pinned to **`sin1` (Singapore)** in `vercel.json`, next to Supabase — the default `iad1` (Washington DC) made every token call cross the Pacific several times. |
-| Whiteboard sync | **Cloudflare Worker + Durable Objects** (`sync-worker/`) | One DO per room; snapshots persist in DO SQLite (chunked at 96 KiB to fit the 128 KiB cap). Worker deploys via GitHub Actions on push to `sync-worker/**`. |
+| Whiteboard sync | **Cloudflare Worker + Durable Objects** (`sync-worker/`) | One DO per room; snapshots persist in DO SQLite (chunked at 96 KiB to fit the 128 KiB cap). New rooms' DOs are created with `locationHint: "apac"` (a DO lives where it was first created, forever — a room first opened from another continent would route every stroke through it). Existing rooms keep their location. Worker deploys via GitHub Actions on push to `sync-worker/**`. |
 | Realtime DB / storage / auth | **Supabase** (project `ipctffwruitjeirdgyhy`, region `ap-southeast-1`) | Postgres + Realtime + Storage + Auth |
 | Video / audio | **LiveKit Cloud** (`live-whiteboard-a-worthy-3vxt4yg7.livekit.cloud`) | WebRTC SFU, screen share, data channel |
 | Domain | `whiteboard.a-worthy.com` via Cloudflare DNS → Vercel | CNAME on Cloudflare with proxy **off** (grey cloud) |
@@ -347,7 +347,16 @@ PagesTabBar.tsx        Bottom-center pill listing tldraw pages — switch / rena
                        ~18px and the active tab, rename and × were unreachable.
                        Tracks live in globals.css (.pages-band-grid), not inline.
                        The template menu's outside-close is
-                       a capture-phase document pointerdown. Default names and the
+                       a capture-phase document pointerdown.
+                       It reads the page list and current page with tldraw's
+                       `useValue` — NOT a store.listen + setTick. The old
+                       document-scope listener re-rendered the bar (and ~4
+                       icons) on EVERY pen sample, local or remote: 123 of a
+                       stroke's React renders came from here. A render-count
+                       test in PagesTabBar.test.tsx pins it (a 30-point stroke
+                       must cause 0 re-renders). Any new store subscriber
+                       that isn't about ink: filter the change, or use
+                       useValue. Default names and the
                        40-page limit come from src/lib/pageNames.ts.
 
 RenamePageDialog.tsx   The single page-naming UI (rendered by RoomShell, outside the
@@ -769,6 +778,8 @@ VideoPanelResizer.tsx  Drag handle on the desktop video panel's left edge. Width
 - `writingActivity.ts` — module store (like captionsStore): WhiteboardCanvas calls `setPenDown` from tldraw pointer events while the draw/highlight tool is active; "writing" ends `WRITING_IDLE_MS` (2 s) after the last lift. VideoPanel's `PauseVideoWhileWriting` (setting `pauseVideoWhileWriting`, default on, Settings → Call defaults) then `setEnabled(false)`s every remote CAMERA publication that is currently flowing, and on resume hands it back to adaptive stream by clearing livekit-client's private `requestedDisabled` (`setEnabled(true)` would pin it on and stream into a hidden audio-only panel forever). `writingActivity.test.ts` pins those livekit-client internals — if a LiveKit upgrade fails that test, fix `handBackToAdaptiveStream`. Audio and screen shares are never paused.
 - `preloadRoom.ts` — starts downloading RoomShell + WhiteboardCanvas (tldraw, the biggest chunk) early: at RoomShellClient module load (so it overlaps the host check, name form and waiting room — the canvas chunk used to start only once the room rendered) and from the landing page when idle (`preloadRoomWhenIdle`, skipped on Save-Data).
 - `tldrawAssets.ts` — `TLDRAW_ASSET_URLS`: tldraw's icons, fonts, embed icons and translations served from `/tldraw-assets/<version>/` on our own origin instead of `cdn.tldraw.com`. The files come from the `@tldraw/assets` package (pinned to the SAME version as `tldraw` — bump both together) and are copied into `public/tldraw-assets/` (gitignored) by `scripts/copy-tldraw-assets.mjs` in `predev`/`prebuild`. `next.config.js` marks them immutable and `sw.js` caches them cache-first. **Pass `assetUrls={TLDRAW_ASSET_URLS}` to every `<Tldraw>`**, alongside `TLDRAW_OPTIONS`.
+- `preloadPageImages.ts` — instant page flipping: `neighbourImageUrls(editor)` lists the http(s) pictures on the pages either side of the current one (nearest first, ≤ 12, data: templates skipped) and `preloadImages` fetches each once into the browser cache. WhiteboardCanvas runs it (idle, 1.5 s after settling) on page switches and whenever an image shape is added. Only useful because uploads are now cacheable (next entry).
+- `fileValidation.ts` (upload caching) — exports `UPLOAD_CACHE_CONTROL` (`max-age=31536000`), sent as the `cache-control` header by EVERY Storage upload that writes a new unique path (canvas uploadAsset, DocumentsDrawer, AttachmentPicker, RecordButton, exportLessonPdf). Without it Supabase stored and served objects as `no-cache` (checked on a real upload: `cache-control: no-cache`, `cf-cache-status: MISS`), so every worksheet/photo was re-checked with the server on every view and never CDN-cached; with it: `public, max-age=31536000` and CDN `HIT`. Files uploaded before this stay `no-cache`. `uploadCacheControl.test.ts` fails if an `x-upsert: false` upload lacks it; overwrite-in-place uploads (`x-upsert: true`, the recorder's frames file) must NOT use it.
 - `fileValidation.ts` — centralised upload allow-list used by every upload path (WhiteboardCanvas, DocumentsDrawer, AttachmentPicker). `validateFileForUpload(file)` throws with a user-facing message for disallowed types; `getSafeMimeType(file)` returns a safe `Content-Type` for the Storage PUT (falls back to `application/octet-stream` rather than echoing untrusted browser MIME). **SVG is intentionally absent**: `image/svg+xml` files served from the public Supabase CDN and opened via `target=_blank` execute embedded `<script>` tags — stored XSS. Do not add SVG back without serving it through a sanitising proxy.
 
 ## Theming — the LMS "sticker-book" design system
@@ -938,7 +949,7 @@ npm run dev:sync     # wrangler dev for the sync worker
 npm run dev:all      # both concurrently
 npm run typecheck    # tsc --noEmit (run before committing)
 npm run build        # production build + size report
-npm test             # vitest run (189 tests across 17 files)
+npm test             # vitest run (200 tests across 19 files)
 npm run test:watch   # vitest watch mode
 ```
 

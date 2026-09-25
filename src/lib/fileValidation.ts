@@ -46,3 +46,13 @@ export function getSafeMimeType(file: File): string {
   }
   return "application/octet-stream";
 }
+
+// Cache-Control stored with every upload to Supabase Storage (sent as the
+// `cache-control` request header; Supabase serves it back as
+// `public, max-age=31536000`). Without it objects are stored — and served —
+// as `no-cache`, so the browser re-checked every worksheet and photo with
+// the server each time it was shown (every page flip, every reload, every
+// student) and Supabase's CDN never cached them. Every upload path writes a
+// unique timestamp+UUID name and never overwrites it, so a year is safe.
+// Don't use it for a path that is overwritten in place (x-upsert: true).
+export const UPLOAD_CACHE_CONTROL = "max-age=31536000";

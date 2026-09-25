@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { useToast } from "./Toast";
 import { getSupabase } from "@/lib/supabase";
+import { UPLOAD_CACHE_CONTROL } from "@/lib/fileValidation";
 
 type State = "idle" | "recording" | "paused" | "saving";
 
@@ -206,6 +207,7 @@ export default function RecordButton({
         xhr.setRequestHeader("apikey", key);
         xhr.setRequestHeader("Content-Type", mimeType);
         xhr.setRequestHeader("x-upsert", "false");
+        xhr.setRequestHeader("cache-control", UPLOAD_CACHE_CONTROL);
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
             setUploadPct(Math.round((e.loaded / e.total) * 100));
