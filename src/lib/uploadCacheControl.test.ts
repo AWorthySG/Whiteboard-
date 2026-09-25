@@ -30,3 +30,12 @@ describe("Storage uploads set a long cache", () => {
     });
   }
 });
+
+describe("pdf.js worker", () => {
+  it("loads from our own origin, not a CDN", () => {
+    const canvas = readFileSync("src/components/WhiteboardCanvas.tsx", "utf8");
+    expect(canvas).not.toMatch(/jsdelivr|unpkg|cdnjs/);
+    expect(canvas.match(/workerSrc = pdfWorkerUrl\(pdfjs\.version\)/g)?.length).toBe(2);
+    expect(readFileSync("scripts/copy-tldraw-assets.mjs", "utf8")).toContain("pdf.worker.min.mjs");
+  });
+});

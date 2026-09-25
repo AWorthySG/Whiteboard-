@@ -57,7 +57,9 @@ function isHashedStaticAsset(url) {
     (url.pathname.startsWith("/_next/static/") ||
       // tldraw icons/fonts: the folder name is the tldraw version, so a
       // file never changes at the same URL either.
-      url.pathname.startsWith("/tldraw-assets/"));
+      url.pathname.startsWith("/tldraw-assets/") ||
+      // pdf.js worker, likewise under its version number.
+      url.pathname.startsWith("/pdfjs/"));
 }
 
 // Stale-while-revalidate for the small set of shell assets that

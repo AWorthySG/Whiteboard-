@@ -15,6 +15,13 @@ const nextConfig = {
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
+      {
+        // pdf.js worker, versioned folder (scripts/copy-tldraw-assets.mjs).
+        source: "/pdfjs/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
     ];
   },
   webpack: (config) => {

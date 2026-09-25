@@ -82,7 +82,12 @@ import StrokeSizePicker from "./StrokeSizePicker";
 const SYNC_URL =
   process.env.NEXT_PUBLIC_TLDRAW_SYNC_URL || "ws://localhost:5858";
 
-const PDFJS_VERSION = "4.10.38";
+// pdf.js worker, served from our own origin (copied to public/pdfjs/<version>/
+// by scripts/copy-tldraw-assets.mjs, cached by the service worker). Built
+// from the bundled library's own version so the two can never mismatch.
+function pdfWorkerUrl(version: string): string {
+  return `/pdfjs/${version}/pdf.worker.min.mjs`;
+}
 
 type UploadMeta = {
   roomId: string;
@@ -2018,7 +2023,7 @@ async function insertPdfAsImages(
 
   // Lazy-load pdf.js only when we actually need it.
   const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl(pdfjs.version);
 
   const data = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data }).promise;
@@ -2184,7 +2189,7 @@ async function insertPdfAsPageBackgrounds(
   onProgress({ label: `Reading ${file.name}…`, percent: 0 });
 
   const pdfjs = await import("pdfjs-dist");
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
+  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl(pdfjs.version);
 
   const data = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data }).promise;
