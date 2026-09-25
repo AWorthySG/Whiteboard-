@@ -54,6 +54,7 @@ import { applyTidy, planTidy, type RenderedTile } from "@/lib/tidyPage";
 import HeavyPageNotice from "./HeavyPageNotice";
 import { setPenDown } from "@/lib/writingActivity";
 import { neighbourImageUrls, preloadImages } from "@/lib/preloadPageImages";
+import { glideToBounds } from "@/lib/glideCamera";
 import {
   canAddPage,
   createNextPage,
@@ -1188,7 +1189,9 @@ export default function WhiteboardCanvas({
         const editor = editorRef.current;
         if (!editor || !msg.payload) return;
         const { x, y, w, h } = msg.payload;
-        editor.zoomToBounds({ x, y, w, h }, { inset: 24, animation: { duration: 400 } });
+        // Glide, not jump: tldraw's own animation is off because
+        // animationSpeed is 0 (so strokes snap in) — see glideCamera.ts.
+        glideToBounds(editor, { x, y, w, h }, { inset: 24 });
       })
       .subscribe((status: string) => {
         broadcastChannelReadyRef.current = status === "SUBSCRIBED";
