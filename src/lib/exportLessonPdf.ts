@@ -11,6 +11,7 @@
 
 import type { Editor, TLPageId } from "tldraw";
 import { getSupabase } from "@/lib/supabase";
+import { UPLOAD_CACHE_CONTROL } from "@/lib/fileValidation";
 
 type Progress = {
   stage: "rendering" | "stitching" | "uploading" | "done";
@@ -245,6 +246,7 @@ export async function exportLessonPdf({
       apikey: supabaseKey,
       "Content-Type": "application/pdf",
       "x-upsert": "false",
+      "cache-control": UPLOAD_CACHE_CONTROL,
     },
     body: pdfBlob,
   });

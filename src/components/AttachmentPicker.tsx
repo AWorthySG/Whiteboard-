@@ -10,7 +10,11 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
-import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
+import {
+  UPLOAD_CACHE_CONTROL,
+  getSafeMimeType,
+  validateFileForUpload,
+} from "@/lib/fileValidation";
 import { shrinkImageForUpload } from "@/lib/imageCompression";
 
 /** Photos of homework are shrunk to this longest side before upload: a
@@ -143,6 +147,7 @@ export default function AttachmentPicker({
             apikey: supabaseKey,
             "Content-Type": getSafeMimeType(file),
             "x-upsert": "false",
+            "cache-control": UPLOAD_CACHE_CONTROL,
           },
           body: file,
         },

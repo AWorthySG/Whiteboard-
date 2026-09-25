@@ -36,7 +36,11 @@ import {
 import { ArrowClockwise, ArrowCounterClockwise, Camera, CaretDown, Keyboard, MagnifyingGlass, Note, Pencil, Toolbox, TrashSimple } from "@phosphor-icons/react";
 import { getSettings, useSettings } from "@/hooks/useSettings";
 import { useSyncToken } from "@/hooks/useSyncToken";
-import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
+import {
+  UPLOAD_CACHE_CONTROL,
+  getSafeMimeType,
+  validateFileForUpload,
+} from "@/lib/fileValidation";
 import {
   encodeCanvas,
   PAGE_QUALITY,
@@ -49,6 +53,7 @@ import { TLDRAW_ASSET_URLS } from "@/lib/tldrawAssets";
 import { applyTidy, planTidy, type RenderedTile } from "@/lib/tidyPage";
 import HeavyPageNotice from "./HeavyPageNotice";
 import { setPenDown } from "@/lib/writingActivity";
+import { neighbourImageUrls, preloadImages } from "@/lib/preloadPageImages";
 import {
   canAddPage,
   createNextPage,
@@ -128,6 +133,7 @@ function uploadAsset(
     xhr.setRequestHeader("apikey", supabaseKey);
     xhr.setRequestHeader("Content-Type", getSafeMimeType(file));
     xhr.setRequestHeader("x-upsert", "false");
+    xhr.setRequestHeader("cache-control", UPLOAD_CACHE_CONTROL);
     xhr.upload.onprogress = (e) => {
       if (!e.lengthComputable || !onUploadProgress) return;
       onUploadProgress(e.loaded / e.total);
@@ -751,6 +757,48 @@ export default function WhiteboardCanvas({
       if (insertPostItRef.current) insertPostItRef.current = null;
     };
   }, [insertPostItRef]);
+
+  // Instant page flipping: after landing on a page, quietly download the
+  // pictures on the pages either side (src/lib/preloadPageImages.ts). Runs
+  // when idle, a moment after the page settles, so it never competes with
+  // the page you're actually looking at.
+  useEffect(() => {
+    if (!mountedEditor) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        const run = () => preloadImages(neighbourImageUrls(mountedEditor));
+        const ric = (window as { requestIdleCallback?: typeof requestIdleCallback })
+          .requestIdleCallback;
+        if (ric) ric(run, { timeout: 3000 });
+        else run();
+      }, 1500);
+    };
+    schedule();
+    // Re-run on a page switch, and when pictures are added (a PDF import
+    // creates its pages after you've landed; a remote upload arrives).
+    let pageId = mountedEditor.getCurrentPageId();
+    const unsub = mountedEditor.store.listen((entry) => {
+      const next = mountedEditor.getCurrentPageId();
+      if (next !== pageId) {
+        pageId = next;
+        schedule();
+        return;
+      }
+      for (const rec of Object.values(entry.changes.added)) {
+        if (rec.typeName === "shape" && rec.type === "image") {
+          schedule();
+          return;
+        }
+      }
+    });
+    return () => {
+      unsub();
+      if (timer) clearTimeout(timer);
+    };
+  }, [mountedEditor]);
 
   // Publish "writing now" (pen or highlighter down) for VideoPanel's
   // pause-video-while-writing. Assigning a flag per pointer event is all
