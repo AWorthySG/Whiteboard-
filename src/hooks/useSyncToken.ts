@@ -2,13 +2,68 @@
 
 import { useEffect, useState } from "react";
 
-// Refresh the sync token 2 minutes before it expires so the live
-// WebSocket connection never carries an expired credential.
-const REFRESH_BEFORE_EXPIRY_MS = 2 * 60 * 1000;
+// Fetches the HS256 token the sync worker needs, and refreshes it ~2 min
+// before its 15-min TTL.
+//
+// The token route only answers once this user has an ADMITTED join_requests
+// row. Two things make the first token fast:
+//  - prefetchSyncToken() starts the request as soon as admission is known
+//    (the host's self-admit resolving; a guest's room tree mounting), not
+//    when the lazily loaded WhiteboardCanvas finally mounts. The hook then
+//    picks up that in-flight request instead of starting its own.
+//  - A refused request (403 because a new room's self-admit hasn't landed
+//    yet, or a network blip) retries after 0.3 / 0.8 / 2 s before settling
+//    at 5 s. It used to wait a flat 5 s, which on a brand-new room — every
+//    new lesson — often left the board offline for 5 s at the start.
 
-// Fetches an HMAC-signed token from /api/sync-token that authorises
-// the caller to connect to the Cloudflare sync worker for `roomId`.
-// Returns null until the first token arrives.
+const REFRESH_BEFORE_EXPIRY_MS = 2 * 60 * 1000;
+export const TOKEN_RETRY_DELAYS_MS = [300, 800, 2000];
+const TOKEN_RETRY_SLOW_MS = 5_000;
+
+type Token = { token: string; expiresAt: number };
+
+export function tokenRetryDelay(attempt: number): number {
+  return TOKEN_RETRY_DELAYS_MS[attempt] ?? TOKEN_RETRY_SLOW_MS;
+}
+
+async function requestToken(
+  roomId: string,
+  userId: string,
+  signal?: AbortSignal,
+): Promise<Token> {
+  const res = await fetch("/api/sync-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId, userId }),
+    signal,
+  });
+  if (!res.ok) throw new Error(`sync-token ${res.status}`);
+  return (await res.json()) as Token;
+}
+
+// One prefetched request per room+user, handed to the hook when it mounts.
+const prefetched = new Map<string, Promise<Token>>();
+const keyOf = (roomId: string, userId: string) => `${roomId}\n${userId}`;
+
+/** Starts fetching the sync token now, for useSyncToken to pick up. Call
+ *  once admission is known. A failed prefetch is simply dropped — the hook
+ *  then fetches (and retries) on its own. */
+export function prefetchSyncToken(roomId: string, userId: string): void {
+  if (!roomId || !userId || typeof window === "undefined") return;
+  const key = keyOf(roomId, userId);
+  if (prefetched.has(key)) return;
+  const p = requestToken(roomId, userId);
+  prefetched.set(key, p);
+  p.catch(() => {
+    if (prefetched.get(key) === p) prefetched.delete(key);
+  });
+}
+
+/** Tests only. */
+export function clearPrefetchedSyncTokens(): void {
+  prefetched.clear();
+}
+
 export function useSyncToken(
   roomId: string,
   userId: string,
@@ -19,53 +74,50 @@ export function useSyncToken(
     if (!roomId || !userId) return;
     let cancelled = false;
     let refreshTimer: number | null = null;
-    // Abort an in-flight token fetch when the hook tears down (room
-    // change, unmount). The `cancelled` flag already guards against
-    // resolved-after-unmount setState, but without the abort the
-    // network request still completes and its response is decoded
-    // before the guard catches it — wasted work, and on a slow
-    // /api/sync-token the request can outlive the route.
+    let attempt = 0;
     const controller = new AbortController();
+
+    const apply = (data: Token) => {
+      if (cancelled) return;
+      attempt = 0;
+      setToken(data.token);
+      const refreshAt = Math.max(
+        5_000,
+        data.expiresAt - Date.now() - REFRESH_BEFORE_EXPIRY_MS,
+      );
+      refreshTimer = window.setTimeout(fetchOnce, refreshAt);
+    };
 
     const fetchOnce = async () => {
       try {
-        const res = await fetch("/api/sync-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomId, userId }),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          // 403 = not admitted yet. KnockGate is the gate; this hook
-          // just rides whatever signal it produces. Retry after a
-          // short backoff so the token is in hand by the time the
-          // user is admitted.
-          if (!cancelled) {
-            refreshTimer = window.setTimeout(fetchOnce, 5_000);
-          }
-          return;
-        }
-        const data = (await res.json()) as {
-          token: string;
-          expiresAt: number;
-        };
-        if (cancelled) return;
-        setToken(data.token);
-        const refreshAt = Math.max(
-          5_000,
-          data.expiresAt - Date.now() - REFRESH_BEFORE_EXPIRY_MS,
-        );
-        refreshTimer = window.setTimeout(fetchOnce, refreshAt);
+        apply(await requestToken(roomId, userId, controller.signal));
       } catch (e) {
-        // AbortError on unmount/room change: nothing to do, the
-        // effect is going away. Anything else: backoff and retry.
+        // AbortError on unmount/room change: nothing to do, the effect is
+        // going away. Anything else (403 before admission lands, network):
+        // retry, quickly at first.
         if (cancelled) return;
         if ((e as { name?: string })?.name === "AbortError") return;
-        refreshTimer = window.setTimeout(fetchOnce, 5_000);
+        refreshTimer = window.setTimeout(fetchOnce, tokenRetryDelay(attempt++));
       }
     };
 
-    void fetchOnce();
+    const key = keyOf(roomId, userId);
+    const early = prefetched.get(key);
+    if (early) {
+      prefetched.delete(key);
+      early.then(
+        (data) => {
+          // Still comfortably valid? Use it; otherwise fetch a fresh one.
+          if (data.expiresAt - Date.now() > REFRESH_BEFORE_EXPIRY_MS) apply(data);
+          else if (!cancelled) void fetchOnce();
+        },
+        () => {
+          if (!cancelled) void fetchOnce();
+        },
+      );
+    } else {
+      void fetchOnce();
+    }
     return () => {
       cancelled = true;
       controller.abort();

@@ -23,3 +23,20 @@ if (existsSync(join(dest, "icons"))) {
   }
   console.log(`[tldraw-assets] copied ${version} to public/tldraw-assets/`);
 }
+
+// pdf.js's worker (~1 MB), used by the two PDF importers. It used to load
+// from cdn.jsdelivr.net on every import; from our origin the service worker
+// keeps it (cache-first, versioned folder like the tldraw assets). The
+// importers build the URL from pdfjs.version, so it always matches the
+// library that was bundled.
+const pdfSrc = join(process.cwd(), "node_modules", "pdfjs-dist");
+const pdfVersion = JSON.parse(readFileSync(join(pdfSrc, "package.json"), "utf8")).version;
+const pdfRoot = join(process.cwd(), "public", "pdfjs");
+const pdfDest = join(pdfRoot, pdfVersion, "pdf.worker.min.mjs");
+if (existsSync(pdfDest)) {
+  console.log(`[pdfjs] ${pdfVersion} worker already in public/`);
+} else {
+  rmSync(pdfRoot, { recursive: true, force: true });
+  cpSync(join(pdfSrc, "build", "pdf.worker.min.mjs"), pdfDest);
+  console.log(`[pdfjs] copied ${pdfVersion} worker to public/pdfjs/`);
+}
