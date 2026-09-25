@@ -68,7 +68,13 @@ export default {
     }
 
     const id = env.ROOMS.idFromName(roomId);
-    const stub = env.ROOMS.get(id);
+    // A room's Durable Object is created near whoever connects first and
+    // stays there for good. The tutor and students are in Singapore, so
+    // ask for Asia-Pacific: a room first opened from elsewhere (a trip, a
+    // VPN, a test) would otherwise put every stroke's round trip through
+    // another continent for the life of the room. Only a hint, and only
+    // for NEW rooms — an existing object keeps its location.
+    const stub = env.ROOMS.get(id, { locationHint: "apac" });
     return stub.fetch(request);
   },
 };
