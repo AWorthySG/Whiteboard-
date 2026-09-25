@@ -55,6 +55,7 @@ import HeavyPageNotice from "./HeavyPageNotice";
 import { setPenDown } from "@/lib/writingActivity";
 import { neighbourImageUrls, preloadImages } from "@/lib/preloadPageImages";
 import { glideToBounds } from "@/lib/glideCamera";
+import { removeOrphanedShapes } from "@/lib/pageCleanup";
 import {
   canAddPage,
   createNextPage,
@@ -805,6 +806,24 @@ export default function WhiteboardCanvas({
       if (timer) clearTimeout(timer);
     };
   }, [mountedEditor]);
+
+  // Once per room load, the host sweeps out shapes orphaned by past page
+  // deletions (tldraw's deletePage used to leave a deleted page's ink in
+  // the room — invisible, but downloaded by everyone who joins). Waits for
+  // the synced document and a quiet moment, so it never races the initial
+  // load. See src/lib/pageCleanup.ts.
+  const orphanSweepDoneRef = useRef(false);
+  const syncStatus = store.status;
+  useEffect(() => {
+    if (!mountedEditor || !isHost || orphanSweepDoneRef.current) return;
+    if (syncStatus !== "synced-remote") return;
+    const t = setTimeout(() => {
+      orphanSweepDoneRef.current = true;
+      const n = removeOrphanedShapes(mountedEditor);
+      if (n > 0) console.info(`[whiteboard] removed ${n} orphaned shape(s) left by deleted pages`);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [mountedEditor, isHost, syncStatus]);
 
   // Publish "writing now" (pen or highlighter down) for VideoPanel's
   // pause-video-while-writing. Assigning a flag per pointer event is all
