@@ -564,6 +564,23 @@ CanvasFloatingPanel    Internal component in WhiteboardCanvas. Top-right floatin
                          with its ink. It marks a history stopping point first,
                          so Undo restores exactly the deletion (without the mark,
                          Undo also reverted the stroke drawn before it).
+                       - UploadedItemControls (host only, own file): the
+                         "Uploaded file · Delete · Unlock" pill. Uploads are
+                         LOCKED (students can't touch them), which also meant
+                         the host couldn't select one to remove it. The pill
+                         appears right after the host pastes/uploads a real
+                         file (an http asset — page templates and PDF writing
+                         sheets are data: SVGs and don't announce themselves)
+                         and whenever the host TAPS an uploaded item with the
+                         Select or Hand tool (skipped when the tap selected
+                         something on top, e.g. ink). The item gets a hint
+                         outline. Delete = one undo step via
+                         editor.run(..., { ignoreShapeLock: true }) — plain
+                         deleteShapes silently skips locked shapes. Unlock
+                         clears isLocked and selects it (meta.uploadedDocument
+                         stays, so the student delete-veto still applies).
+                         Helpers + headless-Editor tests in
+                         src/lib/uploadedItems(.test).ts.
                        - UndoRedoControls: md:hidden grouped pill (undo · redo)
                          shown only on phones. Desktop has undo/redo in LeftRail;
                          on phones they otherwise sit in the collapsed SlimToolbar
@@ -915,7 +932,7 @@ npm run dev:sync     # wrangler dev for the sync worker
 npm run dev:all      # both concurrently
 npm run typecheck    # tsc --noEmit (run before committing)
 npm run build        # production build + size report
-npm test             # vitest run (159 tests across 13 files)
+npm test             # vitest run (165 tests across 14 files)
 npm run test:watch   # vitest watch mode
 ```
 

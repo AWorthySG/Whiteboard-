@@ -57,6 +57,7 @@ import { useToast } from "./Toast";
 import ReconnectBanner from "./ReconnectBanner";
 import { FountainDrawShapeUtil } from "@/lib/fountainNib";
 import PagesTabBar from "./PagesTabBar";
+import UploadedItemControls from "./UploadedItemControls";
 import ZoomControls from "./ZoomControls";
 import CanvasSearch from "./CanvasSearch";
 import ColorPickerRow from "./ColorPickerRow";
@@ -1492,6 +1493,9 @@ function CanvasFloatingPanel({
         </div>
       )}
       <DeleteSelectionButton editor={editor} />
+      {/* Host only: Delete / Unlock for an uploaded or pasted file (they're
+          locked, so they can't be selected like a stroke). */}
+      {isHost && <UploadedItemControls editor={editor} />}
       {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <PenModeIndicator editor={editor} />
