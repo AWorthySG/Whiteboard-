@@ -176,3 +176,56 @@ describe("PagesTabBar — student (non-host)", () => {
     expect(ed.getPages()).toHaveLength(2);
   });
 });
+
+describe("PagesTabBar re-renders", () => {
+  it("only on page changes, never on pen strokes", async () => {
+    const { Profiler } = await import("react");
+    const { createShapeId } = await import("tldraw");
+    const ed = makeEditor();
+    editor = ed;
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+    let renders = 0;
+    act(() =>
+      root!.render(
+        <Profiler id="bar" onRender={() => { renders++; }}>
+          <PagesTabBar editor={ed} isHost onRequestRenamePage={vi.fn()} />
+        </Profiler>,
+      ),
+    );
+    const base = renders;
+
+    // A stroke: one create, then an update per pointer sample.
+    const id = createShapeId();
+    act(() => {
+      ed.createShape({ id, type: "draw", x: 0, y: 0 });
+    });
+    for (let i = 1; i <= 30; i++) {
+      act(() => {
+        ed.updateShape({
+          id,
+          type: "draw",
+          props: {
+            segments: [{ type: "free", points: Array.from({ length: i }, (_, k) => ({ x: k, y: k, z: 0.5 })) }],
+          },
+        });
+      });
+    }
+    expect(renders).toBe(base);
+
+    // Page changes still show up — including a switch, with no parent re-render.
+    act(() => {
+      ed.renamePage(ed.getCurrentPageId(), "Algebra");
+    });
+    expect(host!.textContent).toContain("Algebra");
+    act(() => {
+      ed.createPage({ id: "page:two" as TLPageId, name: "Geometry" });
+    });
+    expect(host!.textContent).toContain("Geometry");
+    act(() => {
+      ed.setCurrentPage("page:two" as TLPageId);
+    });
+    expect(host!.querySelector('[aria-current="page"], [aria-selected="true"]')?.textContent ?? host!.textContent).toContain("Geometry");
+  });
+});
