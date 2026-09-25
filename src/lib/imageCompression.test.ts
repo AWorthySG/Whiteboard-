@@ -74,3 +74,13 @@ describe("WhiteboardCanvas wiring", () => {
     expect(src).not.toMatch(/canvas\.toBlob\([\s\S]{0,200}"image\/png"/);
   });
 });
+
+describe("homework photo wiring", () => {
+  const picker = readFileSync(`${process.cwd()}/src/components/AttachmentPicker.tsx`, "utf8");
+  const drawer = readFileSync(`${process.cwd()}/src/components/HomeworkDrawer.tsx`, "utf8");
+  it("shrinks photos in the student submission picker only", () => {
+    expect(picker).toMatch(/shrinkPhotos\s*\n?\s*\?\s*await shrinkImageForUpload\(picked, HOMEWORK_PHOTO_MAX\)/);
+    expect(drawer).toMatch(/label="Pick or upload your work"\s+allowCapture\s+shrinkPhotos/);
+    expect(drawer.match(/shrinkPhotos/g)?.length).toBe(1);
+  });
+});
