@@ -302,6 +302,7 @@ export default function WhiteboardCanvas({
   onRequestRenamePage,
   insertPostItRef,
   tidyPageRef,
+  onStartFresh,
   admissionPanel,
 }: {
   roomId: string;
@@ -359,6 +360,9 @@ export default function WhiteboardCanvas({
   insertPostItRef?: MutableRefObject<((pointerType?: string) => void) | null>;
   /** Lets RoomShell's command palette run "Tidy this page" (host only). */
   tidyPageRef?: MutableRefObject<(() => void) | null>;
+  /** RoomShell's "Save & start fresh" (host only) — offered by the
+   *  heavy-room notice. */
+  onStartFresh?: () => void;
   /** The host's AdmissionPanel, rendered as the FIRST item of the
    *  top-right CanvasFloatingPanel column so it stacks with the pills
    *  instead of overlapping them (see CanvasFloatingPanel). */
@@ -1531,6 +1535,7 @@ export default function WhiteboardCanvas({
         admissionPanel={admissionPanel}
         onNewPage={addNamedPage}
         onTidy={() => void tidyCurrentPage()}
+        onStartFresh={onStartFresh}
       />
       {searchOpen && mountedEditor && (
         <CanvasSearch
@@ -1633,6 +1638,7 @@ function CanvasFloatingPanel({
   admissionPanel,
   onNewPage,
   onTidy,
+  onStartFresh,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -1645,6 +1651,7 @@ function CanvasFloatingPanel({
   admissionPanel?: ReactNode;
   onNewPage: () => void;
   onTidy: () => void;
+  onStartFresh?: () => void;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
@@ -1723,7 +1730,12 @@ function CanvasFloatingPanel({
           locked, so they can't be selected like a stroke). */}
       {isHost && <UploadedItemControls editor={editor} />}
       {isHost && editor && (
-        <HeavyPageNotice editor={editor} onNewPage={onNewPage} onTidy={onTidy} />
+        <HeavyPageNotice
+          editor={editor}
+          onNewPage={onNewPage}
+          onTidy={onTidy}
+          onStartFresh={onStartFresh}
+        />
       )}
       {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
