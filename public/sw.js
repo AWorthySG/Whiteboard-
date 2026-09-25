@@ -2,8 +2,9 @@
 //
 // Two cache buckets:
 //
-// 1. STATIC_CACHE — long-lived, holds icon assets and Next.js's
-//    content-hashed JS/CSS chunks. These filenames embed a content
+// 1. STATIC_CACHE — long-lived, holds icon assets, Next.js's
+//    content-hashed JS/CSS chunks and tldraw's versioned icons/fonts
+//    (/tldraw-assets/<version>/). These filenames embed a content
 //    hash (e.g. /_next/static/chunks/abc123-foo.js), so we can serve
 //    a cached response indefinitely. The first launch is the only one
 //    that has to hit the network for chunks; every subsequent open
@@ -16,8 +17,8 @@
 // the tldraw sync worker — is always network-only. We never want
 // a stale room shell, a stale auth token, or a stale snapshot.
 
-const STATIC_CACHE = "wb-static-v3";
-const SHELL_CACHE = "wb-shell-v3";
+const STATIC_CACHE = "wb-static-v4";
+const SHELL_CACHE = "wb-shell-v4";
 const SHELL_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -53,7 +54,10 @@ self.addEventListener("activate", (event) => {
 // revalidate; just keep the response forever.
 function isHashedStaticAsset(url) {
   return url.origin === self.location.origin &&
-    url.pathname.startsWith("/_next/static/");
+    (url.pathname.startsWith("/_next/static/") ||
+      // tldraw icons/fonts: the folder name is the tldraw version, so a
+      // file never changes at the same URL either.
+      url.pathname.startsWith("/tldraw-assets/"));
 }
 
 // Stale-while-revalidate for the small set of shell assets that

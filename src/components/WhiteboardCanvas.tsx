@@ -45,6 +45,7 @@ import {
 } from "@/lib/imageCompression";
 import { getSupabase } from "@/lib/supabase";
 import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
+import { TLDRAW_ASSET_URLS } from "@/lib/tldrawAssets";
 import {
   canAddPage,
   createNextPage,
@@ -1065,6 +1066,7 @@ export default function WhiteboardCanvas({
           overrides={overrides}
           shapeUtils={CUSTOM_SHAPE_UTILS}
           options={TLDRAW_OPTIONS}
+          assetUrls={TLDRAW_ASSET_URLS}
           licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
           components={{
             // Hide the whole top-left stack (main menu, page selector,
