@@ -11,6 +11,12 @@ import {
 } from "@phosphor-icons/react";
 import { getSupabase } from "@/lib/supabase";
 import { validateFileForUpload, getSafeMimeType } from "@/lib/fileValidation";
+import { shrinkImageForUpload } from "@/lib/imageCompression";
+
+/** Photos of homework are shrunk to this longest side before upload: a
+ *  phone photo is often 4000 px / 3-5 MB, slow on mobile data, and 2560 px
+ *  keeps handwriting on a full page easy to read. */
+const HOMEWORK_PHOTO_MAX = 2560;
 import { useToast } from "./Toast";
 
 export type Attachment = {
@@ -45,6 +51,7 @@ export default function AttachmentPicker({
   accept = "application/pdf,image/*",
   label = "Attach a file",
   allowCapture = false,
+  shrinkPhotos = false,
 }: {
   roomId: string;
   value: Attachment | null;
@@ -56,6 +63,10 @@ export default function AttachmentPicker({
   // students snapping a photo of handwritten work without digging
   // through the OS file picker. Ignored on non-touch devices.
   allowCapture?: boolean;
+  // When true, photos are scaled down and re-encoded before upload (see
+  // HOMEWORK_PHOTO_MAX). Student submissions; not worksheets the host
+  // attaches, which stay as the original file.
+  shrinkPhotos?: boolean;
 }) {
   const toast = useToast();
   const [mode, setMode] = useState<"idle" | "picker">("idle");
@@ -102,17 +113,20 @@ export default function AttachmentPicker({
   }, [mode, docs, roomId, toast]);
 
   const handleUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const picked = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
-    if (!file) return;
+    if (!picked) return;
     try {
-      validateFileForUpload(file);
+      validateFileForUpload(picked);
     } catch (err) {
       toast.error((err as Error).message);
       return;
     }
     setUploading(true);
     try {
+      const file = shrinkPhotos
+        ? await shrinkImageForUpload(picked, HOMEWORK_PHOTO_MAX)
+        : picked;
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       if (!supabaseUrl || !supabaseKey) {

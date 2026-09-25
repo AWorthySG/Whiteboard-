@@ -6,14 +6,15 @@
     "dev": "next dev",
     "dev:sync": "cd sync-worker && npx wrangler dev --port 5858",
     "dev:all": "concurrently -k -n web,sync -c blue,magenta \"npm:dev\" \"npm:dev:sync\"",
-    "prebuild": "node scripts/cleanup-tldraw-patch.mjs && rm -rf .next/cache",
+    "prebuild": "node scripts/copy-tldraw-assets.mjs && node scripts/cleanup-tldraw-patch.mjs && rm -rf .next/cache",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "postinstall": "patch-package --partial"
+    "postinstall": "patch-package --partial",
+    "predev": "node scripts/copy-tldraw-assets.mjs"
   },
   "dependencies": {
     "@livekit/components-react": "^2.9.4",
@@ -21,6 +22,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.4",
+    "@tldraw/assets": "3.15.6",
     "@tldraw/sync": "^3.13.1",
     "@tldraw/sync-core": "^3.13.1",
     "jose": "^6.2.3",

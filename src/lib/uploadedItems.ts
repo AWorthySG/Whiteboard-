@@ -39,10 +39,14 @@ export function findUploadedItemAt(
  * True when a freshly created uploaded item should announce itself with the
  * pill: a real uploaded file (served from storage over http), not a
  * generated background — page templates and the PDF writing-space sheets
- * are inline `data:` SVGs and appear by the dozen.
+ * are inline `data:` SVGs and appear by the dozen, and "Tidy this page"
+ * pictures are the host's own ink.
  */
 export function isUserUploadedFile(editor: Editor, shape: TLShape): boolean {
   if (!isUploadedItem(shape) || shape.type !== "image") return false;
+  // "Tidy this page" pictures of the host's own handwriting aren't uploads
+  // to announce (tapping one still offers Delete / Unlock).
+  if (shape.meta?.tidiedInk === true) return false;
   const assetId = (shape.props as { assetId?: string | null }).assetId;
   if (!assetId) return false;
   const asset = editor.getAsset(assetId as TLAssetId) as

@@ -117,4 +117,14 @@ describe("uploaded file controls", () => {
     expect(isUserUploadedFile(editor, editor.getShape(file)!)).toBe(true);
     expect(isUserUploadedFile(editor, editor.getShape(template)!)).toBe(false);
   });
+
+  it("doesn't announce a tidied-handwriting picture", () => {
+    const editor = makeEditor();
+    const id = placeUpload(editor, "https://cdn.example/tidy.webp");
+    editor.run(
+      () => editor.updateShape({ id, type: "image", meta: { uploadedDocument: true, tidiedInk: true } }),
+      { ignoreShapeLock: true },
+    );
+    expect(isUserUploadedFile(editor, editor.getShape(id)!)).toBe(false);
+  });
 });

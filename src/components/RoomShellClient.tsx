@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { preloadRoom } from "@/lib/preloadRoom";
 
 // The room is a browser-state surface end to end: identity and the
 // remembered name come from localStorage, host status from localStorage +
@@ -27,6 +28,10 @@ const RoomShell = dynamic(() => import("./RoomShell"), {
     </main>
   ),
 });
+
+// Fetch the whiteboard chunk in parallel with RoomShell's, instead of
+// waiting for the room to render (after the host check / waiting room).
+preloadRoom();
 
 export default function RoomShellClient({ roomId }: { roomId: string }) {
   // `?name=` is read inside RoomShell's name-bootstrap effect rather than

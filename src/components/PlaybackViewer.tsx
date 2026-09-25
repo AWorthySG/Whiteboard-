@@ -7,6 +7,7 @@ import { ArrowLeft, WarningCircle } from "@phosphor-icons/react";
 import type { Editor } from "tldraw";
 import "tldraw/tldraw.css";
 import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
+import { TLDRAW_ASSET_URLS } from "@/lib/tldrawAssets";
 import { FountainDrawShapeUtil } from "@/lib/fountainNib";
 import { PostItNoteUtil } from "@/lib/postIt";
 
@@ -209,6 +210,7 @@ export default function PlaybackViewer({ recording }: { recording: Recording }) 
             <>
               <Tldraw
                 options={TLDRAW_OPTIONS}
+                assetUrls={TLDRAW_ASSET_URLS}
                 shapeUtils={PLAYBACK_SHAPE_UTILS}
                 onMount={(ed) => {
                   editorRef.current = ed;

@@ -239,6 +239,12 @@ export default function SettingsModal({
               hint="Skip the camera entirely. Saves bandwidth and battery — useful on phone data. You can still toggle video on once you've joined."
             />
             <Toggle
+              label="Pause video while I write"
+              checked={settings.pauseVideoWhileWriting}
+              onChange={(v) => setSettings({ pauseVideoWhileWriting: v })}
+              hint="While you're writing with the pen, other people's camera video freezes, then carries on a couple of seconds after you lift the pen. It keeps the pen smooth on an iPad. Voices and shared screens are never paused."
+            />
+            <Toggle
               label="Live captions"
               checked={settings.captionsEnabled}
               onChange={(v) => setSettings({ captionsEnabled: v })}

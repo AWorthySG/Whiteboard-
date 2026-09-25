@@ -12,3 +12,6 @@ build/
 .wrangler/
 coverage/
 tsconfig.tsbuildinfo
+
+# tldraw icons/fonts copied from node_modules at build time
+/public/tldraw-assets/

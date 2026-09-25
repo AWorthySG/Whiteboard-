@@ -20,6 +20,7 @@ import {
   Track,
   VideoPresets,
   type LocalTrack,
+  type RemoteTrackPublication,
   type RoomOptions,
 } from "livekit-client";
 import type { Participant } from "livekit-client";
@@ -39,6 +40,7 @@ import CaptionsManager from "./CaptionsManager";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSettings } from "@/hooks/useSettings";
 import { useToast } from "./Toast";
+import { isWriting, subscribeToWriting } from "@/lib/writingActivity";
 
 // More patient than livekit-client's default reconnect policy. The
 // stock policy retries 10 times at [0, 300, 1200, 2700, 4800, 7000,
@@ -460,6 +462,7 @@ export default function VideoPanel({
         </div>
         <RoomAudioRenderer />
         <CameraReleaseGuard />
+        <PauseVideoWhileWriting enabled={settings.pauseVideoWhileWriting} />
         {onCaption && (
           <CaptionsManager
             userName={userName}
@@ -945,4 +948,59 @@ function CameraReleaseGuard() {
     }
   }, [isCameraEnabled, localParticipant]);
   return null;
+}
+
+// While this person writes on the board (src/lib/writingActivity.ts), stop
+// the server sending everyone else's CAMERA video: decoding it competes with
+// the pen for the main thread, which on an iPad is felt as pen lag. The
+// tiles freeze on their last frame and resume ~2 s after the pen lifts.
+// Audio and screen shares are untouched. Only tracks that are currently
+// flowing are paused, so ones adaptive stream has already turned off (a
+// hidden panel in audio-only mode) are left to it.
+function PauseVideoWhileWriting({ enabled }: { enabled: boolean }) {
+  const room = useRoomContext();
+  useEffect(() => {
+    if (!enabled) return;
+    const paused = new Set<RemoteTrackPublication>();
+    const pause = () => {
+      for (const p of room.remoteParticipants.values()) {
+        const pub = p.getTrackPublication(Track.Source.Camera) as
+          | RemoteTrackPublication
+          | undefined;
+        if (pub?.isSubscribed && pub.isEnabled && !paused.has(pub)) {
+          pub.setEnabled(false);
+          paused.add(pub);
+        }
+      }
+    };
+    const resume = () => {
+      for (const pub of paused) handBackToAdaptiveStream(pub);
+      paused.clear();
+    };
+    const unsub = subscribeToWriting((w) => (w ? pause() : resume()));
+    if (isWriting()) pause();
+    return () => {
+      unsub();
+      resume();
+    };
+  }, [room, enabled]);
+  return null;
+}
+
+// setEnabled(true) would pin the track ON for good, overriding adaptive
+// stream, which then keeps streaming into a hidden or tiny tile. Clearing
+// the publication's manual override instead hands control back to it.
+// livekit-client has no public API for that; writingActivity.test.ts pins
+// the internals used here so an upgrade that changes them fails loudly.
+function handBackToAdaptiveStream(pub: RemoteTrackPublication) {
+  const p = pub as unknown as {
+    requestedDisabled?: boolean;
+    emitTrackUpdate?: () => void;
+  };
+  if (typeof p.emitTrackUpdate === "function" && "requestedDisabled" in p) {
+    p.requestedDisabled = undefined;
+    p.emitTrackUpdate();
+  } else {
+    pub.setEnabled(true);
+  }
 }

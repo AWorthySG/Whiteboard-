@@ -45,6 +45,10 @@ import {
 } from "@/lib/imageCompression";
 import { getSupabase } from "@/lib/supabase";
 import { TLDRAW_OPTIONS } from "@/lib/tldrawOptions";
+import { TLDRAW_ASSET_URLS } from "@/lib/tldrawAssets";
+import { applyTidy, planTidy, type RenderedTile } from "@/lib/tidyPage";
+import HeavyPageNotice from "./HeavyPageNotice";
+import { setPenDown } from "@/lib/writingActivity";
 import {
   canAddPage,
   createNextPage,
@@ -284,6 +288,7 @@ export default function WhiteboardCanvas({
   onEditor,
   onRequestRenamePage,
   insertPostItRef,
+  tidyPageRef,
   admissionPanel,
 }: {
   roomId: string;
@@ -339,6 +344,8 @@ export default function WhiteboardCanvas({
    *  post-it. Mirrors openUploadRef. The optional arg is the pointerType
    *  of the tap that asked for it ("pen" → write mode). */
   insertPostItRef?: MutableRefObject<((pointerType?: string) => void) | null>;
+  /** Lets RoomShell's command palette run "Tidy this page" (host only). */
+  tidyPageRef?: MutableRefObject<(() => void) | null>;
   /** The host's AdmissionPanel, rendered as the FIRST item of the
    *  top-right CanvasFloatingPanel column so it stacks with the pills
    *  instead of overlapping them (see CanvasFloatingPanel). */
@@ -745,6 +752,134 @@ export default function WhiteboardCanvas({
     };
   }, [insertPostItRef]);
 
+  // Publish "writing now" (pen or highlighter down) for VideoPanel's
+  // pause-video-while-writing. Assigning a flag per pointer event is all
+  // this costs.
+  useEffect(() => {
+    if (!mountedEditor) return;
+    const onEvent = (info: { type: string; name?: string }) => {
+      if (info.type !== "pointer") return;
+      if (info.name === "pointer_down") {
+        const tool = mountedEditor.getCurrentToolId();
+        if (tool === "draw" || tool === "highlight") setPenDown(true);
+      } else if (info.name === "pointer_up") {
+        setPenDown(false);
+      }
+    };
+    mountedEditor.on("event", onEvent as never);
+    return () => {
+      mountedEditor.off("event", onEvent as never);
+      setPenDown(false);
+    };
+  }, [mountedEditor]);
+
+  // "Tidy this page" (host only): renders the page's old handwriting into a
+  // few picture tiles, uploads them, then swaps strokes for pictures in one
+  // undo step. See src/lib/tidyPage.ts.
+  const tidyingRef = useRef(false);
+  const tidyCurrentPage = useCallback(async () => {
+    const editor = editorRef.current;
+    if (!editor || !isHostRef.current || tidyingRef.current) return;
+    const tiles = planTidy(editor);
+    if (tiles.length === 0) {
+      toast.info("Nothing to tidy on this page yet");
+      return;
+    }
+    const strokeCount = tiles.reduce((n, t) => n + t.shapes.length, 0);
+    const ok = window.confirm(
+      `Merge ${strokeCount.toLocaleString()} pen strokes on this page into ` +
+        `${tiles.length === 1 ? "a picture" : `${tiles.length} pictures`}?\n\n` +
+        "The writing looks the same and the board gets faster, but those old " +
+        "strokes can't be erased one by one afterwards. Undo reverses it.",
+    );
+    if (!ok) return;
+    tidyingRef.current = true;
+    const rendered: RenderedTile[] = [];
+    const paths: string[] = [];
+    try {
+      for (const [i, tile] of tiles.entries()) {
+        reportProgress({
+          label: `Tidying this page… ${i + 1} of ${tiles.length}`,
+          percent: Math.round((i / tiles.length) * 100),
+        });
+        const { blob, width, height } = await editor.toImage(
+          tile.shapes.map((s) => s.id),
+          {
+            format: "webp",
+            quality: 0.92,
+            background: false,
+            bounds: tile.bounds,
+            scale: 1,
+            pixelRatio: tile.pixelRatio,
+            padding: 0,
+          },
+        );
+        const type = blob.type || "image/png";
+        const file = new File(
+          [blob],
+          renameForType(`tidied-ink-${i + 1}.png`, type),
+          { type },
+        );
+        const { url, path } = await uploadAsset(file, {
+          ...uploadMeta,
+          originalName: file.name,
+          skipDocumentInsert: true,
+        });
+        paths.push(path);
+        rendered.push({
+          tile,
+          src: url,
+          mimeType: type,
+          pixelWidth: width,
+          pixelHeight: height,
+        });
+      }
+      const res = applyTidy(editor, rendered);
+      void cleanupOrphanedAssets(
+        res.skipped.map((r) => paths[rendered.indexOf(r)]),
+      );
+      if (res.pictures === 0) {
+        toast.error("The page changed while tidying — nothing was merged. Try again.");
+      } else {
+        toast.success(
+          `Tidied ${res.strokes.toLocaleString()} strokes into ` +
+            `${res.pictures === 1 ? "a picture" : `${res.pictures} pictures`}. Undo reverses it.`,
+        );
+      }
+    } catch (e) {
+      void cleanupOrphanedAssets(paths);
+      toast.error(`Couldn't tidy the page: ${(e as Error).message}`);
+    } finally {
+      tidyingRef.current = false;
+      reportProgress(null);
+    }
+  }, [uploadMeta, reportProgress, toast]);
+
+  useEffect(() => {
+    if (!tidyPageRef) return;
+    tidyPageRef.current = () => void tidyCurrentPage();
+    return () => {
+      if (tidyPageRef.current) tidyPageRef.current = null;
+    };
+  }, [tidyPageRef, tidyCurrentPage]);
+
+  // The heavy-page notice's "New page": same path as PagesTabBar's button
+  // (limit toast, next free "Page N", then the naming dialog in this tap).
+  const addNamedPage = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (!canAddPage(editor)) {
+      toast.error(pageLimitMessage(editor));
+      return;
+    }
+    const newPageId = createNextPage(editor, `page:${uniqueId()}` as never);
+    if (!newPageId) {
+      toast.error("Couldn't add a page");
+      return;
+    }
+    onRequestRenamePageRef.current?.(newPageId, { isNew: true });
+  }, [toast]);
+
   // Expose a page-thumbnail renderer. Generates a low-res PNG data URL
   // of every shape on the requested page using tldraw's exportToImage,
   // letting the header Pages dropdown show real previews. The caller is
@@ -1065,6 +1200,7 @@ export default function WhiteboardCanvas({
           overrides={overrides}
           shapeUtils={CUSTOM_SHAPE_UTILS}
           options={TLDRAW_OPTIONS}
+          assetUrls={TLDRAW_ASSET_URLS}
           licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
           components={{
             // Hide the whole top-left stack (main menu, page selector,
@@ -1318,6 +1454,8 @@ export default function WhiteboardCanvas({
         toolsCollapsed={toolsCollapsed}
         onToggleTools={() => setToolsCollapsed((v) => !v)}
         admissionPanel={admissionPanel}
+        onNewPage={addNamedPage}
+        onTidy={() => void tidyCurrentPage()}
       />
       {searchOpen && mountedEditor && (
         <CanvasSearch
@@ -1418,6 +1556,8 @@ function CanvasFloatingPanel({
   toolsCollapsed,
   onToggleTools,
   admissionPanel,
+  onNewPage,
+  onTidy,
 }: {
   editor: Editor | null;
   isHost: boolean;
@@ -1428,6 +1568,8 @@ function CanvasFloatingPanel({
   toolsCollapsed: boolean;
   onToggleTools: () => void;
   admissionPanel?: ReactNode;
+  onNewPage: () => void;
+  onTidy: () => void;
 }) {
   const beingFollowed = leaderMode && leaderUserId !== userId;
   const isLeading = leaderMode && leaderUserId === userId;
@@ -1505,6 +1647,9 @@ function CanvasFloatingPanel({
       {/* Host only: Delete / Unlock for an uploaded or pasted file (they're
           locked, so they can't be selected like a stroke). */}
       {isHost && <UploadedItemControls editor={editor} />}
+      {isHost && editor && (
+        <HeavyPageNotice editor={editor} onNewPage={onNewPage} onTidy={onTidy} />
+      )}
       {!isHost && <PointerModeButton editor={editor} />}
       {!isHost && <ClearAnnotationsButton editor={editor} userId={userId} />}
       <PenModeIndicator editor={editor} />

@@ -287,6 +287,8 @@ export default function RoomShell({
   const canvasInsertPostItRef = useRef<
     ((pointerType?: string) => void) | null
   >(null);
+  // Palette "Tidy this page" (host only) → WhiteboardCanvas. Stable ref.
+  const canvasTidyPageRef = useRef<(() => void) | null>(null);
   const canvasPageThumbnailRef = useRef<
     ((pageId: string) => Promise<string | null>) | null
   >(null);
@@ -613,6 +615,13 @@ export default function RoomShell({
         hint: "Adds a blank page and asks what to call it.",
         group: "Canvas",
         perform: addPageAndName,
+      });
+      cmds.push({
+        id: "tidy-page",
+        label: "Tidy this page (speed up a full page)",
+        hint: "Merges the old handwriting on this page into pictures. Undo reverses it.",
+        group: "Canvas",
+        perform: () => canvasTidyPageRef.current?.(),
       });
       cmds.push({
         id: "rename-page",
@@ -1454,6 +1463,7 @@ export default function RoomShell({
             openUploadRef={canvasOpenUploadRef}
             bringEveryoneRef={canvasBringEveryoneRef}
             insertPostItRef={canvasInsertPostItRef}
+            tidyPageRef={canvasTidyPageRef}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}

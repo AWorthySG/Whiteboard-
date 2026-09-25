@@ -12,6 +12,7 @@ import {
 } from "@/hooks/useRecentRooms";
 import { pinRoom, unpinRoom, usePinnedRooms } from "@/hooks/usePinnedRooms";
 import { getSupabase } from "@/lib/supabase";
+import { preloadRoomWhenIdle } from "@/lib/preloadRoom";
 import { Star, X } from "@phosphor-icons/react";
 import BrandLogo from "@/components/BrandLogo";
 import Sticker, { SUBJECT_STICKERS } from "@/components/Sticker";
@@ -39,6 +40,9 @@ type ServerRoom = {
 
 export default function Home() {
   const router = useRouter();
+  // Most visits here end in a room: warm its chunks (the whiteboard is the
+  // big one) once the landing page has settled, so the room opens faster.
+  useEffect(() => preloadRoomWhenIdle(), []);
   const toast = useToast();
   const { user, loading: authLoading } = useAuth();
   const [name, setName] = useState("");
