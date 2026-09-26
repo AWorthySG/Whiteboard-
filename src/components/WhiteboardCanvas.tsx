@@ -1399,6 +1399,11 @@ export default function WhiteboardCanvas({
             // Hide tldraw's full style panel (color + opacity + fill +
             // dash + size). The color picker lives in our own toolbar.
             StylePanel: null,
+            // Hide tldraw's people menu (collaborator avatars, top-right).
+            // It re-rendered on EVERY remote cursor move — ~120 renders
+            // per stroke another participant drew — and duplicates the
+            // header's PresenceBadge. Live cursors are unaffected.
+            SharePanel: null,
             // Toolbar nulled when collapsed so its DOM disappears
             // entirely (vs. just hidden via display:none) — saves
             // ~80 px of canvas on phone portrait.

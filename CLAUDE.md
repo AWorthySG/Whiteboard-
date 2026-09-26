@@ -287,9 +287,13 @@ WhiteboardCanvas.tsx   Hosts the <Tldraw> instance. Uploads go BROWSER → SUPAB
                        ZoomControls, and the right keeps 3.5rem clear for the fixed
                        ChatBubble. ShortcutsModal is portaled to <body> (the
                        canvas area is an isolated stacking context).
-                       tldraw `components` override nulls MenuPanel, StylePanel AND
+                       tldraw `components` override nulls MenuPanel, StylePanel,
                        NavigationPanel (the native zoom/minimap pill) — our custom
-                       ZoomControls is the single zoom UI. The insert-equation
+                       ZoomControls is the single zoom UI — AND SharePanel (the
+                       people menu of collaborator avatars, top-right: it
+                       re-rendered on every remote cursor move, ~120 renders per
+                       stroke someone else drew, and PresenceBadge already shows
+                       who's in). Live cursors are unaffected. The insert-equation
                        feature was removed (no EquationModal, no /api/math).
 
 VideoPanel.tsx         LiveKit room — token fetch, Tiles grid, CameraReleaseGuard (calls
