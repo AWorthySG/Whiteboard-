@@ -31,6 +31,8 @@ import {
 import { getSupabase } from "@/lib/supabase";
 import { useSettings } from "@/hooks/useSettings";
 import { prefetchSyncToken } from "@/hooks/useSyncToken";
+import { clearRoomToFreshPage } from "@/lib/startFresh";
+import type { TLPageId } from "tldraw";
 import { roomEntryView, useHostStatus } from "@/hooks/useHostStatus";
 import { useRoomMeta } from "@/hooks/useRoomMeta";
 import { trackRoomVisit, useRecentRooms } from "@/hooks/useRecentRooms";
@@ -548,6 +550,40 @@ export default function RoomShell({
     }
   }, [roomId, meta.title, name, userId, toast]);
 
+  // "Save & start fresh" (host only): save every page as a PDF — in the
+  // Documents drawer AND downloaded to this device — then clear the room
+  // to one blank page. Joining sends the whole room, so a room reused
+  // lesson after lesson gets slower to open; this resets it. Nothing is
+  // cleared unless the PDF upload succeeded. See src/lib/startFresh.ts.
+  const startFresh = useCallback(async () => {
+    const editor = canvasEditorRef.current;
+    if (!editor || !isHost) return;
+    const ok = window.confirm(
+      "Save & start fresh?\n\nEvery page is saved as a PDF (in Documents and to this device), " +
+        "then the board is cleared to one blank page for everyone in the room. " +
+        "The room opens faster afterwards. Undo brings the pages back if you change your mind straight away.",
+    );
+    if (!ok) return;
+    toast.info("Saving every page as a PDF…");
+    try {
+      const { exportLessonPdf, downloadPdfBlob } = await import(
+        "@/lib/exportLessonPdf"
+      );
+      const { name: pdfName, blob } = await exportLessonPdf({
+        editor,
+        roomId,
+        roomTitle: meta.title,
+        hostName: name || "Host",
+        hostUserId: userId,
+      });
+      downloadPdfBlob(blob, pdfName);
+      clearRoomToFreshPage(editor, `page:${crypto.randomUUID()}` as TLPageId);
+      toast.success(`Saved “${pdfName}” in Documents. The board is fresh.`);
+    } catch (e) {
+      toast.error(`Couldn't save the PDF, so nothing was cleared: ${(e as Error).message}`);
+    }
+  }, [isHost, roomId, meta.title, name, userId, toast]);
+
   const paletteCommands = useMemo<Command[]>(() => {
     const cmds: Command[] = [
       {
@@ -625,6 +661,13 @@ export default function RoomShell({
         perform: () => canvasTidyPageRef.current?.(),
       });
       cmds.push({
+        id: "start-fresh",
+        label: "Save & start fresh (clear the room)",
+        hint: "Saves every page as a PDF in Documents, then clears the board so the room opens faster.",
+        group: "Canvas",
+        perform: () => void startFresh(),
+      });
+      cmds.push({
         id: "rename-page",
         label: "Rename current page",
         group: "Canvas",
@@ -675,6 +718,7 @@ export default function RoomShell({
     downloadAllPagesPdf,
     addPageAndName,
     requestRenamePage,
+    startFresh,
   ]);
 
 
@@ -1262,6 +1306,16 @@ export default function RoomShell({
                     Board templates…
                   </MenuItem>
                 )}
+                {isHost && (
+                  <MenuItem
+                    onClick={() => {
+                      setDeskMenuOpen(false);
+                      void startFresh();
+                    }}
+                  >
+                    Save &amp; start fresh…
+                  </MenuItem>
+                )}
               </div>
             )}
           </div>
@@ -1351,6 +1405,9 @@ export default function RoomShell({
                     </MenuItem>
                     <MenuItem onClick={() => { setTemplatesOpen(true); setMenuOpen(false); }}>
                       Board templates…
+                    </MenuItem>
+                    <MenuItem onClick={() => { setMenuOpen(false); void startFresh(); }}>
+                      Save &amp; start fresh…
                     </MenuItem>
                     <div className="px-2 pt-1 pb-2">
                       <RecordButton
@@ -1477,6 +1534,7 @@ export default function RoomShell({
             bringEveryoneRef={canvasBringEveryoneRef}
             insertPostItRef={canvasInsertPostItRef}
             tidyPageRef={canvasTidyPageRef}
+            onStartFresh={isHost ? () => void startFresh() : undefined}
             switchPageRef={canvasSwitchPageRef}
             pageThumbnailRef={canvasPageThumbnailRef}
             editorOutRef={canvasEditorRef}

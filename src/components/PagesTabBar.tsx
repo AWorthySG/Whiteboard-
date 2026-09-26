@@ -22,6 +22,7 @@ import {
 } from "tldraw";
 import { useToast } from "./Toast";
 import { canAddPage, createNextPage, pageLimitMessage } from "@/lib/pageNames";
+import { deletePageWithShapes } from "@/lib/pageCleanup";
 import type { RequestRenamePage } from "./RenamePageDialog";
 
 type Template = "blank" | "grid" | "lined" | "music" | "coords" | "dots";
@@ -137,7 +138,9 @@ export default function PagesTabBar({
       return;
     }
     if (!confirm("Delete this page? Drawings on it will be removed.")) return;
-    editor.deletePage(id as never);
+    // Not editor.deletePage alone — that leaves the page's ink behind as
+    // invisible orphans that every student still downloads.
+    deletePageWithShapes(editor, id as TLPageId);
   };
 
   return (
